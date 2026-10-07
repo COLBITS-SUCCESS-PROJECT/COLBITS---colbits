@@ -381,12 +381,40 @@ If your PR changes the behavior described in a SPEC.md, that SPEC.md update is p
 | Constants | UPPER_SNAKE_CASE | `MAX_CHART_POINTS = 200` |
 | Feature flag | UPPER_SNAKE_CASE | `REALTIME_UPDATES` |
 
-### Branches and commits
+### Branch strategy
 
-- Branch: `SCRUM-<number>-<description-kebab-case>` (from `develop`)
+```
+main        ← solo releases (Alpha, Beta, Final). No commits directos.
+develop     ← integración. Todos los PRs van aquí.
+SCRUM-XX-*  ← feature branches. Salen de develop.
+chore/*     ← infraestructura sin ticket Jira (scaffold, deps, CI fixes)
+```
+
+**Flujo de trabajo:**
+1. `git checkout develop && git pull origin develop`
+2. `git checkout -b SCRUM-61-auth-jwt-login`
+3. Commits → push → PR a `develop`
+4. CI verde + 1 review → merge a `develop`
+5. En milestone (Alpha/Beta/Final): PR `develop → main`
+
+**Branch protection (configurar en GitHub → Settings → Branches):**
+- `main`: require PR + CI verde + **1 review obligatorio**, no direct push
+- `develop`: require PR + CI verde, no review requerido (merge libre si CI pasa), no direct push
+
+### Prefix de rama
+
+| Situación | Prefijo | Ejemplo |
+|---|---|---|
+| Historia Jira | `SCRUM-<n>-` | `SCRUM-61-auth-jwt-login` |
+| Infraestructura / scaffold | `chore/` | `chore/project-scaffold` |
+| Fix de CI o build | `ci/` | `ci/fix-coverage-threshold` |
+| Hotfix urgente | `hotfix/` | `hotfix/login-redirect-loop` |
+
+### Commits y PRs
+
 - Commit: Conventional Commits — `feat(dashboard): add sensor chart component`
-- PR title: `SCRUM-<n> | type(scope): result` — append ` [AI-ASSISTED]` if AI was used
-- Commit types: `feat`, `fix`, `test`, `docs`, `refactor`, `build`, `ci`, `chore`
+- PR title: `SCRUM-<n> | type(scope): result` — append ` [AI-ASSISTED]` si la IA generó código significativo
+- Tipos: `feat`, `fix`, `test`, `docs`, `refactor`, `build`, `ci`, `chore`
 
 ---
 

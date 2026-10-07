@@ -1,0 +1,9 @@
+{
+  "generic": "Ocurrió un error inesperado. Intenta de nuevo.",
+  "network": "Sin conexión. Verifica tu red e intenta de nuevo.",
+  "timeout": "La solicitud tardó demasiado. Intenta de nuevo.",
+  "unauthorized": "Sesión expirada. Por favor inicia sesión nuevamente.",
+  "forbidden": "No tienes permisos para realizar esta acción.",
+  "notFound": "El recurso solicitado no existe.",
+  "serverError": "Error en el servidor. El equipo técnico fue notificado."
+}

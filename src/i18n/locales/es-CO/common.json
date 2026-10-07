@@ -1,0 +1,41 @@
+{
+  "button": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "export": "Exportar",
+    "refresh": "Actualizar",
+    "loading": "Cargando..."
+  },
+  "status": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "empty": "Sin datos",
+    "noResults": "Sin resultados"
+  },
+  "pagination": {
+    "page": "Página",
+    "of": "de",
+    "rowsPerPage": "Filas por página"
+  },
+  "date": {
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "lastWeek": "Última semana",
+    "lastMonth": "Último mes",
+    "custom": "Personalizado"
+  },
+  "validation": {
+    "required": "Este campo es requerido",
+    "invalidEmail": "Correo electrónico inválido",
+    "minLength": "Mínimo {{min}} caracteres",
+    "maxLength": "Máximo {{max}} caracteres"
+  }
+}
