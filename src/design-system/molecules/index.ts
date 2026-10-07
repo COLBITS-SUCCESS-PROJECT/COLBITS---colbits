@@ -1,4 +1,4 @@
-/** Barrel de molecules — exportar aquí cada molecule al crearla. */
+/** Molecules barrel — export each molecule here when created. */
 // export { FormField } from './FormField'
 // export { AlertInline } from './AlertInline'
 // export { StatCard } from './StatCard'

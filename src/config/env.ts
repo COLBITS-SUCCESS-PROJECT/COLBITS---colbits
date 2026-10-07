@@ -1,10 +1,10 @@
-/** Valida variables de entorno requeridas al importar. La app no arranca si falta alguna. */
+/** Validates required environment variables at import time. App will not start if any are missing. */
 function requireEnv(name: string): string {
   const value = import.meta.env[name]
   if (!value) {
     throw new Error(
-      `[COLBITS] Variable de entorno requerida no configurada: ${name}\n` +
-        `Copia .env.example a .env y completa el valor.`
+      `[COLBITS] Required environment variable not configured: ${name}\n` +
+        `Copy .env.example to .env and fill in the value.`
     )
   }
   return value as string

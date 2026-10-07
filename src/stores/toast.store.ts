@@ -1,4 +1,4 @@
-/** Cola de toasts/notificaciones transientes. */
+/** Transient notification queue. */
 import { create } from 'zustand'
 
 type ToastLevel = 'info' | 'success' | 'warning' | 'error'

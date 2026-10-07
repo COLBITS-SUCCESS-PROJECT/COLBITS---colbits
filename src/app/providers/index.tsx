@@ -1,4 +1,4 @@
-/** Combina todos los providers globales de la aplicación. */
+/** Combines all top-level application providers. */
 import type { ReactNode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { I18nextProvider } from 'react-i18next'

@@ -1,4 +1,4 @@
-/** TODO SCRUM-XX: Implementar dashboard principal. */
+/** TODO SCRUM-XX: Implement main dashboard. */
 export function DashboardRoutes() {
-  return <div>Dashboard — próximamente</div>
+  return <div>Dashboard — coming soon</div>
 }

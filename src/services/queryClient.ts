@@ -1,4 +1,4 @@
-/** TanStack Query client con configuración por defecto del proyecto. */
+/** TanStack Query client with project-wide defaults. */
 import { QueryClient } from '@tanstack/react-query'
 
 export const queryClient = new QueryClient({

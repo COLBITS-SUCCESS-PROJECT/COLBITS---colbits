@@ -1,4 +1,4 @@
-/** Router principal de la aplicación. */
+/** Application router. */
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { ROUTES } from './routes'
 
@@ -12,7 +12,7 @@ const router = createBrowserRouter([
     lazy: () => import('@/features/dashboard').then((m) => ({ Component: m.DashboardRoutes })),
   },
   {
-    path: `${ROUTES.login}`,
+    path: ROUTES.login,
     lazy: () => import('@/features/auth').then((m) => ({ Component: m.AuthRoutes })),
   },
   {

@@ -1,4 +1,4 @@
-/** Estado de autenticación — usuario, rol y token de sesión. */
+/** Authentication state — current user, role, and session token. */
 import { create } from 'zustand'
 
 export type UserRole = 'ADMIN' | 'OPERATOR' | 'VIEWER'

@@ -1,4 +1,4 @@
-/** Componente raíz — conecta providers y router. */
+/** Root component — wires all providers and the router. */
 import { AppProviders } from './providers'
 import { AppRouter } from './router'
 

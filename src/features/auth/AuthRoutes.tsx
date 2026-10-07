@@ -1,4 +1,4 @@
-/** TODO SCRUM-61: Implementar rutas de autenticación (login, JWT). */
+/** TODO SCRUM-61: Implement auth routes (login, JWT). */
 export function AuthRoutes() {
-  return <div>Login — próximamente</div>
+  return <div>Login — coming soon</div>
 }

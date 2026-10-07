@@ -1,4 +1,4 @@
-/** Página 404 — ruta no encontrada. */
+/** 404 page — rendered when no route matches. */
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ROUTES } from '@/app/router/routes'
@@ -8,7 +8,7 @@ export function NotFoundPage() {
   return (
     <main style={{ textAlign: 'center', padding: '4rem' }}>
       <h1>404</h1>
-      <p>Página no encontrada</p>
+      <p>{t('status.notFound')}</p>
       <Link to={ROUTES.dashboard}>{t('button.back')}</Link>
     </main>
   )

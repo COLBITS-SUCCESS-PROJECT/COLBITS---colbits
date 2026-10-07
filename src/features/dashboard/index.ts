@@ -1,2 +1,2 @@
-/** Placeholder — implementar en sprint 4+. */
+/** Dashboard feature public surface — placeholder until sprint. */
 export { DashboardRoutes } from './DashboardRoutes'

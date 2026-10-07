@@ -1,7 +1,7 @@
-/** Registro central de handlers MSW — agregar uno por feature. */
+/** Central MSW handler registry — add one file per feature area. */
 import type { RequestHandler } from 'msw'
 
 export const handlers: RequestHandler[] = [
-  // authHandlers,
-  // dashboardHandlers,
+  // ...authHandlers,
+  // ...dashboardHandlers,
 ]

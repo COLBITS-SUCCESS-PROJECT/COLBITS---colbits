@@ -1,4 +1,4 @@
-/** Configuración de i18next — idioma primario es-CO. */
+/** i18next configuration — primary language is es-CO. */
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'

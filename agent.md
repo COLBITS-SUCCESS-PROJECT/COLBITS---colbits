@@ -586,10 +586,10 @@ Mark all DTOs with `// PROVISIONAL — pending OpenAPI confirmation` until the b
 ### Naming
 
 ```ts
-describe('SensorChart')                          // component name in English
-it('muestra el valor actual del sensor')         // behavior in Spanish, third person
-it('muestra estado vacío cuando no hay datos')
-it('muestra error cuando falla la petición')
+describe('SensorChart')                       // component name
+it('renders the current sensor value')        // behavior in English, present tense
+it('renders empty state when there is no data')
+it('renders error state when request fails')
 ```
 
 ### What to test in each layer

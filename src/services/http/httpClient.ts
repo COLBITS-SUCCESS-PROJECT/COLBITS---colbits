@@ -1,4 +1,4 @@
-/** Cliente HTTP — wrapper sobre fetch nativo. Ver ADR-0003. */
+/** HTTP client — thin wrapper over native fetch. See ADR-0003. */
 import { ENV } from '@/config/env'
 import { useAuthStore } from '@/stores/auth.store'
 
@@ -61,7 +61,7 @@ export async function httpClient<T>(path: string, options: RequestOptions = {}):
     if (res.status === 401) {
       useAuthStore.getState().clearAuth()
       window.location.href = '/login'
-      throw new ApiError(401, 'No autorizado', 'Sesión expirada')
+      throw new ApiError(401, 'Unauthorized', 'Session expired')
     }
 
     if (!res.ok) {
@@ -80,7 +80,7 @@ export async function httpClient<T>(path: string, options: RequestOptions = {}):
     clearTimeout(timeoutId)
     if (err instanceof ApiError) throw err
     if ((err as Error).name === 'AbortError') {
-      throw new ApiError(408, 'Tiempo de espera agotado', 'La solicitud tardó demasiado')
+      throw new ApiError(408, 'Request timeout', 'The request took too long')
     }
     throw err
   }

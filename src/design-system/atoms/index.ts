@@ -1,4 +1,4 @@
-/** Barrel de atoms — exportar aquí cada atom al crearlo. */
+/** Atoms barrel — export each atom here when created. */
 // export { Button } from './Button'
 // export { Input } from './Input'
 // export { Icon } from './Icon'

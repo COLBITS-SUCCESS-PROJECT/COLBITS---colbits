@@ -1,4 +1,4 @@
-/** Feature flags — false hasta que la historia entre al sprint activo. */
+/** Feature flags — all false until the story enters the active sprint. */
 export const FEATURES = {
   REALTIME_UPDATES: false,
   ALERT_SOUNDS: false,

@@ -18,7 +18,8 @@
     "loading": "Cargando...",
     "error": "Ocurrió un error",
     "empty": "Sin datos",
-    "noResults": "Sin resultados"
+    "noResults": "Sin resultados",
+    "notFound": "Página no encontrada"
   },
   "pagination": {
     "page": "Página",

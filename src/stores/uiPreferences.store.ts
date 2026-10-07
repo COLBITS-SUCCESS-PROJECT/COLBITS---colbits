@@ -1,4 +1,4 @@
-/** Preferencias de UI persistidas en localStorage. */
+/** UI preferences persisted in localStorage. */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 

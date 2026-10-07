@@ -1,4 +1,4 @@
-/** Configuración de MSW para el navegador (solo desarrollo). */
+/** MSW browser worker setup (development only). */
 import { setupWorker } from 'msw/browser'
 import { handlers } from './handlers'
 

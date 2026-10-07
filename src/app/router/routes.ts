@@ -1,4 +1,4 @@
-/** Catálogo de rutas tipado — nunca escribir strings de ruta directamente. */
+/** Typed route catalog — never write route strings directly, always import from here. */
 export const ROUTES = {
   home: '/',
   login: '/login',
