@@ -48,16 +48,23 @@ npm install -g pnpm
 git clone https://github.com/MonicaBebesita/COLBITS---colbits-frontend.git
 cd COLBITS---colbits-frontend
 
-# 2. Install dependencies
+# 2. Checkout the active development branch
+git checkout develop
+
+# 3. Install dependencies (also activates git hooks automatically)
 pnpm install
 
-# 3. Set up environment variables
+# 4. Set up environment variables
 cp .env.example .env
 # Edit .env with the values shared by the team (never commit .env)
 
-# 4. Start the development server
+# 5. Start the development server
 pnpm dev
 ```
+
+> **Git hooks are activated automatically** by `pnpm install` via the `prepare` script (husky).
+> From that point on, every `git commit` runs ESLint + Prettier on staged files.
+> If the hook blocks your commit, fix the reported errors and commit again.
 
 The app will be available at `http://localhost:5173`.
 
@@ -97,6 +104,42 @@ Run before opening any PR:
 ```bash
 pnpm typecheck && pnpm lint && pnpm test:run
 ```
+
+> The pre-commit hook (husky + lint-staged) runs ESLint + Prettier automatically on every commit.
+> The commands above are still needed before a PR to catch TypeScript errors and coverage.
+
+---
+
+## Testing strategy
+
+The project uses three levels of testing, as required by the GDSD course:
+
+### 1 — Unit tests (Vitest + Testing Library)
+
+Test individual functions and components in isolation. Every component covers happy path, error state, and empty state.
+
+```bash
+pnpm test:run        # single run
+pnpm test:coverage   # run + coverage report (must be ≥ 80%)
+```
+
+Follow the **Arrange – Act – Assert** pattern. Tests live beside the source file (`SensorChart.test.tsx` next to `SensorChart.tsx`).
+
+### 2 — Integration tests (Vitest + MSW)
+
+Test that two or more real components work correctly together (e.g., a feature hook + the HTTP client + a component). Use MSW handlers to mock the network — never hit a real API in tests.
+
+Integration test files follow the same naming convention: `<name>.integration.test.tsx`.
+
+### 3 — Acceptance tests
+
+Verify the software meets the acceptance criteria defined in each User Story (SCRUM-XX).
+
+- Each story's acceptance criteria are written in its `specs/SCRUM-XX/SPEC.md` before any code is written.
+- Acceptance tests can be **manual** (documented pass/fail per criterion) or **automated** (Cypress / Playwright — decided per sprint).
+- Results are recorded in the SPEC.md after each test run.
+
+See `AGENT.md §12` for full testing rules, MSW handler conventions, and what to test per layer.
 
 ---
 
