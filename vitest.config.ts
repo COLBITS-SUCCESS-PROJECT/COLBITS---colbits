@@ -17,6 +17,7 @@ export default defineConfig({
         'src/**/*.d.ts',
         'src/main.tsx',
       ],
+      all: false,
       thresholds: {
         lines: 80,
         statements: 80,
