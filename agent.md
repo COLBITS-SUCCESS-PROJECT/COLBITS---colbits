@@ -572,10 +572,41 @@ Mark all DTOs with `// PROVISIONAL — pending OpenAPI confirmation` until the b
 
 ## §12 Testing
 
+The course (GDSD) requires three types of testing, all documented in the final report.
+
 - Test file lives beside the source file: `SensorChart.test.tsx` next to `SensorChart.tsx`. No `__tests__` folders.
 - Every screen covers: **happy path + error state + empty state**.
 - No snapshots. Test observable behavior.
 - Minimum 80% coverage (lines, statements, functions, branches). `pnpm test:coverage` fails below this.
+
+### 12.1 Unit tests
+
+Test individual functions or components in isolation. Follow **Arrange – Act – Assert**.
+
+- Cover normal cases, boundary cases, and at least one failing case per function.
+- Run automatically with a single command: `pnpm test:run`.
+- Must pass in CI.
+
+### 12.2 Integration tests
+
+Test that two or more real components work correctly together. Verify data flows end-to-end.
+
+- Use MSW handlers to mock the network — never hit a real API.
+- File naming: `<name>.integration.test.tsx`.
+- At least one integration test per feature before that feature is considered done.
+- Must be reproducible (same result every run, no flakiness).
+
+Example scope: a feature hook (`useDevicesQuery`) + `httpClient` + the component that renders the data.
+
+### 12.3 Acceptance tests
+
+Verify the feature meets the acceptance criteria defined in its User Story.
+
+- Criteria are written in `specs/SCRUM-XX/SPEC.md` **before** writing any code.
+- Each criterion maps to one acceptance test (manual or automated).
+- Results (pass / fail) are recorded in the SPEC.md after each run.
+- Can be manual (documented) or automated with Cypress — decided per story during sprint planning.
+- Every failed acceptance test must have a recorded action taken.
 
 ### MSW handlers
 
