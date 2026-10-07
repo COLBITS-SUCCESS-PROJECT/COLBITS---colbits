@@ -1,0 +1,41 @@
+/* Tokens semánticos — estos son los únicos colores permitidos en componentes. */
+:root {
+  /* Estado de nodos/sensores */
+  --color-status-online:   var(--color-green-500);
+  --color-status-offline:  var(--color-gray-400);
+  --color-status-warning:  var(--color-amber-500);
+  --color-status-critical: var(--color-red-500);
+  --color-status-unknown:  var(--color-gray-300);
+
+  /* Estado de fusibles (FuseState) */
+  --color-fuse-normal:  var(--color-green-500);
+  --color-fuse-open:    var(--color-blue-500);
+  --color-fuse-blown:   var(--color-red-500);
+  --color-fuse-unknown: var(--color-gray-400);
+
+  /* Alarmas */
+  --color-alarm-low:      var(--color-blue-500);
+  --color-alarm-medium:   var(--color-amber-500);
+  --color-alarm-high:     var(--color-red-500);
+
+  /* Acciones */
+  --color-action-primary:   var(--color-teal-600);
+  --color-action-secondary: var(--color-gray-600);
+  --color-action-danger:    var(--color-red-600);
+
+  /* Fondos */
+  --color-bg-page:    var(--color-gray-50);
+  --color-bg-surface: var(--color-white);
+  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Texto */
+  --color-text-primary:   var(--color-gray-900);
+  --color-text-secondary: var(--color-gray-600);
+  --color-text-muted:     var(--color-gray-400);
+  --color-text-inverse:   var(--color-white);
+
+  /* Bordes */
+  --color-border-default: var(--color-gray-200);
+  --color-border-subtle:  var(--color-gray-100);
+  --color-border-focus:   var(--color-teal-500);
+}

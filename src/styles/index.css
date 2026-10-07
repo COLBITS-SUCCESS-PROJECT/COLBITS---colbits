@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@import "./primitives.css";
+@import "./semantic.css";
+
+@theme {
+  /* Registra los tokens semánticos como clases de Tailwind */
+  --color-status-online:   var(--color-status-online);
+  --color-status-offline:  var(--color-status-offline);
+  --color-status-warning:  var(--color-status-warning);
+  --color-status-critical: var(--color-status-critical);
+  --color-status-unknown:  var(--color-status-unknown);
+
+  --color-fuse-normal:  var(--color-fuse-normal);
+  --color-fuse-open:    var(--color-fuse-open);
+  --color-fuse-blown:   var(--color-fuse-blown);
+  --color-fuse-unknown: var(--color-fuse-unknown);
+
+  --color-action-primary:   var(--color-action-primary);
+  --color-action-secondary: var(--color-action-secondary);
+  --color-action-danger:    var(--color-action-danger);
+
+  --color-bg-page:    var(--color-bg-page);
+  --color-bg-surface: var(--color-bg-surface);
+
+  --color-text-primary:   var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted:     var(--color-text-muted);
+  --color-text-inverse:   var(--color-text-inverse);
+
+  --color-border-default: var(--color-border-default);
+  --color-border-subtle:  var(--color-border-subtle);
+  --color-border-focus:   var(--color-border-focus);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--color-bg-page);
+  color: var(--color-text-primary);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
