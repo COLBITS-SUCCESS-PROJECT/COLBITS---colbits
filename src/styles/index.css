@@ -30,6 +30,12 @@
   --color-control-on:  var(--color-control-on);
   --color-control-off: var(--color-control-off);
 
+  --color-nav-bg:          var(--color-nav-bg);
+  --color-nav-item-active: var(--color-nav-item-active);
+  --color-nav-text:        var(--color-nav-text);
+  --color-nav-text-active: var(--color-nav-text-active);
+  --color-nav-section:     var(--color-nav-section);
+
   --color-feedback-info:         var(--color-feedback-info);
   --color-feedback-info-bg:      var(--color-feedback-info-bg);
   --color-feedback-info-text:    var(--color-feedback-info-text);

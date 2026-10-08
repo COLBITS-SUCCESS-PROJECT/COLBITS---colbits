@@ -3,6 +3,7 @@ export const ROUTES = {
   home: '/',
   login: '/login',
   dashboard: '/dashboard',
+  analysis: '/analysis',
   devices: '/devices',
   device: (id: string) => `/devices/${id}`,
   alerts: '/alerts',
