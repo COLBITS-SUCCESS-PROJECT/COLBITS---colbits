@@ -10,7 +10,7 @@ export interface SpinnerProps {
   className?: string
 }
 
-export function Spinner({ label, size = 'md', className }: SpinnerProps) {
+export function Spinner({ label, size = 'lg', className }: SpinnerProps) {
   return (
     <span role="status" aria-label={label} className={cn('inline-flex', className)}>
       <Icon name="loader" size={size} className="animate-spin motion-reduce:animate-none" />

@@ -10,7 +10,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | Feature | Sidebar entry / route | Spec | Status | Owner |
 |---|---|---|---|---|
 | `auth` | `/login` | [FEATURE.md](./auth/FEATURE.md) | PLANNED | TBD |
-| `dashboard` | Live Monitoring · `/dashboard` | [FEATURE.md](./dashboard/FEATURE.md) | PLANNED | TBD |
+| `dashboard` | Live Monitoring · `/dashboard` | [FEATURE.md](./dashboard/FEATURE.md) | IN_PROGRESS | Sofia |
 | `analysis` | Historical Analysis · `/analysis` | [FEATURE.md](./analysis/FEATURE.md) | PLANNED | TBD |
 | `reports` | Reports · `/reports` | [FEATURE.md](./reports/FEATURE.md) | PLANNED | TBD |
 | `users` | User Management · `/users` (admin) | [FEATURE.md](./users/FEATURE.md) | PLANNED | TBD |
@@ -21,6 +21,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | Story | Feature | Summary | Spec | Status | Owner |
 |---|---|---|---|---|---|
 | SCRUM-61 | `auth` | Log in with credentials | — | PLANNED | TBD |
+| SCRUM-128 | `dashboard` | Base Live Monitoring screen (M1) with sample data | [FEATURE.md](./dashboard/FEATURE.md) | IN_REVIEW | Sofia |
 
 ## Shared foundation (no feature spec)
 Design system and app shell work, tracked in Jira under SCRUM-128.
@@ -30,4 +31,5 @@ Design system and app shell work, tracked in Jira under SCRUM-128.
 | Design tokens aligned with Figma + 12 base atoms | #4 | DONE |
 | `Logo`, `NavItem`, `NavSidebar`, `AppShell` | #6 | DONE |
 | Docker dev container | #5 | DONE |
+| Atoms `ToggleChip`, `Tooltip`; molecules `Select`, `SearchField`, `Tabs`, `LegendItem`, `RefreshTimestamp`, `CounterCard`, `DataField`, `UserSummary`; organism `TopBar`; `AppShell` with top bar | this PR | IN_REVIEW |
 | CI fixes (typecheck, lint, Vitest 3) | #3 | DONE |

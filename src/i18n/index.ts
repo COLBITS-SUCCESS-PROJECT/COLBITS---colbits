@@ -6,7 +6,9 @@ import LanguageDetector from 'i18next-browser-languagedetector'
 import esCommon from './locales/es-CO/common.json'
 import esAuth from './locales/es-CO/auth.json'
 import esErrors from './locales/es-CO/errors.json'
+import esDashboard from './locales/es-CO/dashboard.json'
 import enCommon from './locales/en/common.json'
+import enDashboard from './locales/en/dashboard.json'
 
 i18n
   .use(LanguageDetector)
@@ -21,9 +23,11 @@ i18n
         common: esCommon,
         auth: esAuth,
         errors: esErrors,
+        dashboard: esDashboard,
       },
       en: {
         common: enCommon,
+        dashboard: enDashboard,
       },
     },
     interpolation: { escapeValue: false },

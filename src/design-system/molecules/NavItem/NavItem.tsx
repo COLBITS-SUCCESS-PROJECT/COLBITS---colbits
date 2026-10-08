@@ -26,7 +26,7 @@ export function NavItem({ to, label, icon, end = false }: NavItemProps) {
         )
       }
     >
-      <Icon name={icon} size="md" />
+      <Icon name={icon} size="lg" />
       <span className="truncate">{label}</span>
     </NavLink>
   )

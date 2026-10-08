@@ -22,7 +22,7 @@ export function Checkbox({ isIndeterminate = false, className, ref, ...rest }: C
         type="checkbox"
         ref={setInputRef}
         className={cn(
-          'peer size-full cursor-pointer appearance-none rounded border-[1.5px] border-border-strong bg-bg-surface transition-colors',
+          'peer size-full cursor-pointer appearance-none rounded border-(length:--border-control) border-border-strong bg-bg-surface transition-colors',
           'checked:border-control-on checked:bg-control-on indeterminate:border-control-on indeterminate:bg-control-on',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus',
           'disabled:cursor-not-allowed disabled:opacity-50'

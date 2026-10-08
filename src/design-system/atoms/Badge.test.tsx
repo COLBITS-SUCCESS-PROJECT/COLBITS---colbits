@@ -27,6 +27,14 @@ describe('Badge', () => {
     expect(screen.getByText('Inactivo')).toHaveAttribute('data-tone', 'neutral')
   })
 
+  it.each(TONES)('renders the outlined %s variant with a border', (tone) => {
+    render(<Badge label={`o-${tone}`} tone={tone} isOutlined />)
+
+    const badge = screen.getByText(`o-${tone}`)
+    expect(badge).toHaveClass('border', 'text-overline', 'font-semibold')
+    expect(badge).not.toHaveClass('px-2.5')
+  })
+
   it('renders nothing when the label is empty', () => {
     const { container } = render(<Badge label="   " tone="danger" />)
 

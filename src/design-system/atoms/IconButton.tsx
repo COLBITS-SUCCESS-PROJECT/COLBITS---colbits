@@ -36,7 +36,7 @@ export function IconButton({
       )}
       {...rest}
     >
-      <Icon name={icon} size="md" />
+      <Icon name={icon} size="lg" />
     </button>
   )
 }

@@ -11,7 +11,8 @@ Real-time web app for monitoring medium-voltage electrical networks (fuses and t
 | 🧭 **How we work** (branches, commits, PRs, reviews) | [CONTRIBUTING.md](./CONTRIBUTING.md) |
 | 📐 **Architecture and code rules** | [AGENT.md](./AGENT.md) |
 | 📝 **Specs** (features, stories, acceptance tests) | [docs/specs/](./docs/specs/README.md) |
-| 🎨 **Design** | [Figma — COLBITS Mockups v3](https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3) |
+| 🧩 **Components that already exist** (search before creating one) | [src/design-system/README.md](./src/design-system/README.md) |
+| 🎨 **Design** | [Figma — COLBITS Mockups v3](https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=4-97) · page 1 = Design System, page 2 = screens |
 | 📋 **Backlog** | [Jira — SCRUM board](https://colbits-success.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog) |
 
 > **New to the repo?** 1) Run the app with *Getting started* below → 2) read [CONTRIBUTING.md](./CONTRIBUTING.md) → 3) read [AGENT.md](./AGENT.md). Questions → Sofia.
@@ -90,6 +91,7 @@ Copy `.env.example` to `.env`. **Never commit `.env`** — it is in `.gitignore`
 | `VITE_API_BASE_URL` | ✅ | — | Base URL of the COLBITS API Gateway |
 | `VITE_APP_ENV` | — | `development` | `development` \| `production` |
 | `VITE_ENABLE_MSW` | — | `false` | Mock API in the browser (dev only, not wired yet) |
+| `VITE_DEV_MOCK_SESSION` | — | `true` | Dev only: signs in a fake user until the login page exists (SCRUM-61) |
 
 If `VITE_API_BASE_URL` is missing, the app stops at startup with `[COLBITS] Required environment variable not configured: VITE_API_BASE_URL`.
 
@@ -159,11 +161,12 @@ Full rules: [AGENT.md §2–§6](./AGENT.md).
 
 | Area | Status |
 |---|---|
-| Design tokens aligned with Figma (colors, Inter font family) | ✅ |
-| Atoms: `Icon`, `Button`, `IconButton`, `Input`, `Label`, `Checkbox`, `Toggle`, `Badge`, `StatusDot`, `Avatar`, `Spinner`, `Skeleton`, `Logo` | ✅ |
-| `AppShell` with the navy sidebar (Live Monitoring · Historical Analysis · Reports) | ✅ |
+| Design tokens aligned with Figma (colors, Inter font family, `touch-target` utility) | ✅ |
+| **15 atoms · 9 molecules · 2 shared organisms** — full list in the [component catalog](./src/design-system/README.md) | ✅ |
+| `AppShell` = Figma *App Shell*: navy sidebar (with user) + top bar (title, last update, avatar) | ✅ |
+| **Live Monitoring** (`/dashboard`, Figma M1–M3): map toolbar, map with markers & legend, fault panel — with PROVISIONAL sample data | ✅ |
 | Docker dev container | ✅ |
-| Login, guards, feature pages, molecules (FormField, SearchField…) | 🔲 see [docs/specs/INDEX.md](./docs/specs/INDEX.md) and Jira SCRUM-128 |
+| Login and guards, node detail, Historical Analysis, Reports, User Management, chatbot | 🔲 see [docs/specs/INDEX.md](./docs/specs/INDEX.md) and Jira SCRUM-128 |
 
 **Adding your page:** sections without a feature show `ComingSoonPage`. In `src/app/router/index.tsx`, replace `loadComingSoon` for your route with your feature's lazy import — the sidebar is already there.
 

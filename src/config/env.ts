@@ -14,4 +14,6 @@ export const ENV = {
   API_BASE_URL: requireEnv('VITE_API_BASE_URL'),
   APP_ENV: (import.meta.env['VITE_APP_ENV'] ?? 'development') as 'development' | 'production',
   ENABLE_MSW: import.meta.env['VITE_ENABLE_MSW'] === 'true',
+  /** Dev only: sign in a fake user until login exists (SCRUM-61). On unless set to 'false'. */
+  DEV_MOCK_SESSION: import.meta.env.DEV && import.meta.env['VITE_DEV_MOCK_SESSION'] !== 'false',
 } as const

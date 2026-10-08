@@ -23,7 +23,7 @@ export function Avatar({ name, imageUrl, className }: AvatarProps) {
       aria-hidden={name ? undefined : true}
       className={cn(
         'inline-flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full',
-        'bg-bg-avatar text-[13px] font-semibold text-text-inverse select-none',
+        'bg-bg-avatar text-label font-semibold text-text-inverse select-none',
         className
       )}
     >
@@ -37,7 +37,7 @@ export function Avatar({ name, imageUrl, className }: AvatarProps) {
       ) : initials ? (
         <span aria-hidden="true">{initials}</span>
       ) : (
-        <Icon name="user" size="md" />
+        <Icon name="user" size="lg" />
       )}
     </span>
   )
