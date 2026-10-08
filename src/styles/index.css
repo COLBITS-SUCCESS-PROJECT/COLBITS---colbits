@@ -3,6 +3,9 @@
 @import "./semantic.css";
 
 @theme {
+  /* Tipografía — Figma Foundations: Inter */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
   /* Registra los tokens semánticos como clases de Tailwind */
   --color-status-online:   var(--color-status-online);
   --color-status-offline:  var(--color-status-offline);
@@ -15,21 +18,48 @@
   --color-fuse-blown:   var(--color-fuse-blown);
   --color-fuse-unknown: var(--color-fuse-unknown);
 
+  --color-alarm-low:    var(--color-alarm-low);
+  --color-alarm-medium: var(--color-alarm-medium);
+  --color-alarm-high:   var(--color-alarm-high);
+
   --color-action-primary:   var(--color-action-primary);
   --color-action-secondary: var(--color-action-secondary);
   --color-action-danger:    var(--color-action-danger);
+  --color-action-link:      var(--color-action-link);
 
-  --color-bg-page:    var(--color-bg-page);
-  --color-bg-surface: var(--color-bg-surface);
+  --color-control-on:  var(--color-control-on);
+  --color-control-off: var(--color-control-off);
+
+  --color-feedback-info:         var(--color-feedback-info);
+  --color-feedback-info-bg:      var(--color-feedback-info-bg);
+  --color-feedback-info-text:    var(--color-feedback-info-text);
+  --color-feedback-success-bg:   var(--color-feedback-success-bg);
+  --color-feedback-success-text: var(--color-feedback-success-text);
+  --color-feedback-warning-bg:   var(--color-feedback-warning-bg);
+  --color-feedback-warning-text: var(--color-feedback-warning-text);
+  --color-feedback-danger-bg:    var(--color-feedback-danger-bg);
+  --color-feedback-danger-text:  var(--color-feedback-danger-text);
+  --color-feedback-neutral-bg:   var(--color-feedback-neutral-bg);
+  --color-feedback-neutral-text: var(--color-feedback-neutral-text);
+
+  --color-bg-page:        var(--color-bg-page);
+  --color-bg-surface:     var(--color-bg-surface);
+  --color-bg-surface-alt: var(--color-bg-surface-alt);
+  --color-bg-inverse:     var(--color-bg-inverse);
+  --color-bg-avatar:      var(--color-bg-avatar);
+  --color-bg-overlay:     var(--color-bg-overlay);
 
   --color-text-primary:   var(--color-text-primary);
   --color-text-secondary: var(--color-text-secondary);
   --color-text-muted:     var(--color-text-muted);
   --color-text-inverse:   var(--color-text-inverse);
+  --color-text-danger:    var(--color-text-danger);
 
   --color-border-default: var(--color-border-default);
   --color-border-subtle:  var(--color-border-subtle);
+  --color-border-strong:  var(--color-border-strong);
   --color-border-focus:   var(--color-border-focus);
+  --color-border-danger:  var(--color-border-danger);
 }
 
 *,
@@ -41,6 +71,6 @@
 body {
   background-color: var(--color-bg-page);
   color: var(--color-text-primary);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }

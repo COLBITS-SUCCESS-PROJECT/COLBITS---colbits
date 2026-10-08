@@ -1,0 +1,93 @@
+/** Icon registry — the ONLY file allowed to import from lucide-react. Keys and sizes match the Figma "Iconography" spec. */
+import {
+  Battery,
+  Bell,
+  Blend,
+  Building,
+  Calendar,
+  ChartNoAxesColumn,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  Download,
+  FileText,
+  Filter,
+  Info,
+  Layers,
+  LoaderCircle,
+  LogOut,
+  Map,
+  MapPin,
+  MessageCircle,
+  Minus,
+  PenLine,
+  Plus,
+  Power,
+  RefreshCw,
+  Search,
+  Send,
+  ShieldCheck,
+  Sun,
+  TriangleAlert,
+  User,
+  Users,
+  Wifi,
+  X,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
+
+export const ICON_REGISTRY = {
+  // Figma: 0 Foundations → Iconography (24px, 2px stroke)
+  map: Map,
+  alert: TriangleAlert,
+  chart: ChartNoAxesColumn,
+  file: FileText,
+  search: Search,
+  bell: Bell,
+  user: User,
+  filter: Filter,
+  download: Download,
+  layers: Layers,
+  fuse: Zap,
+  transformer: Blend,
+  clock: Clock,
+  chevron: ChevronDown,
+  close: X,
+  chat: MessageCircle,
+  refresh: RefreshCw,
+  signal: Wifi,
+  battery: Battery,
+  sun: Sun,
+  logout: LogOut,
+  check: Check,
+  pin: MapPin,
+  calendar: Calendar,
+  info: Info,
+  send: Send,
+  users: Users,
+  edit: PenLine,
+  plus: Plus,
+  power: Power,
+  building: Building,
+  shield: ShieldCheck,
+  // Not in Figma — required by atoms (Spinner, Checkbox partial state, breadcrumbs)
+  loader: LoaderCircle,
+  minus: Minus,
+  'chevron-right': ChevronRight,
+} as const satisfies Record<string, LucideIcon>
+
+export type IconName = keyof typeof ICON_REGISTRY
+
+export const ICON_NAMES = Object.keys(ICON_REGISTRY) as IconName[]
+
+export type IconSize = 'xs' | 'sm' | 'md' | 'lg'
+
+/** Pixel size per variant. Figma: 24px default, 20px in Icon Button, 14px in Checkbox. */
+export const ICON_SIZE_PX: Record<IconSize, number> = {
+  xs: 14,
+  sm: 16,
+  md: 20,
+  lg: 24,
+}
