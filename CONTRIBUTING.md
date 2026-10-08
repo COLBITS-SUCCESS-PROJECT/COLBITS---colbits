@@ -34,7 +34,7 @@ No Jira ticket in the commit message (it's in the branch name and PR title).
 
 - [ ] Branch name: `SCRUM-<n>-<description>`
 - [ ] PR title: `SCRUM-<n> | type(scope): result`
-- [ ] If AI was used: append ` [AI-ASSISTED]` to the title, add a note in `docs/bitacora-ia/`
+- [ ] If AI was used: append ` [AI-ASSISTED]` to the title
 - [ ] `pnpm typecheck` passes
 - [ ] `pnpm lint` passes
 - [ ] `pnpm test:coverage` passes (≥70%)
@@ -50,7 +50,6 @@ AI-generated code is allowed and encouraged. Rules:
 1. Mark the PR with ` [AI-ASSISTED]`
 2. **You are responsible** for everything that merges — review AI output against agent.md §3
 3. Verify: no literal colors, no raw strings, no `any`, no boundary violations, no oversized files
-4. Document what was generated vs what you wrote in `docs/bitacora-ia/YYYY-MM-DD-SCRUM-XX.md`
 
 ## Pre-commit hook
 
