@@ -1,7 +1,7 @@
 # COLBITS Frontend — Agent Guide
 
 > **This file is the single source of truth for every AI session and every developer working on this frontend.**
-> Read §0 to §4 before touching any code. Read the relevant feature SPEC.md before touching that feature.
+> Read §0 to §4 before touching any code. Read the feature and story specs in `docs/specs/<feature>/` before touching that feature.
 
 ---
 
@@ -68,13 +68,13 @@ frontend/
 │   │   ├── organisms/           # §4.3 — complex sections, no API calls
 │   │   └── tokens/              # Design token definitions (CSS vars, Tailwind @theme)
 │   │
-│   ├── features/                # Vertical slices — one per product feature
-│   │   ├── auth/
-│   │   ├── dashboard/
-│   │   ├── devices/
-│   │   ├── alerts/
-│   │   ├── reports/
-│   │   └── settings/
+│   ├── features/                # Vertical slices — one per product feature (Figma sections)
+│   │   ├── auth/                #   Login
+│   │   ├── dashboard/           #   Live Monitoring (map, faults, node detail)
+│   │   ├── analysis/            #   Historical Analysis (charts, rankings)
+│   │   ├── reports/             #   Reports (XLSX / CSV / PDF export)
+│   │   ├── users/               #   User Management (admin)
+│   │   └── chatbot/             #   Floating assistant
 │   │
 │   ├── layouts/                 # Page shell layouts (AppShell, AuthLayout, FullscreenLayout)
 │   ├── services/                # httpClient, queryClient, websocketClient
@@ -96,18 +96,22 @@ frontend/
 │       └── index.css            # @theme block, global resets
 │
 ├── docs/
+│   ├── specs/                   # Feature + story specs, acceptance test results (§6, docs/specs/README.md)
+│   │   ├── INDEX.md             # Status of every feature and story
+│   │   ├── _templates/          # FEATURE.md and STORY.md templates
+│   │   └── <feature>/           # FEATURE.md + one SCRUM-XX.md per story
 │   ├── adr/                     # Architecture Decision Records (numbered, immutable)
 │   ├── sdd/                     # Software Design Document sections (§13)
-│   ├── decisions/               # PO decisions and answers outside the backlog
-│   ├── GLOSSARY.md              # Domain term ↔ code name ↔ i18n key ↔ enum
-│   ├── ARCHITECTURE.md          # Layer diagram, boundary matrix, folder inventory
-│   └── _feature-template/      # Copy this to create a new feature (§6)
+│   ├── decisions/               # PO decisions outside the backlog (created with the first one)
+│   └── GLOSSARY.md              # Domain term ↔ code name ↔ i18n key ↔ enum
 │
-│   Dockerfile + docker-compose.yml — optional dev container: `docker compose up` → :5173 (see README)
-│
-├── agent.md                     # ← you are here
-├── CONTRIBUTING.md              # Branch, PR, AI usage workflow
-└── SPEC-INDEX.md                # Auto-generated index of all feature SPEC.md files
+├── .github/
+│   ├── workflows/ci.yml         # CI: typecheck · lint · tests (§19)
+│   └── pull_request_template.md # Pre-filled PR description + checklist
+├── Dockerfile, docker-compose.yml  # Optional dev container: `docker compose up` → :5173 (see README)
+├── AGENT.md                     # ← you are here
+├── CONTRIBUTING.md              # Step-by-step workflow: story → spec → branch → PR → review → merge
+└── README.md                    # Setup, scripts, project overview
 ```
 
 **Hard rules about this structure:**
@@ -178,23 +182,28 @@ Primitive, single-purpose UI elements. An atom renders itself and nothing else.
 - Each atom is a single `.tsx` + optional `.test.tsx`. No sub-folders.
 - Exports through `src/design-system/atoms/index.ts` (barrel).
 
-**Current atoms (to be created):**
+**Atoms (✅ built · 🔲 to do — tracked in Jira SCRUM-128):**
 
-| Name | What it renders |
-|---|---|
-| `Button` | Themed button with variants (primary, secondary, ghost, danger) |
-| `Input` | Text input with error state |
-| `Label` | Form label with required indicator |
-| `Icon` | SVG icon by name from registry (no direct lucide imports outside this) |
-| `Badge` | Status badge with semantic color variants |
-| `Spinner` | Loading spinner with size variants |
-| `Skeleton` | Placeholder loading block |
-| `Divider` | Horizontal or vertical separator |
-| `Avatar` | User/device avatar with fallback initials |
-| `Chip` | Small dismissible tag |
-| `Toggle` | On/off toggle switch |
-| `Stat` | Single numeric stat with label and unit |
-| `ProgressBar` | Linear progress indicator |
+| Name | What it renders | |
+|---|---|---|
+| `Icon` | SVG icon by name from `iconRegistry.ts` (the only file that imports `lucide-react`) | ✅ |
+| `Button` | Themed button: primary, secondary, outline, ghost, danger + loading | ✅ |
+| `IconButton` | Square icon-only button with pressed state | ✅ |
+| `Input` | Text input with error state | ✅ |
+| `Label` | Form label with required indicator | ✅ |
+| `Checkbox` | Checkbox with checked and partial states | ✅ |
+| `Toggle` | On/off switch | ✅ |
+| `Badge` | Status pill with semantic tones | ✅ |
+| `StatusDot` | Colored state dot (online / warning / critical / offline / unknown) | ✅ |
+| `Avatar` | User avatar with initials / icon fallback | ✅ |
+| `Spinner` | Loading spinner with size variants | ✅ |
+| `Skeleton` | Placeholder loading block | ✅ |
+| `Logo` | Official white Colbits wordmark | ✅ |
+| `Tooltip` | Dark hint bubble (Figma: Tooltip) | 🔲 |
+| `Divider` | Horizontal or vertical separator | 🔲 |
+| `Chip` | Small dismissible tag | 🔲 |
+| `Stat` | Single numeric stat with label and unit | 🔲 |
+| `ProgressBar` | Linear progress indicator (Figma: Level Bar) | 🔲 |
 
 ### 4.2 Molecules — `src/design-system/molecules/`
 
@@ -234,21 +243,23 @@ Complex, self-contained UI sections. May use hooks for **UI state only** (not AP
 
 | Name | What it renders |
 |---|---|
-| `NavSidebar` | Application sidebar navigation |
-| `AppHeader` | Top bar with title, user menu, notifications |
+| `NavSidebar` | Navy application sidebar — ✅ built, used by `layouts/AppShell.tsx` |
+| `AppHeader` | Top bar with last-refresh timestamp, Live / Stale state (Figma: Top Bar) |
 | `DataTable` | Sortable, paginated table with column config |
 | `FilterBar` | Row of filter chips and dropdowns |
 | `UserMenu` | Dropdown with profile, settings, logout |
 
 **Feature-owned organisms (stay in `features/`):**
 
-| Feature | Organism | Notes |
+| Feature | Organism | Figma frame |
 |---|---|---|
-| `dashboard` | `SensorChart` | Recharts line/area chart for one sensor |
-| `dashboard` | `NetworkMap` | Device topology overview |
-| `devices` | `DeviceCard` | Device summary with status |
-| `alerts` | `AlertFeed` | Real-time list of active alerts |
-| `reports` | `ReportExportForm` | Date range + format selector |
+| `dashboard` | `MapToolbar`, `MapCanvas`, `FaultPanel`, `NodeDetailPanel` | Map Toolbar, Map Canvas, Active Faults Panel, Node Detail Panel |
+| `analysis` | `ChartCard`, `RankingTable` | Chart Cards, Ranking Tables |
+| `reports` | `ExportOptionCard`, `ReportHeader`, `PdfReportPreview` | Export Option Cards, Report Header, PDF Report |
+| `users` | `UserTable`, `UserFormDrawer` | User Table, User Form Drawer |
+| `chatbot` | `ChatbotWindow` | Chatbot Window |
+
+The full list of frames per feature is in `docs/specs/<feature>/FEATURE.md`.
 
 ---
 
@@ -295,13 +306,10 @@ Use `react-hook-form` with a Zod resolver for all forms. The Zod schema is the s
 
 ## §6 Feature anatomy
 
-Every product feature lives in `src/features/<name>/`. Use `docs/_feature-template/` to create a new one.
+Every product feature lives in `src/features/<name>/`. Only create the subfolders the current story needs — an empty folder is technical debt. Its specs live in `docs/specs/<name>/` (see *Specs* below).
 
 ```
 src/features/<name>/
-├── specs/                    # One subfolder per Jira story
-│   └── SCRUM-XX/             # Named after the Jira ticket number
-│       └── SPEC.md           # Living spec for that story — update in the same PR
 ├── index.ts          # Public surface: exports ONLY the route array
 ├── routes.tsx        # RouteObject[] for this feature
 ├── api/
@@ -333,21 +341,21 @@ src/features/<name>/
 
 This order prevents the most volatile thing (the API contract) from blocking the least volatile (UI shapes and business rules).
 
-### SPEC.md front-matter (required)
+### Specs
 
-Each story gets its own folder: `src/features/<name>/specs/SCRUM-XX/SPEC.md`.
-This way each teammate creates their subfolder for the story they own without conflicting.
+All specs live in `docs/specs/` — full guide in [`docs/specs/README.md`](./docs/specs/README.md).
 
-```yaml
----
-feature: <name>
-story: SCRUM-XX
-status: EN_CURSO | COMPLETADA | PLACEHOLDER
-last_updated: YYYY-MM-DD
----
-```
+| File | Content |
+|---|---|
+| `docs/specs/<feature>/FEATURE.md` | Feature overview: purpose, scope, Figma frames, routes, components, open questions, list of stories |
+| `docs/specs/<feature>/SCRUM-XX.md` | One Jira story: user story, acceptance criteria, states, data, **acceptance test results** |
+| `docs/specs/INDEX.md` | Status of every feature and story |
+| `docs/specs/_templates/` | `FEATURE.md` and `STORY.md` to copy |
 
-If your PR changes the behavior described in a SPEC.md, that SPEC.md update is part of the same PR. No exceptions.
+- Specs are written in **English**.
+- Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`.
+- The story spec (acceptance criteria) is written **before** the code.
+- If your PR changes behavior described in a spec, the spec update is part of the same PR. No exceptions.
 
 ---
 
@@ -384,37 +392,38 @@ If your PR changes the behavior described in a SPEC.md, that SPEC.md update is p
 ### Branch strategy
 
 ```
-main        ← solo releases (Alpha, Beta, Final). No commits directos.
-develop     ← integración. Todos los PRs van aquí.
-SCRUM-XX-*  ← feature branches. Salen de develop.
-chore/*     ← infraestructura sin ticket Jira (scaffold, deps, CI fixes)
+main        ← releases only (Alpha, Beta, Final). No direct commits.
+develop     ← integration. Every PR targets develop.
+SCRUM-XX-*  ← story branches, created from develop.
 ```
 
-**Flujo de trabajo:**
+**Workflow** (step by step in [CONTRIBUTING.md](./CONTRIBUTING.md)):
 1. `git checkout develop && git pull origin develop`
-2. `git checkout -b SCRUM-61-auth-jwt-login`
-3. Commits → push → PR a `develop`
-4. CI verde + 1 review → merge a `develop`
-5. En milestone (Alpha/Beta/Final): PR `develop → main`
+2. `git checkout -b SCRUM-61-login-page`
+3. Commits → `git pull origin develop` → push → PR to `develop`
+4. Green CI + **1 approval** → merge to `develop`
+5. At a milestone (Alpha / Beta / Final): PR `develop → main`
 
-**Branch protection (configurar en GitHub → Settings → Branches):**
-- `main`: require PR + CI verde + **1 review obligatorio**, no direct push
-- `develop`: require PR + CI verde, no review requerido (merge libre si CI pasa), no direct push
+**Branch protection (GitHub → Settings → Branches):**
+- `main`: require PR + green CI + 1 approval, no direct push
+- `develop`: require PR + green CI + 1 approval, no direct push
 
-### Prefix de rama
+### Branch prefixes
 
-| Situación | Prefijo | Ejemplo |
+| Situation | Prefix | Example |
 |---|---|---|
-| Historia Jira | `SCRUM-<n>-` | `SCRUM-61-auth-jwt-login` |
-| Infraestructura / scaffold | `chore/` | `chore/project-scaffold` |
-| Fix de CI o build | `ci/` | `ci/fix-coverage-threshold` |
-| Hotfix urgente | `hotfix/` | `hotfix/login-redirect-loop` |
+| Jira story | `SCRUM-<n>-` | `SCRUM-61-login-page` |
+| Tooling / setup without a ticket | `chore/` | `chore/docker-dev` |
+| CI or build fix | `ci/` | `ci/fix-coverage-threshold` |
+| Documentation only | `docs/` | `docs/specs-structure` |
+| Urgent fix | `hotfix/` | `hotfix/login-redirect-loop` |
 
-### Commits y PRs
+### Commits and PRs
 
-- Commit: Conventional Commits — `feat(dashboard): add sensor chart component`
-- PR title: `SCRUM-<n> | type(scope): result` — append ` [AI-ASSISTED]` si la IA generó código significativo
-- Tipos: `feat`, `fix`, `test`, `docs`, `refactor`, `build`, `ci`, `chore`
+- Commit: Conventional Commits — `feat(dashboard): add fault list item`. No Jira key in the commit.
+- Types: `feat`, `fix`, `test`, `docs`, `refactor`, `style`, `build`, `ci`, `chore`
+- PR title: `SCRUM-<n> | type(scope): result` for stories, `type(scope): result` for branches without a ticket. Append ` [AI-ASSISTED]` if AI generated significant code.
+- PR description: fill in `.github/pull_request_template.md` (GitHub pre-fills it).
 
 ---
 
@@ -425,34 +434,32 @@ All routes are defined in a single typed catalog:
 ```ts
 // src/app/router/routes.ts
 export const ROUTES = {
-  home: '/dashboard',
-  devices: '/devices',
-  device: (id: string) => `/devices/${id}`,
-  alerts: '/alerts',
-  reports: '/reports',
+  home: '/',
   login: '/login',
+  dashboard: '/dashboard',
+  analysis: '/analysis',
+  reports: '/reports',
   // ...
 } as const
 ```
 
 **Never write a route string by hand** anywhere in the codebase. Always import from `ROUTES`.
 
-Route tree:
+Route tree (target — guards arrive with SCRUM-61):
 ```
-RouteErrorBoundary
+├── /                         → redirect to /dashboard
 ├── RedirectIfAuthenticated    (has session → /dashboard)
-│   ├── /                     landing / login
-│   └── /register             auth
+│   └── /login                auth
 ├── RequireAuth                (no session → /login)
-│   └── AppShell
-│       ├── /dashboard        dashboard (real-time overview)
-│       ├── /devices          device list
-│       ├── /devices/:id      device detail
-│       ├── /alerts           alert management
-│       ├── /reports          reports & exports
-│       └── /settings         user settings
+│   └── AppShell               navy sidebar + <Outlet />   ← implemented
+│       ├── /dashboard        Live Monitoring
+│       ├── /analysis         Historical Analysis           (ComingSoonPage for now)
+│       ├── /reports          Reports                       (ComingSoonPage for now)
+│       └── /users            User Management — RequireRole(ADMIN)
 └── *                         NotFoundPage
 ```
+
+To plug a feature in, replace its `loadComingSoon` entry in `src/app/router/index.tsx` with the feature's lazy import.
 
 ---
 
@@ -504,7 +511,7 @@ Use these as Tailwind classes: `bg-[--color-bg-surface]`, `text-[--color-text-pr
 
 ### Icons
 
-Use `<Icon name="..." />` only. Never import directly from `lucide-react` except in `design-system/atoms/Icon/registry.tsx`.
+Use `<Icon name="..." />` only. Never import directly from `lucide-react` except in `design-system/atoms/iconRegistry.ts` (keys = Figma icon names).
 
 ---
 
@@ -602,9 +609,9 @@ Example scope: a feature hook (`useDevicesQuery`) + `httpClient` + the component
 
 Verify the feature meets the acceptance criteria defined in its User Story.
 
-- Criteria are written in `specs/SCRUM-XX/SPEC.md` **before** writing any code.
+- Criteria are written in `docs/specs/<feature>/SCRUM-XX.md` **before** writing any code.
 - Each criterion maps to one acceptance test (manual or automated).
-- Results (pass / fail) are recorded in the SPEC.md after each run.
+- Results (pass / fail) are recorded in section 8 of the story spec after each run.
 - Can be manual (documented) or automated with Cypress — decided per story during sprint planning.
 - Every failed acceptance test must have a recorded action taken.
 
@@ -654,7 +661,7 @@ docs/sdd/
 **Who updates each section:**
 - `01`, `02`: Technical lead (Sofia) after major architectural decisions
 - `03`: Updated alongside feature DTO files
-- `04`: Updated when a new feature SPEC.md is finalized
+- `04`: Updated when a new feature spec (`docs/specs/<feature>/FEATURE.md`) is finalized
 - `05`: Updated when a new semantic token is added to `semantic.css`
 - `06`, `07`: Updated when a new store or endpoint is introduced
 - `08`: Updated when coverage targets or test scope changes
@@ -737,7 +744,7 @@ A frontend story is done when:
 4. Tests pass with ≥80% coverage: `pnpm test:coverage`
 5. Happy path, error state, and empty state covered by tests
 6. No dead code, no `console.log`, no hardcoded strings or colors
-7. SPEC.md updated if behavior changed
+7. Story spec in `docs/specs/` updated (acceptance test results) and `docs/specs/INDEX.md` status set
 8. Relevant SDD section updated if API / state / domain model changed
 9. Peer-reviewed by at least one other frontend team member
 10. Matches the design in Figma (if a mockup exists for the story)
@@ -749,8 +756,8 @@ A frontend story is done when:
 
 When using Claude Code in this repository:
 
-1. **Always read this file first.** If a session starts fresh, point the AI here: `Read frontend/agent.md`.
-2. **Reference the relevant SPEC.md.** Before touching a feature: `Read src/features/<name>/SPEC.md`.
+1. **Always read this file first.** If a session starts fresh, point the AI here: `Read AGENT.md`.
+2. **Reference the relevant specs.** Before touching a feature: `Read docs/specs/<name>/FEATURE.md` and the story spec `docs/specs/<name>/SCRUM-XX.md`.
 3. **Mark AI-assisted PRs.** Append ` [AI-ASSISTED]` to the PR title.
 4. **Verify all generated code against §3.** AI output often introduces: hardcoded colors, missing i18n, `any` types, oversized files, or boundary violations.
 5. **Never accept a component that imports from `lucide-react` directly** (use `<Icon name="..." />`).
@@ -793,7 +800,7 @@ See `.github/workflows/ci.yml`. Do not edit it without discussing with the team 
 | OQ-01 | What authentication method does the COLBITS backend use? JWT? Firebase? | Yeison/Javier | Auth feature |
 | OQ-02 | Is there a confirmed OpenAPI spec from the backend? | Backend team | All DTOs are PROVISIONAL |
 | OQ-03 | Real-time data: WebSocket or polling? | Javier/Mahmoud | Dashboard feature |
-| OQ-04 | Figma link for COLBITS UI mockups | Paola | All UI components |
+| OQ-04 | ~~Figma link for COLBITS UI mockups~~ **Answered:** [COLBITS Mockups v3](https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3) | Paola | — |
 | OQ-05 | Supported browsers and minimum screen sizes | Paola/customer | Responsive design |
 | OQ-06 | Does the app need offline/low-connectivity support? | Customer | Service Worker decision |
 
