@@ -19,7 +19,8 @@ Jira story ─► spec ─► branch ─► code + tests ─► PR ─► review
 ## 1. Take a story
 
 1. In [Jira](https://colbits-success.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog), assign the story to yourself and move it to **In Progress**.
-2. Open the Figma frame for the story ([Figma](https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3)). The frame IDs per feature are in `docs/specs/<feature>/FEATURE.md`.
+2. Open the Figma frame for the story ([Figma](https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=4-97)). The frame IDs per feature are in `docs/specs/<feature>/FEATURE.md`.
+3. **Check the [component catalog](./src/design-system/README.md)** — list the components your screen needs and reuse the ones that exist. Only build what is missing, at the right layer (atom → molecule → organism).
 
 ## 2. Write the spec (before coding)
 

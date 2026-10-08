@@ -5,9 +5,6 @@
   "nav": {
     "label": "Main navigation",
     "section": "Menu",
-    "liveMonitoring": "Live monitoring",
-    "historicalAnalysis": "Historical analysis",
-    "reports": "Reports",
     "logout": "Log out"
   },
   "role": {
@@ -37,5 +34,28 @@
     "noResults": "No results",
     "comingSoonTitle": "Coming soon",
     "comingSoon": "This section is under construction."
+  },
+  "section": {
+    "dashboard": {
+      "nav": "Live monitoring",
+      "title": "Live grid monitoring",
+      "subtitle": "Real-time georeferenced supervision of the network"
+    },
+    "analysis": {
+      "nav": "Historical analysis",
+      "title": "Historical analysis",
+      "subtitle": "Aggregated fault metrics and trends"
+    },
+    "reports": {
+      "nav": "Reports",
+      "title": "Reports",
+      "subtitle": "Data export with traceability"
+    }
+  },
+  "freshness": {
+    "lastUpdate": "Last update: {{time}}",
+    "live": "Live data",
+    "stale": "Stale data",
+    "refresh": "Refresh data"
   }
 }

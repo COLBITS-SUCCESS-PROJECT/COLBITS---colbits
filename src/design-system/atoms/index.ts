@@ -13,4 +13,6 @@ export { Skeleton, type SkeletonProps, type SkeletonShape } from './Skeleton'
 export { Spinner, type SpinnerProps } from './Spinner'
 export { StatusDot, type StatusDotProps, type StatusDotStatus } from './StatusDot'
 export { Toggle, type ToggleProps } from './Toggle'
-// TODO SCRUM-?: Tooltip, Divider, Chip, Stat, ProgressBar
+export { ToggleChip, type ToggleChipProps } from './ToggleChip'
+export { Tooltip, type TooltipPlacement, type TooltipProps } from './Tooltip'
+// TODO SCRUM-128: Divider, Stat, ProgressBar (Figma: Level Bar)

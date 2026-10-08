@@ -1,0 +1,127 @@
+{
+  "layer": {
+    "FUSES": "Fuses · Falcon",
+    "TRANSFORMERS": "Transformers · SMAC"
+  },
+  "toolbar": {
+    "label": "Map layers and filters",
+    "layers": "Map layers",
+    "zone": "Zone",
+    "substation": "Substation",
+    "circuit": "Circuit",
+    "allZones": "All zones",
+    "allSubstations": "All substations",
+    "allCircuits": "All circuits",
+    "search": "Search node",
+    "searchPlaceholder": "Search node or device ID…"
+  },
+  "map": {
+    "label": "Network map",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "attribution": "© Map data · 500 m",
+    "cluster": "{{count}} clustered nodes",
+    "node": "Node {{id}}",
+    "fuse": "fuse: {{state}}",
+    "transformer": "transformer: {{state}}"
+  },
+  "fuseState": {
+    "CRITICAL": "Open fuse",
+    "WARNING": "No voltage",
+    "INACTIVE": "Inactive > 9 h",
+    "NORMAL": "Normal"
+  },
+  "transformerState": {
+    "CRITICAL": "2+ phases down",
+    "WARNING": "1 phase down",
+    "INACTIVE": "Inactive > 3 h",
+    "NORMAL": "All phases OK"
+  },
+  "legend": {
+    "title": "Legend",
+    "FUSES": "Fuses · Falcon",
+    "TRANSFORMERS": "Transformers · SMAC"
+  },
+  "panel": {
+    "title": "Fault management",
+    "activeCount": "{{count}} active",
+    "tabsLabel": "Alarm type",
+    "tab": {
+      "ACTIVE": "Active",
+      "RESOLVED": "Resolved",
+      "INACTIVE": "Inactive devices"
+    },
+    "counters": {
+      "label": "Summary of nodes in alarm",
+      "fuseAlarm": "Nodes with fuse alarm (Falcon)",
+      "voltageAlarm": "Nodes with voltage alarm (Falcon)",
+      "phaseOutOfRange": "Nodes with phase out of range (SMAC)",
+      "phaseDropped": "Nodes with phase dropped (SMAC)"
+    },
+    "list": {
+      "ACTIVE": "Active faults",
+      "RESOLVED": "Resolved faults"
+    },
+    "olderAlarms": "Older alarms in Historical Analysis ›",
+    "show": "Show",
+    "window": {
+      "LAST_HOUR": "Last hour",
+      "LAST_DAY": "Last day"
+    },
+    "alertType": "Alert type",
+    "allTypes": "All types",
+    "classification": "Classification",
+    "allClassifications": "All",
+    "minDuration": "Minimum duration ≥ {{minutes}} min",
+    "minDurationHint": "Minimum-duration filter: faults shorter than the threshold are hidden.",
+    "minDurationInfo": "What the minimum-duration filter does",
+    "sortNote": "Sorted by customers affected, then oldest first",
+    "empty": "No faults match the filters.",
+    "error": "Faults could not be loaded.",
+    "retry": "Retry",
+    "loading": "Loading faults",
+    "inactiveSoon": "The inactive devices view will come in a later story."
+  },
+  "alertType": {
+    "FUSE_OPENING": "Fuse opening",
+    "NO_VOLTAGE": "No voltage",
+    "PHASE_LOSS": "Phase loss",
+    "OVERLOAD_UNBALANCE": "Overload & unbalance"
+  },
+  "classification": {
+    "MONOPHASIC": "Monophasic",
+    "BIPHASIC": "Biphasic",
+    "TRIPHASIC": "Triphasic"
+  },
+  "status": {
+    "OPEN": "Open",
+    "RESOLVED": "Resolved"
+  },
+  "fault": {
+    "branch": "Branch",
+    "phases": "Phases",
+    "started": "Started",
+    "duration": "Duration",
+    "branchValue": "Branch {{branch}}",
+    "customersOut": "customers without service",
+    "customersAffected": "customers affected",
+    "load": "Load {{load}} % · V unb. {{unbalance}} %",
+    "phase": "Phase {{phase}}: {{state}}",
+    "phaseState": {
+      "CRITICAL": "down",
+      "WARNING": "out of range",
+      "OK": "normal"
+    },
+    "location": "{{substation}} › {{circuit}}",
+    "cardLabel": "{{type}} · {{nodeId}}",
+    "phaseLetter": {
+      "R": "R",
+      "S": "S",
+      "T": "T"
+    }
+  },
+  "device": {
+    "FALCON": "FALCON",
+    "SMAC": "SMAC"
+  }
+}

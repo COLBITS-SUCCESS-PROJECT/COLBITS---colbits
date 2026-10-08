@@ -5,9 +5,6 @@
   "nav": {
     "label": "Navegación principal",
     "section": "Menú",
-    "liveMonitoring": "Monitoreo en vivo",
-    "historicalAnalysis": "Análisis histórico",
-    "reports": "Reportes",
     "logout": "Cerrar sesión"
   },
   "role": {
@@ -56,5 +53,28 @@
     "invalidEmail": "Correo electrónico inválido",
     "minLength": "Mínimo {{min}} caracteres",
     "maxLength": "Máximo {{max}} caracteres"
+  },
+  "section": {
+    "dashboard": {
+      "nav": "Monitoreo en vivo",
+      "title": "Monitoreo de red en vivo",
+      "subtitle": "Supervisión georreferenciada de la red en tiempo real"
+    },
+    "analysis": {
+      "nav": "Análisis histórico",
+      "title": "Análisis histórico",
+      "subtitle": "Métricas agregadas y tendencias de fallas"
+    },
+    "reports": {
+      "nav": "Reportes",
+      "title": "Reportes",
+      "subtitle": "Exportación de datos con trazabilidad"
+    }
+  },
+  "freshness": {
+    "lastUpdate": "Última actualización: {{time}}",
+    "live": "Datos en vivo",
+    "stale": "Datos desactualizados",
+    "refresh": "Actualizar datos"
   }
 }

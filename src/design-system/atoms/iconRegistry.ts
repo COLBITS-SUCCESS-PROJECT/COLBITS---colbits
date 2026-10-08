@@ -82,12 +82,13 @@ export type IconName = keyof typeof ICON_REGISTRY
 
 export const ICON_NAMES = Object.keys(ICON_REGISTRY) as IconName[]
 
-export type IconSize = 'xs' | 'sm' | 'md' | 'lg'
+export type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
-/** Pixel size per variant. Figma: 24px default, 20px in Icon Button, 14px in Checkbox. */
+/** Pixel size per variant — the sizes used across the Figma components. */
 export const ICON_SIZE_PX: Record<IconSize, number> = {
   xs: 14,
   sm: 16,
-  md: 20,
-  lg: 24,
+  md: 18,
+  lg: 20,
+  xl: 24,
 }

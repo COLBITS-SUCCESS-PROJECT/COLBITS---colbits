@@ -11,7 +11,7 @@ export interface IconProps {
   className?: string
 }
 
-export function Icon({ name, size = 'lg', label, className }: IconProps) {
+export function Icon({ name, size = 'xl', label, className }: IconProps) {
   const Glyph = ICON_REGISTRY[name]
   if (!Glyph) return null
 

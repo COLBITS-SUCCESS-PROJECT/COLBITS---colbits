@@ -1,6 +1,6 @@
 /** NavSidebar organism — fixed navy sidebar with logo, main navigation and user footer (Figma: Sidebar). */
-import { Avatar, Icon, Logo, type IconName } from '@/design-system/atoms'
-import { NavItem } from '@/design-system/molecules'
+import { Logo, type IconName } from '@/design-system/atoms'
+import { NavItem, UserSummary } from '@/design-system/molecules'
 
 export interface NavSidebarItem {
   to: string
@@ -45,7 +45,7 @@ export function NavSidebar({
       </div>
 
       <nav aria-label={navLabel} className="mt-6 flex flex-col gap-2">
-        <p className="text-[11px] leading-tight font-semibold text-nav-section uppercase">
+        <p className="text-overline leading-tight font-semibold text-nav-section uppercase">
           {sectionLabel}
         </p>
         {items.length > 0 && (
@@ -60,24 +60,14 @@ export function NavSidebar({
       </nav>
 
       {user && (
-        <div className="mt-auto flex items-center gap-2.5 px-2 pt-3 pb-1">
-          <Avatar name={user.name} imageUrl={user.avatarUrl} />
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="truncate text-[13px] font-semibold text-nav-text-active">
-              {user.name}
-            </span>
-            <span className="truncate text-[11px] text-nav-text">{user.roleLabel}</span>
-          </div>
-          <button
-            type="button"
-            aria-label={logoutLabel}
-            title={logoutLabel}
-            onClick={onLogout}
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-nav-text transition-colors hover:bg-nav-item-active/50 hover:text-nav-text-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nav-text-active"
-          >
-            <Icon name="logout" size="sm" />
-          </button>
-        </div>
+        <UserSummary
+          className="mt-auto"
+          name={user.name}
+          roleLabel={user.roleLabel}
+          avatarUrl={user.avatarUrl}
+          logoutLabel={logoutLabel}
+          onLogout={onLogout}
+        />
       )}
     </aside>
   )

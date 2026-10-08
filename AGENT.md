@@ -182,28 +182,7 @@ Primitive, single-purpose UI elements. An atom renders itself and nothing else.
 - Each atom is a single `.tsx` + optional `.test.tsx`. No sub-folders.
 - Exports through `src/design-system/atoms/index.ts` (barrel).
 
-**Atoms (✅ built · 🔲 to do — tracked in Jira SCRUM-128):**
-
-| Name | What it renders | |
-|---|---|---|
-| `Icon` | SVG icon by name from `iconRegistry.ts` (the only file that imports `lucide-react`) | ✅ |
-| `Button` | Themed button: primary, secondary, outline, ghost, danger + loading | ✅ |
-| `IconButton` | Square icon-only button with pressed state | ✅ |
-| `Input` | Text input with error state | ✅ |
-| `Label` | Form label with required indicator | ✅ |
-| `Checkbox` | Checkbox with checked and partial states | ✅ |
-| `Toggle` | On/off switch | ✅ |
-| `Badge` | Status pill with semantic tones | ✅ |
-| `StatusDot` | Colored state dot (online / warning / critical / offline / unknown) | ✅ |
-| `Avatar` | User avatar with initials / icon fallback | ✅ |
-| `Spinner` | Loading spinner with size variants | ✅ |
-| `Skeleton` | Placeholder loading block | ✅ |
-| `Logo` | Official white Colbits wordmark | ✅ |
-| `Tooltip` | Dark hint bubble (Figma: Tooltip) | 🔲 |
-| `Divider` | Horizontal or vertical separator | 🔲 |
-| `Chip` | Small dismissible tag | 🔲 |
-| `Stat` | Single numeric stat with label and unit | 🔲 |
-| `ProgressBar` | Linear progress indicator (Figma: Level Bar) | 🔲 |
+**Catalog of what already exists:** [`src/design-system/README.md`](./src/design-system/README.md) — every component with its Figma frame, purpose and props. **Search it before creating a component.**
 
 ### 4.2 Molecules — `src/design-system/molecules/`
 
@@ -214,21 +193,7 @@ Compose 2–5 atoms into a named, reusable UI pattern. May have internal state, 
 - All text through props.
 - Each molecule has a `<Name>/index.ts` that re-exports the component.
 
-**Current molecules (to be created):**
-
-| Name | What it does |
-|---|---|
-| `FormField` | Label + Input + ErrorText + HelperText |
-| `AlertInline` | Inline message with icon (info / success / warning / error) |
-| `StatCard` | Card displaying a metric with trend indicator |
-| `EmptyState` | Centered illustration + title + description + optional action |
-| `SearchBar` | Input with search icon and clear button |
-| `DateRangePicker` | Two date inputs for historical ranges |
-| `ThresholdBadge` | Badge with value and visual alert level (normal/warning/critical) |
-| `Toast` | Transient notification (managed via toast store) |
-| `Modal` | Accessible dialog with header, body, footer |
-| `ConfirmDialog` | Modal specialized for confirm/cancel actions |
-| `Pagination` | Page navigation controls |
+**Catalog of what already exists:** [`src/design-system/README.md`](./src/design-system/README.md) — every component with its Figma frame, purpose and props. **Search it before creating a component.**
 
 ### 4.3 Organisms — `src/design-system/organisms/`
 
@@ -239,27 +204,12 @@ Complex, self-contained UI sections. May use hooks for **UI state only** (not AP
 - An organism in `design-system/` is shared by ≥2 features.
 - When an organism is first built for one feature and then needed by another, move it to `design-system/organisms/`.
 
-**Planned organisms for design-system:**
+**Shared organisms:** [`src/design-system/README.md`](./src/design-system/README.md) — every component with its Figma frame, purpose and props. **Search it before creating a component.**
 
-| Name | What it renders |
-|---|---|
-| `NavSidebar` | Navy application sidebar — ✅ built, used by `layouts/AppShell.tsx` |
-| `AppHeader` | Top bar with last-refresh timestamp, Live / Stale state (Figma: Top Bar) |
-| `DataTable` | Sortable, paginated table with column config |
-| `FilterBar` | Row of filter chips and dropdowns |
-| `UserMenu` | Dropdown with profile, settings, logout |
+**Feature-owned components (stay in `features/`):** listed in §6 of each `docs/specs/<feature>/FEATURE.md`.
+Example — `dashboard`: `MapMarker`, `PhaseChips`, `FaultListItem` (molecules) and `MapToolbar`, `MapCanvas`, `MapLegend`, `FaultPanel` (organisms).
 
-**Feature-owned organisms (stay in `features/`):**
-
-| Feature | Organism | Figma frame |
-|---|---|---|
-| `dashboard` | `MapToolbar`, `MapCanvas`, `FaultPanel`, `NodeDetailPanel` | Map Toolbar, Map Canvas, Active Faults Panel, Node Detail Panel |
-| `analysis` | `ChartCard`, `RankingTable` | Chart Cards, Ranking Tables |
-| `reports` | `ExportOptionCard`, `ReportHeader`, `PdfReportPreview` | Export Option Cards, Report Header, PDF Report |
-| `users` | `UserTable`, `UserFormDrawer` | User Table, User Form Drawer |
-| `chatbot` | `ChatbotWindow` | Chatbot Window |
-
-The full list of frames per feature is in `docs/specs/<feature>/FEATURE.md`.
+**Layouts / templates** (`src/layouts/`): `AppShell` = Figma *Template / App Shell* (navy sidebar + top bar + content slot).
 
 ---
 

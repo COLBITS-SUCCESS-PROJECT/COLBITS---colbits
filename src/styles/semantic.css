@@ -1,72 +1,83 @@
 /* Tokens semánticos — estos son los únicos colores permitidos en componentes. */
 :root {
   /* Estado de nodos/sensores (Figma: status-red / yellow / gray / green) */
-  --color-status-online:   var(--color-green-500);
-  --color-status-offline:  var(--color-slate-400);
-  --color-status-warning:  var(--color-yellow-500);
+  --color-status-online: var(--color-green-500);
+  --color-status-offline: var(--color-slate-400);
+  --color-status-warning: var(--color-yellow-500);
   --color-status-critical: var(--color-red-500);
-  --color-status-unknown:  var(--color-slate-400);
+  --color-status-unknown: var(--color-slate-400);
 
   /* Estado de fusibles (FuseState) — Figma Fuse Row: Closed = verde, Open = rojo */
-  --color-fuse-normal:  var(--color-green-500);
-  --color-fuse-open:    var(--color-red-500);
-  --color-fuse-blown:   var(--color-red-700);
+  --color-fuse-normal: var(--color-green-500);
+  --color-fuse-open: var(--color-red-500);
+  --color-fuse-blown: var(--color-red-700);
   --color-fuse-unknown: var(--color-slate-400);
 
   /* Alarmas */
-  --color-alarm-low:    var(--color-blue-600);
+  --color-alarm-low: var(--color-blue-600);
   --color-alarm-medium: var(--color-yellow-500);
-  --color-alarm-high:   var(--color-red-500);
+  --color-alarm-high: var(--color-red-500);
 
   /* Acciones */
-  --color-action-primary:   var(--color-red-500);
+  --color-action-primary: var(--color-red-500);
   --color-action-secondary: var(--color-navy-900);
-  --color-action-danger:    var(--color-red-700);
-  --color-action-link:      var(--color-blue-500);
+  --color-action-danger: var(--color-red-700);
+  --color-action-link: var(--color-blue-500);
 
   /* Controles (Toggle, Checkbox) */
-  --color-control-on:  var(--color-navy-900);
+  --color-control-on: var(--color-navy-900);
   --color-control-off: var(--color-gray-300);
 
   /* Navegación lateral (Figma: Sidebar navy) */
-  --color-nav-bg:          var(--color-navy-900);
+  --color-nav-bg: var(--color-navy-900);
   --color-nav-item-active: var(--color-navy-700);
-  --color-nav-text:        var(--color-navy-200);
+  --color-nav-text: var(--color-navy-200);
   --color-nav-text-active: var(--color-white);
-  --color-nav-section:     var(--color-navy-400);
+  --color-nav-section: var(--color-navy-400);
 
   /* Retroalimentación (fondo + texto para badges y banners) */
-  --color-feedback-info:         var(--color-blue-600);
-  --color-feedback-info-bg:      var(--color-blue-50);
-  --color-feedback-info-text:    var(--color-blue-700);
-  --color-feedback-success-bg:   var(--color-green-50);
+  --color-feedback-info: var(--color-blue-600);
+  --color-feedback-info-bg: var(--color-blue-50);
+  --color-feedback-info-text: var(--color-blue-700);
+  --color-feedback-success-bg: var(--color-green-50);
   --color-feedback-success-text: var(--color-green-700);
-  --color-feedback-warning-bg:   var(--color-yellow-50);
+  --color-feedback-warning-bg: var(--color-yellow-50);
   --color-feedback-warning-text: var(--color-yellow-800);
-  --color-feedback-danger-bg:    var(--color-red-50);
-  --color-feedback-danger-text:  var(--color-red-700);
-  --color-feedback-neutral-bg:   var(--color-gray-100);
+  --color-feedback-danger-bg: var(--color-red-50);
+  --color-feedback-danger-text: var(--color-red-700);
+  --color-feedback-neutral-bg: var(--color-gray-100);
   --color-feedback-neutral-text: var(--color-ink-600);
 
   /* Fondos */
-  --color-bg-page:        var(--color-gray-50);
-  --color-bg-surface:     var(--color-white);
+  --color-bg-page: var(--color-gray-50);
+  --color-bg-surface: var(--color-white);
   --color-bg-surface-alt: var(--color-gray-50);
-  --color-bg-inverse:     var(--color-navy-900);
-  --color-bg-avatar:      var(--color-blue-500);
-  --color-bg-overlay:     rgba(0, 0, 0, 0.5);
+  --color-bg-inverse: var(--color-navy-900);
+  --color-bg-avatar: var(--color-blue-500);
+  --color-bg-panel: var(--color-gray-25);
+  --color-bg-map: var(--color-map-land);
+  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+
+  /* Sombras */
+  --color-shadow-strong: rgba(0, 0, 0, 0.25);
+  --color-shadow-soft: rgba(0, 0, 0, 0.12);
+
+  /* Grosor de borde de controles (Figma: Checkbox 1.5 px) */
+  --border-control: 1.5px;
 
   /* Texto */
-  --color-text-primary:   var(--color-ink-900);
+  --color-text-heading: var(--color-navy-900);
+  --color-text-primary: var(--color-ink-900);
   --color-text-secondary: var(--color-ink-600);
-  --color-text-muted:     var(--color-ink-400);
-  --color-text-inverse:   var(--color-white);
-  --color-text-danger:    var(--color-red-500);
+  --color-text-subtle: var(--color-ink-500);
+  --color-text-muted: var(--color-ink-400);
+  --color-text-inverse: var(--color-white);
+  --color-text-danger: var(--color-red-500);
 
   /* Bordes */
   --color-border-default: var(--color-gray-200);
-  --color-border-subtle:  var(--color-gray-100);
-  --color-border-strong:  var(--color-gray-300);
-  --color-border-focus:   var(--color-blue-500);
-  --color-border-danger:  var(--color-red-500);
+  --color-border-subtle: var(--color-gray-100);
+  --color-border-strong: var(--color-gray-300);
+  --color-border-focus: var(--color-blue-500);
+  --color-border-danger: var(--color-red-500);
 }
