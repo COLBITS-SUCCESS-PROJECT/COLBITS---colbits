@@ -37,11 +37,38 @@ Install pnpm if you don't have it:
 npm install -g pnpm
 ```
 
-> Docker is **not** needed for frontend development — it is handled by the backend team.
+Or use **Docker** instead of installing Node/pnpm (see [Option A](#option-a--docker-nothing-to-install)).
 
 ---
 
 ## Getting started
+
+### Option A — Docker (nothing to install)
+
+Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
+
+```bash
+git clone https://github.com/MonicaBebesita/COLBITS---colbits-frontend.git
+cd COLBITS---colbits-frontend
+git checkout develop
+docker compose up
+```
+
+Open `http://localhost:5173`. Saving a file reloads the browser automatically.
+
+| Task | Command |
+|---|---|
+| Start in the background | `docker compose up -d` |
+| See the logs | `docker compose logs -f` |
+| Stop | `docker compose down` |
+| Run tests / lint inside the container | `docker compose exec frontend pnpm test:run` · `docker compose exec frontend pnpm lint` |
+| Reset dependencies (after weird errors) | `docker compose down -v && docker compose up --build` |
+
+- The first start takes ~1 min (downloads the image and dependencies); later starts take a few seconds.
+- Environment variables are read from your `.env` if it exists; otherwise safe defaults from `docker-compose.yml` are used.
+- **Git hooks and editor autocomplete** (TypeScript, ESLint) still need `pnpm install` on your machine. If you only want to run the app, Docker is enough.
+
+### Option B — Local Node + pnpm
 
 ```bash
 # 1. Clone

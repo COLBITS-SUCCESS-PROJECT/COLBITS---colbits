@@ -103,7 +103,7 @@ frontend/
 │   ├── ARCHITECTURE.md          # Layer diagram, boundary matrix, folder inventory
 │   └── _feature-template/      # Copy this to create a new feature (§6)
 │
-│   (Docker is not part of the frontend workflow — it is handled by the backend team.)
+│   Dockerfile + docker-compose.yml — optional dev container: `docker compose up` → :5173 (see README)
 │
 ├── agent.md                     # ← you are here
 ├── CONTRIBUTING.md              # Branch, PR, AI usage workflow
