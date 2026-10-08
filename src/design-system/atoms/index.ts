@@ -8,8 +8,9 @@ export { IconButton, type IconButtonProps } from './IconButton'
 export { ICON_NAMES, ICON_SIZE_PX, type IconName, type IconSize } from './iconRegistry'
 export { Input, type InputProps } from './Input'
 export { Label, type LabelProps } from './Label'
+export { Logo, type LogoProps } from './Logo'
 export { Skeleton, type SkeletonProps, type SkeletonShape } from './Skeleton'
 export { Spinner, type SpinnerProps } from './Spinner'
 export { StatusDot, type StatusDotProps, type StatusDotStatus } from './StatusDot'
 export { Toggle, type ToggleProps } from './Toggle'
-// TODO SCRUM-?: Tooltip, Logo (needs official PNG), Divider, Chip, Stat, ProgressBar
+// TODO SCRUM-?: Tooltip, Divider, Chip, Stat, ProgressBar

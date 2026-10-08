@@ -1,4 +1,20 @@
 {
+  "app": {
+    "name": "Colbits"
+  },
+  "nav": {
+    "label": "Navegación principal",
+    "section": "Menú",
+    "liveMonitoring": "Monitoreo en vivo",
+    "historicalAnalysis": "Análisis histórico",
+    "reports": "Reportes",
+    "logout": "Cerrar sesión"
+  },
+  "role": {
+    "ADMIN": "Administrador",
+    "OPERATOR": "Operador de red",
+    "VIEWER": "Consulta"
+  },
   "button": {
     "save": "Guardar",
     "cancel": "Cancelar",
@@ -19,7 +35,9 @@
     "error": "Ocurrió un error",
     "empty": "Sin datos",
     "noResults": "Sin resultados",
-    "notFound": "Página no encontrada"
+    "notFound": "Página no encontrada",
+    "comingSoonTitle": "Próximamente",
+    "comingSoon": "Esta sección está en construcción."
   },
   "pagination": {
     "page": "Página",

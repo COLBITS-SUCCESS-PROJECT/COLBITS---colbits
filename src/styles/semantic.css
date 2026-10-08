@@ -28,6 +28,13 @@
   --color-control-on:  var(--color-navy-900);
   --color-control-off: var(--color-gray-300);
 
+  /* Navegación lateral (Figma: Sidebar navy) */
+  --color-nav-bg:          var(--color-navy-900);
+  --color-nav-item-active: var(--color-navy-700);
+  --color-nav-text:        var(--color-navy-200);
+  --color-nav-text-active: var(--color-white);
+  --color-nav-section:     var(--color-navy-400);
+
   /* Retroalimentación (fondo + texto para badges y banners) */
   --color-feedback-info:         var(--color-blue-600);
   --color-feedback-info-bg:      var(--color-blue-50);
