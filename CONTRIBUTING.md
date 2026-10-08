@@ -1,57 +1,140 @@
 # Contributing to COLBITS Frontend
 
-## Before you start
+This is **the** guide for how we work: from taking a Jira story to merging the PR. Follow it step by step.
+Questions → ask Sofia (Scrum Master) in the team chat.
 
-Read `agent.md` in full. Every rule there is enforced by CI or code review.
+**Read once before your first task:**
+1. [README.md](./README.md) — set up and run the project
+2. [AGENT.md](./AGENT.md) — architecture and code rules (the contract for humans and AI)
+3. [docs/specs/README.md](./docs/specs/README.md) — how we write specs
 
-## Branch workflow
+---
 
-```
-main           ← stable production code
-└── develop    ← integration branch (all PRs target this)
-    └── SCRUM-42-add-sensor-chart   ← your branch
-```
-
-1. Branch from `develop`: `git checkout -b SCRUM-<n>-<description-kebab-case>`
-2. Keep branches short-lived (1–3 days max)
-3. Rebase on `develop` before opening a PR: `git rebase develop`
-
-## Commit messages
-
-Use **Conventional Commits**:
+## The workflow at a glance
 
 ```
-feat(dashboard): add SensorChart component
-fix(alerts): correct threshold comparison logic
-test(devices): add empty state test for DeviceTable
-docs(agent): update open questions table
-refactor(auth): extract token refresh logic to hook
+Jira story ─► spec ─► branch ─► code + tests ─► PR ─► review ─► merge ─► Jira Done
 ```
 
-No Jira ticket in the commit message (it's in the branch name and PR title).
+## 1. Take a story
 
-## Pull request checklist
+1. In [Jira](https://colbits-success.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog), assign the story to yourself and move it to **In Progress**.
+2. Open the Figma frame for the story ([Figma](https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3)). The frame IDs per feature are in `docs/specs/<feature>/FEATURE.md`.
 
-- [ ] Branch name: `SCRUM-<n>-<description>`
-- [ ] PR title: `SCRUM-<n> | type(scope): result`
-- [ ] If AI was used: append ` [AI-ASSISTED]` to the title
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm lint` passes
-- [ ] `pnpm test:coverage` passes (≥70%)
-- [ ] No `console.log`, no commented-out code, no hardcoded strings/colors
-- [ ] SPEC.md updated if feature behavior changed
-- [ ] SDD section updated if API/state/domain model changed
-- [ ] Reviewed by at least one other frontend teammate
+## 2. Write the spec (before coding)
+
+1. Copy `docs/specs/_templates/STORY.md` → `docs/specs/<feature>/SCRUM-XX.md`.
+2. Fill in the user story, **acceptance criteria**, Figma frames and screen states.
+3. Add the story to `docs/specs/<feature>/FEATURE.md` and `docs/specs/INDEX.md` with status `IN_PROGRESS`.
+
+Details: [docs/specs/README.md](./docs/specs/README.md).
+
+## 3. Create your branch
+
+Always start from an up-to-date `develop`:
+
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b SCRUM-61-login-page
+```
+
+| Situation | Branch name | Example |
+|---|---|---|
+| Jira story | `SCRUM-<n>-<short-kebab-description>` | `SCRUM-61-login-page` |
+| Tooling / setup without a ticket | `chore/<description>` | `chore/docker-dev` |
+| CI or build fix | `ci/<description>` | `ci/fix-coverage-threshold` |
+| Documentation only | `docs/<description>` | `docs/specs-structure` |
+| Urgent fix | `hotfix/<description>` | `hotfix/login-redirect-loop` |
+
+Keep branches short-lived (1–3 days). One story = one branch = one PR.
+
+## 4. Code and commit
+
+- Follow [AGENT.md](./AGENT.md): atomic design, tokens only (no color literals), all text via `t('namespace:key')` in Spanish, no `any`, file size limits.
+- Every component needs tests: **happy path + empty state + error state** (`AGENT.md §12`).
+
+### Commit messages — Conventional Commits
+
+```
+<type>(<scope>): <what changed, imperative, lowercase>
+```
+
+| Type | Use for |
+|---|---|
+| `feat` | New feature or component |
+| `fix` | Bug fix |
+| `test` | Adding or updating tests |
+| `docs` | Documentation and specs |
+| `refactor` | Code change without behavior change |
+| `style` | Formatting only |
+| `build` | Dependencies, build config |
+| `ci` | GitHub Actions |
+| `chore` | Other maintenance |
+
+```
+feat(dashboard): add fault list item
+fix(auth): redirect to login after logout
+docs(specs): add acceptance criteria for SCRUM-61
+```
+
+No Jira key in commit messages — it is already in the branch name and PR title.
+
+### Pre-commit hook
+Every `git commit` runs ESLint and Prettier on the staged files (husky + lint-staged). If it fails, fix the errors and commit again. **Never** use `--no-verify`.
+
+## 5. Before opening the PR
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test:coverage      # must stay ≥ 80%
+```
+
+Bring in the latest `develop` and push:
+
+```bash
+git pull origin develop
+git push -u origin <your-branch>
+```
+
+Also:
+- Run the acceptance tests and fill in **section 8** of your story spec.
+- Compare your screen with the Figma frame.
+
+## 6. Open the PR
+
+- **Target:** `develop`
+- **Title:**
+  - Story: `SCRUM-<n> | type(scope): result` → `SCRUM-61 | feat(auth): add login page`
+  - No ticket: `type(scope): result` → `chore(docker): add dev container`
+  - Append ` [AI-ASSISTED]` if AI generated significant code.
+- **Description:** GitHub pre-fills it from `.github/pull_request_template.md`. Fill in every section and tick the checklist.
+- **Reviewer:** assign one other frontend teammate (Sofia, Monica or Paola).
+- **Jira:** move the story to **In Review**.
+
+## 7. Review and merge
+
+- **1 approval + green CI** are required to merge into `develop`.
+- The author addresses the comments by pushing new commits to the same branch.
+- After merging: delete the branch, set the spec status to `DONE` (if all acceptance criteria passed) and move the Jira story to **Done**.
+
+### What the reviewer checks
+- [ ] The PR does what the story and its acceptance criteria say
+- [ ] UI matches the Figma frame
+- [ ] AGENT.md rules: tokens, i18n, no `any`, no cross-feature imports, file size limits
+- [ ] Tests cover happy / empty / error states
+- [ ] Spec and `INDEX.md` are updated
 
 ## Using AI assistance
 
-AI-generated code is allowed and encouraged. Rules:
+AI tools are allowed and encouraged.
 
-1. Mark the PR with ` [AI-ASSISTED]`
-2. **You are responsible** for everything that merges — review AI output against agent.md §3
-3. Verify: no literal colors, no raw strings, no `any`, no boundary violations, no oversized files
+1. Append ` [AI-ASSISTED]` to the PR title.
+2. **You are responsible** for everything that merges — review AI output against `AGENT.md §3`.
+3. Check especially: no color literals, no hardcoded text, no `any`, no boundary violations, no oversized files.
+4. AI never commits or pushes — you stage, review and commit yourself (`AGENT.md §18`).
 
-## Pre-commit hook
+## Releases
 
-Prettier and ESLint `--fix` run automatically on staged files before every commit.
-If the hook fails, fix the issues and try again — don't skip with `--no-verify`.
+`develop` → `main` only at course milestones (Alpha, Beta, Final), through a PR with 1 approval.

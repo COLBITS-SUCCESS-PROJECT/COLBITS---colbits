@@ -1,43 +1,33 @@
 # COLBITS Frontend
 
-> Visualization, Alerting, and Intelligent Time-Series Data Query Platform for IoT Electrical Networks
+> Visualization, alerting and intelligent time-series query platform for IoT electrical networks
 
-Real-time web dashboard for monitoring electrical IoT networks — built with Vite, React 19, and TypeScript.
+Real-time web app for monitoring medium-voltage electrical networks (fuses and transformers) — built with Vite, React 19 and TypeScript.
 
-**Course:** GDSD 2026/27 | **Client:** Colbits SAS (Colombia)
-**Frontend team:** Sofia · Monica · Paola
+**Course:** GDSD 2026/27 · **Client:** Colbits SAS (Colombia) · **Frontend team:** Sofia · Monica · Paola
+
+| | |
+|---|---|
+| 🧭 **How we work** (branches, commits, PRs, reviews) | [CONTRIBUTING.md](./CONTRIBUTING.md) |
+| 📐 **Architecture and code rules** | [AGENT.md](./AGENT.md) |
+| 📝 **Specs** (features, stories, acceptance tests) | [docs/specs/](./docs/specs/README.md) |
+| 🎨 **Design** | [Figma — COLBITS Mockups v3](https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3) |
+| 📋 **Backlog** | [Jira — SCRUM board](https://colbits-success.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog) |
+
+> **New to the repo?** 1) Run the app with *Getting started* below → 2) read [CONTRIBUTING.md](./CONTRIBUTING.md) → 3) read [AGENT.md](./AGENT.md). Questions → Sofia.
 
 ---
 
 ## Table of contents
 
-1. [Prerequisites](#prerequisites)
-2. [Getting started](#getting-started)
-3. [Environment variables](#environment-variables)
-4. [Available scripts](#available-scripts)
-5. [Folder structure](#folder-structure)
-6. [How to contribute](#how-to-contribute)
-7. [Branch and commit conventions](#branch-and-commit-conventions)
-8. [Pull request workflow](#pull-request-workflow)
-9. [Code quality rules](#code-quality-rules)
-10. [Team](#team)
-
----
-
-## Prerequisites
-
-| Tool | Minimum version | Check |
-|---|---|---|
-| Node.js | 20 LTS | `node -v` |
-| pnpm | 9.x | `pnpm -v` |
-| Git | 2.40+ | `git --version` |
-
-Install pnpm if you don't have it:
-```bash
-npm install -g pnpm
-```
-
-Or use **Docker** instead of installing Node/pnpm (see [Option A](#option-a--docker-nothing-to-install)).
+1. [Getting started](#getting-started)
+2. [Environment variables](#environment-variables)
+3. [Available scripts](#available-scripts)
+4. [Project structure](#project-structure)
+5. [What is already built](#what-is-already-built)
+6. [Testing](#testing)
+7. [Code rules (summary)](#code-rules-summary)
+8. [Team](#team)
 
 ---
 
@@ -66,289 +56,146 @@ Open `http://localhost:5173`. Saving a file reloads the browser automatically.
 
 - The first start takes ~1 min (downloads the image and dependencies); later starts take a few seconds.
 - Environment variables are read from your `.env` if it exists; otherwise safe defaults from `docker-compose.yml` are used.
-- **Git hooks and editor autocomplete** (TypeScript, ESLint) still need `pnpm install` on your machine. If you only want to run the app, Docker is enough.
+- **Git hooks and editor autocomplete** (TypeScript, ESLint) still need `pnpm install` on your machine. To only run the app, Docker is enough.
 
 ### Option B — Local Node + pnpm
 
+| Tool | Version | Check |
+|---|---|---|
+| Node.js | 20 LTS | `node -v` |
+| pnpm | 9.x | `pnpm -v` (install: `npm install -g pnpm@9`) |
+| Git | 2.40+ | `git --version` |
+
 ```bash
-# 1. Clone
 git clone https://github.com/MonicaBebesita/COLBITS---colbits-frontend.git
 cd COLBITS---colbits-frontend
-
-# 2. Checkout the active development branch
 git checkout develop
-
-# 3. Install dependencies (also activates git hooks automatically)
-pnpm install
-
-# 4. Set up environment variables
-cp .env.example .env
-# Edit .env with the values shared by the team (never commit .env)
-
-# 5. Start the development server
+pnpm install            # also activates the git hooks
+cp .env.example .env    # never commit .env
 pnpm dev
 ```
 
-> **Git hooks are activated automatically** by `pnpm install` via the `prepare` script (husky).
-> From that point on, every `git commit` runs ESLint + Prettier on staged files.
-> If the hook blocks your commit, fix the reported errors and commit again.
+Open `http://localhost:5173`.
 
-The app will be available at `http://localhost:5173`.
+> **Git hooks** are activated by `pnpm install` (husky). Every `git commit` then runs ESLint + Prettier on the staged files. If the hook blocks your commit, fix the errors and commit again.
 
 ---
 
 ## Environment variables
 
-Copy `.env.example` to `.env` and fill in the values. **Never commit `.env`** — it is in `.gitignore`.
+Copy `.env.example` to `.env`. **Never commit `.env`** — it is in `.gitignore`.
 
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_API_BASE_URL` | ✅ | Base URL of the COLBITS API Gateway |
-| `VITE_APP_ENV` | ✅ | `development` \| `production` |
-| `VITE_ENABLE_MSW` | — | `true` to enable mock API in browser (dev only, not wired yet) |
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `VITE_API_BASE_URL` | ✅ | — | Base URL of the COLBITS API Gateway |
+| `VITE_APP_ENV` | — | `development` | `development` \| `production` |
+| `VITE_ENABLE_MSW` | — | `false` | Mock API in the browser (dev only, not wired yet) |
 
-If a required variable is missing, the app will throw `BackendNotConfiguredError` at startup and tell you which variable is absent.
+If `VITE_API_BASE_URL` is missing, the app stops at startup with `[COLBITS] Required environment variable not configured: VITE_API_BASE_URL`.
 
 ---
 
 ## Available scripts
 
 ```bash
-pnpm dev           # Start Vite dev server (hot reload)
-pnpm build         # Production build → dist/
-pnpm preview       # Preview production build locally
-pnpm typecheck     # TypeScript type check (no emit)
-pnpm lint          # ESLint — run before every PR
-pnpm lint:fix      # ESLint with auto-fix
-pnpm format        # Prettier check
-pnpm format:fix    # Prettier auto-format
-pnpm test          # Vitest in watch mode
-pnpm test:run      # Vitest single run (CI)
-pnpm test:coverage # Coverage report — must stay ≥ 80%
+pnpm dev            # Dev server with hot reload → http://localhost:5173
+pnpm build          # Production build → dist/
+pnpm preview        # Preview the production build
+pnpm typecheck      # TypeScript check
+pnpm lint           # ESLint (0 warnings allowed)
+pnpm lint:fix       # ESLint with auto-fix
+pnpm format         # Prettier check
+pnpm format:fix     # Prettier auto-format
+pnpm test           # Vitest in watch mode
+pnpm test:run       # Vitest single run
+pnpm test:coverage  # Tests + coverage report (must stay ≥ 80%)
 ```
 
-Run before opening any PR:
-```bash
-pnpm typecheck && pnpm lint && pnpm test:run
-```
-
-> The pre-commit hook (husky + lint-staged) runs ESLint + Prettier automatically on every commit.
-> The commands above are still needed before a PR to catch TypeScript errors and coverage.
+**CI** (GitHub Actions) runs `typecheck`, `lint` and `test:coverage` on every PR. A red CI blocks the merge.
 
 ---
 
-## Testing strategy
-
-The project uses three levels of testing, as required by the GDSD course:
-
-### 1 — Unit tests (Vitest + Testing Library)
-
-Test individual functions and components in isolation. Every component covers happy path, error state, and empty state.
-
-```bash
-pnpm test:run        # single run
-pnpm test:coverage   # run + coverage report (must be ≥ 80%)
-```
-
-Follow the **Arrange – Act – Assert** pattern. Tests live beside the source file (`SensorChart.test.tsx` next to `SensorChart.tsx`).
-
-### 2 — Integration tests (Vitest + MSW)
-
-Test that two or more real components work correctly together (e.g., a feature hook + the HTTP client + a component). Use MSW handlers to mock the network — never hit a real API in tests.
-
-Integration test files follow the same naming convention: `<name>.integration.test.tsx`.
-
-### 3 — Acceptance tests
-
-Verify the software meets the acceptance criteria defined in each User Story (SCRUM-XX).
-
-- Each story's acceptance criteria are written in its `specs/SCRUM-XX/SPEC.md` before any code is written.
-- Acceptance tests can be **manual** (documented pass/fail per criterion) or **automated** (Cypress / Playwright — decided per sprint).
-- Results are recorded in the SPEC.md after each test run.
-
-See `AGENT.md §12` for full testing rules, MSW handler conventions, and what to test per layer.
-
----
-
-## Folder structure
+## Project structure
 
 ```
 src/
-├── app/                   # App bootstrap: providers, router, guards
-│   ├── providers/
-│   └── router/
-│       ├── routes.ts      # Typed route catalog — always use ROUTES.x, never raw strings
-│       └── guards/
-│
-├── design-system/         # Atomic Design — zero domain knowledge here
-│   ├── atoms/             # Button, Input, Icon, Badge, Spinner, Skeleton …
-│   ├── molecules/         # FormField, AlertInline, StatCard, Modal …
-│   └── organisms/         # NavSidebar, AppHeader, DataTable …
-│
-├── features/              # One folder per product feature
-│   ├── auth/
-│   ├── dashboard/
-│   ├── devices/
-│   ├── alerts/
-│   ├── reports/
-│   └── settings/
-│       └── specs/         # One subfolder per Jira story (SCRUM-XX/)
-│
-├── layouts/               # AppShell, AuthLayout, FullscreenLayout
-├── services/              # httpClient, queryClient, websocketClient
-├── stores/                # Zustand: auth, uiPreferences, unsavedChanges, toast
-├── hooks/                 # Shared hooks (used by ≥ 2 features)
-├── utils/                 # Pure functions, no React
-├── i18n/locales/          # es-CO (primary) + en (secondary)
-├── mocks/handlers/        # MSW API handlers for tests
-├── config/
-│   ├── env.ts             # Validates env vars at startup
-│   └── features.ts        # Feature flags — all false until the story enters the sprint
-└── styles/
-    ├── primitives.css
-    ├── semantic.css
-    └── index.css
+├── app/                 # Bootstrap: providers, router (routes.ts = typed route catalog)
+├── design-system/       # Atomic design — shared UI, zero domain knowledge
+│   ├── atoms/           #   Button, Input, Icon, Badge, Logo …
+│   ├── molecules/       #   NavItem …
+│   └── organisms/       #   NavSidebar …
+├── features/            # One folder per product feature (vertical slices)
+│   ├── auth/            #   Login
+│   └── dashboard/       #   Live Monitoring
+├── layouts/             # AppShell (sidebar + page), ComingSoonPage, NotFoundPage
+├── services/            # httpClient, queryClient
+├── stores/              # Zustand: auth, uiPreferences, toast
+├── i18n/locales/        # es-CO (primary) + en
+├── config/              # env.ts, feature flags
+├── styles/              # Design tokens: primitives → semantic → Tailwind @theme
+└── utils/               # Pure functions
 
 docs/
-├── adr/                   # Architecture Decision Records (immutable once merged)
-├── sdd/                   # Software Design Document sections
-├── decisions/             # PO answers and decisions outside the backlog
-├── GLOSSARY.md            # Domain terms ↔ code names ↔ i18n keys
-└── _feature-template/     # Copy this to start a new feature
+├── specs/               # Feature and story specs + acceptance test results ← start here for any story
+├── adr/                 # Architecture Decision Records
+├── sdd/                 # Software Design Document
+└── GLOSSARY.md          # Domain terms ↔ code names ↔ i18n keys
 ```
 
-> **Full architecture rules, atomic design layers, naming conventions, and code quality limits are in [`AGENT.md`](./AGENT.md).** Read it before writing any code.
+Where does new code go?
 
----
-
-## How to contribute
-
-### First time in this repo
-
-1. Read [`AGENT.md`](./AGENT.md) — the contract for all developers and AI sessions.
-2. Read the `specs/SCRUM-XX/SPEC.md` inside the feature you are working on.
-3. Check the open questions table in `AGENT.md §20` — it may affect your feature.
-
-### Feature flags
-
-Every new feature starts behind a flag in `src/config/features.ts`. The flag is `false` until the Jira story enters the sprint. Don't ship UI that's always hidden behind a flag for more than one sprint.
-
-### Adding a new feature
-
-1. Copy `docs/_feature-template/` to `src/features/<name>/`
-2. Create `specs/SCRUM-XX/SPEC.md` for the story you are working on
-3. Only create the subfolders the current story needs — an empty folder is technical debt
-4. Fill in `SPEC.md` before writing any code
-
-### Adding a new component
-
-- **Atom / Molecule / Organism for one feature** → `src/features/<name>/components/`
-- **Shared by ≥ 2 features** → `src/design-system/<layer>/`
-- Check that the component doesn't already exist before creating it
-
----
-
-## Branch and commit conventions
-
-### Branch naming
-
-```
-SCRUM-<number>-<short-description-in-kebab-case>
-```
-
-Examples:
-```
-SCRUM-42-add-sensor-chart
-SCRUM-17-login-page
-SCRUM-88-alert-feed-component
-```
-
-- Always branch from `develop`
-- Keep branches short-lived (1–3 days)
-- Rebase on `develop` before opening a PR: `git rebase develop`
-
-### Commit messages — Conventional Commits
-
-```
-<type>(<scope>): <short description in imperative>
-```
-
-| Type | When to use |
+| You are building… | Put it in |
 |---|---|
-| `feat` | New feature or component |
-| `fix` | Bug fix |
-| `test` | Adding or updating tests |
-| `docs` | Documentation changes |
-| `refactor` | Code restructuring, no behavior change |
-| `style` | Formatting, no logic change |
-| `build` | Build config, dependencies |
-| `chore` | Maintenance tasks |
+| A component used by **one** feature | `src/features/<name>/components/` |
+| A component used by **two or more** features | `src/design-system/<atoms\|molecules\|organisms>/` |
+| A page for a sidebar section | `src/features/<name>/pages/` + route in `src/app/router/index.tsx` |
+| A spec | `docs/specs/<feature>/` |
 
-Examples:
-```
-feat(dashboard): add SensorChart component
-fix(auth): correct redirect after logout
-test(devices): add empty state test for DeviceTable
-docs(agent): update open questions table
-refactor(alerts): extract threshold logic to utility
-```
-
-No Jira ticket in the commit body — it's already in the branch name and PR title.
+Full rules: [AGENT.md §2–§6](./AGENT.md).
 
 ---
 
-## Pull request workflow
+## What is already built
 
-### PR title format
-
-```
-SCRUM-<n> | type(scope): result
-```
-
-Append ` [AI-ASSISTED]` if any AI tool generated significant code:
-```
-SCRUM-42 | feat(dashboard): add SensorChart component [AI-ASSISTED]
-```
-
-### PR checklist — verify before requesting review
-
-- [ ] Branch name follows `SCRUM-<n>-<description>` format
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm lint` passes (no new warnings)
-- [ ] `pnpm test:coverage` passes (≥ 80%)
-- [ ] No `console.log`, no `TODO` without a Jira ticket
-- [ ] No hardcoded color literals, no visible text strings in `.tsx` files
-- [ ] `specs/SCRUM-XX/SPEC.md` updated if the PR changes feature behavior
-- [ ] SDD section updated if the PR adds/changes an API endpoint or domain model
-- [ ] At least one other frontend teammate has reviewed the code
-- [ ] CI pipeline is green (GitHub Actions)
-
-### Branch protection
-
-`main` and `develop` are protected. All changes go through PRs — no direct pushes.
-
-Target of all PRs: **`develop`**
-`develop` → `main` happens only at release milestones.
-
----
-
-## Code quality rules (summary)
-
-Full rules with rationale are in [`AGENT.md §3`](./AGENT.md).
-
-| Rule | Limit |
+| Area | Status |
 |---|---|
-| Component file (`.tsx`) | Max 250 lines |
-| Hook file (`.ts`) | Max 150 lines |
-| Page file (`.tsx`) | Max 100 lines |
-| Store file (`.ts`) | Max 100 lines |
-| One file, one responsibility | Always |
-| No dead/commented code | Always |
-| No color literals | Use CSS tokens only |
-| No visible strings in `.tsx` | Use `t('namespace:key')` — en español |
-| No `any` type | Use explicit types |
-| No direct `lucide-react` imports | Use `<Icon name="..." />` |
-| No cross-feature imports | Shared code goes to `design-system/` or `hooks/` |
+| Design tokens aligned with Figma (colors, Inter font family) | ✅ |
+| Atoms: `Icon`, `Button`, `IconButton`, `Input`, `Label`, `Checkbox`, `Toggle`, `Badge`, `StatusDot`, `Avatar`, `Spinner`, `Skeleton`, `Logo` | ✅ |
+| `AppShell` with the navy sidebar (Live Monitoring · Historical Analysis · Reports) | ✅ |
+| Docker dev container | ✅ |
+| Login, guards, feature pages, molecules (FormField, SearchField…) | 🔲 see [docs/specs/INDEX.md](./docs/specs/INDEX.md) and Jira SCRUM-128 |
+
+**Adding your page:** sections without a feature show `ComingSoonPage`. In `src/app/router/index.tsx`, replace `loadComingSoon` for your route with your feature's lazy import — the sidebar is already there.
+
+---
+
+## Testing
+
+Three levels, as required by the GDSD course (full rules: [AGENT.md §12](./AGENT.md)):
+
+| Level | Tool | Where |
+|---|---|---|
+| **Unit** | Vitest + Testing Library | `X.test.tsx` next to `X.tsx` |
+| **Integration** | Vitest + MSW (mocked network) | `X.integration.test.tsx` |
+| **Acceptance** | Manual or automated, per acceptance criterion | Results recorded in `docs/specs/<feature>/SCRUM-XX.md` §8 |
+
+Every component covers **happy path + empty state + error state**, following **Arrange – Act – Assert**. No snapshots.
+
+---
+
+## Code rules (summary)
+
+| Rule | |
+|---|---|
+| No color literals | Use CSS tokens (`bg-action-primary`, `text-text-secondary` …) |
+| No visible text in `.tsx` | Use `t('namespace:key')` — UI in Spanish (es-CO) |
+| Code, comments, tests and specs | In English |
+| No `any` | Explicit types |
+| Icons | `<Icon name="..." />` only — never import `lucide-react` directly |
+| No cross-feature imports | Shared code goes to `design-system/`, `hooks/` or `utils/` |
+| File size | Component 250 lines · page 100 · hook 150 · store 100 |
+
+Full rules with rationale: [AGENT.md §3](./AGENT.md).
 
 ---
 
