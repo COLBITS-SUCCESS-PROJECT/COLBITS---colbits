@@ -34,8 +34,8 @@ describe('useLiveMonitoringQuery', () => {
     expect(useDataFreshnessStore.getState().lastSyncedAt).toBeNull()
   })
 
-  it('handles an empty network', async () => {
-    const empty = async () => ({ ...buildLiveMonitoringMock(Date.now()), nodes: [], faults: [] })
+  it('handles a network without faults', async () => {
+    const empty = async () => ({ ...buildLiveMonitoringMock(Date.now()), faults: [] })
 
     const { result } = renderHook(() => useLiveMonitoringQuery(empty), { wrapper })
 

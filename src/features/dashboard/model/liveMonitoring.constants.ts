@@ -29,5 +29,11 @@ export const PHASE_CLASSIFICATIONS: PhaseClassification[] = ['MONOPHASIC', 'BIPH
 /** Value of the "all" option in every filter select. */
 export const ALL = 'ALL'
 
-/** Map zoom (placeholder basemap). */
-export const MAP_ZOOM = { MIN: 1, MAX: 2, STEP: 0.25 } as const
+/** Map view when there are no nodes to frame: Cali, Colombia, where Colbits operates. */
+export const MAP_DEFAULT_CENTER = { latitude: 3.4516, longitude: -76.532 } as const
+export const MAP_DEFAULT_ZOOM = 13
+export const MAP_MAX_ZOOM = 19
+/** Deepest zoom requested from the tile server. Beyond it the map enlarges these tiles, so it never goes blank. */
+export const MAP_MAX_NATIVE_ZOOM = 18
+/** Space kept around the markers when the map frames all nodes, in pixels. */
+export const MAP_FIT_PADDING_PX = 48

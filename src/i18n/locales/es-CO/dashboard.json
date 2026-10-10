@@ -19,11 +19,15 @@
     "label": "Mapa de la red",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
-    "attribution": "© Datos del mapa · 500 m",
+    "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noreferrer\">OpenStreetMap</a>",
     "cluster": "{{count}} nodos agrupados",
     "node": "Nodo {{id}}",
     "fuse": "fusible: {{state}}",
-    "transformer": "transformador: {{state}}"
+    "transformer": "transformador: {{state}}",
+    "loading": "Cargando nodos",
+    "empty": "No hay nodos dentro de tu alcance.",
+    "error": "No se pudieron cargar los nodos.",
+    "retry": "Reintentar"
   },
   "fuseState": {
     "CRITICAL": "Fusible abierto",

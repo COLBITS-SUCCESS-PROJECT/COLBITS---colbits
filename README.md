@@ -90,7 +90,8 @@ Copy `.env.example` to `.env`. **Never commit `.env`** — it is in `.gitignore`
 |---|---|---|---|
 | `VITE_API_BASE_URL` | ✅ | — | Base URL of the COLBITS API Gateway |
 | `VITE_APP_ENV` | — | `development` | `development` \| `production` |
-| `VITE_ENABLE_MSW` | — | `false` | Mock API in the browser (dev only, not wired yet) |
+| `VITE_ENABLE_MSW` | — | `true` in `.env.example` | Mock API in the browser (MSW, dev only). Keep `true` until the backend services exist; `false` calls the real API |
+| `VITE_MAP_TILE_URL` | — | OpenStreetMap | Map tile source (see ADR-0006) |
 | `VITE_DEV_MOCK_SESSION` | — | `true` | Dev only: signs in a fake user until the login page exists (SCRUM-61) |
 
 If `VITE_API_BASE_URL` is missing, the app stops at startup with `[COLBITS] Required environment variable not configured: VITE_API_BASE_URL`.

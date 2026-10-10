@@ -11,7 +11,7 @@ services:
       # Values come from your .env if it exists, otherwise these defaults are used.
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
       VITE_APP_ENV: ${VITE_APP_ENV:-development}
-      VITE_ENABLE_MSW: ${VITE_ENABLE_MSW:-false}
+      VITE_ENABLE_MSW: ${VITE_ENABLE_MSW:-true}
       VITE_DEV_MOCK_SESSION: ${VITE_DEV_MOCK_SESSION:-true}
       # File events do not cross the Windows/macOS → Docker boundary; poll instead.
       CHOKIDAR_USEPOLLING: 'true'

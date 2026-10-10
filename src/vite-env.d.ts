@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_ENV?: 'development' | 'production'
   readonly VITE_ENABLE_MSW?: string
   readonly VITE_DEV_MOCK_SESSION?: string
+  readonly VITE_MAP_TILE_URL?: string
 }
 
 interface ImportMeta {
