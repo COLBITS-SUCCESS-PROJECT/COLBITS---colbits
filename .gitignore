@@ -150,3 +150,9 @@ vite.config.ts.timestamp-*
 
 # pnpm store (created when running pnpm inside Docker with the repo mounted)
 .pnpm-store
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

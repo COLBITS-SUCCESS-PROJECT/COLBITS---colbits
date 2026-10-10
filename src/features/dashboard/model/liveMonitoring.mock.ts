@@ -1,86 +1,9 @@
 /**
- * PROVISIONAL — sample data copied from the Figma screen "Monitor / Fuses layer" (M1) until the backend API
+ * PROVISIONAL — sample data of the fault panel, copied from the Figma screen "Monitor / Fuses layer" (M1), until the backend API
  * exists (AGENT.md §20, OQ-02). Delete when useLiveMonitoringQuery calls the real endpoint.
  */
 import { MS_PER_MINUTE } from './liveMonitoring.constants'
-import type { FaultAlert, LiveMonitoringData, MapCluster, MapNode } from './liveMonitoring.types'
-
-const NODES: MapNode[] = [
-  {
-    id: 'ND04821A07',
-    position: { x: 14.3, y: 19.4 },
-    fuseState: 'CRITICAL',
-    transformerState: 'NORMAL',
-  },
-  {
-    id: 'ND01120A02',
-    position: { x: 35.7, y: 15.5 },
-    fuseState: 'NORMAL',
-    transformerState: 'NORMAL',
-  },
-  {
-    id: 'ND03377A15',
-    position: { x: 51.2, y: 27.2 },
-    fuseState: 'WARNING',
-    transformerState: null,
-  },
-  {
-    id: 'ND02218B09',
-    position: { x: 66.7, y: 19.4 },
-    fuseState: 'NORMAL',
-    transformerState: 'WARNING',
-  },
-  {
-    id: 'ND08890C04',
-    position: { x: 83.3, y: 24.6 },
-    fuseState: 'INACTIVE',
-    transformerState: null,
-  },
-  { id: 'ND01543B11', position: { x: 23.8, y: 42.7 }, fuseState: 'NORMAL', transformerState: null },
-  {
-    id: 'ND05510C11',
-    position: { x: 45.2, y: 46.6 },
-    fuseState: 'CRITICAL',
-    transformerState: 'NORMAL',
-  },
-  {
-    id: 'ND06420A08',
-    position: { x: 76.2, y: 49.2 },
-    fuseState: 'WARNING',
-    transformerState: null,
-  },
-  {
-    id: 'ND07120D05',
-    position: { x: 83.3, y: 82.9 },
-    fuseState: 'WARNING',
-    transformerState: null,
-  },
-  {
-    id: 'ND06102B03',
-    position: { x: 61.9, y: 38.9 },
-    fuseState: null,
-    transformerState: 'CRITICAL',
-  },
-  {
-    id: 'ND07740D02',
-    position: { x: 18.9, y: 60.9 },
-    fuseState: null,
-    transformerState: 'WARNING',
-  },
-  { id: 'ND09931A01', position: { x: 39.3, y: 66.1 }, fuseState: null, transformerState: 'NORMAL' },
-  {
-    id: 'ND04410C07',
-    position: { x: 90.5, y: 60.9 },
-    fuseState: null,
-    transformerState: 'INACTIVE',
-  },
-  { id: 'ND02287B14', position: { x: 61.9, y: 86.8 }, fuseState: null, transformerState: 'NORMAL' },
-]
-
-const CLUSTERS: MapCluster[] = [
-  { id: 'cluster-west', position: { x: 23.8, y: 64.8 }, count: 4 },
-  { id: 'cluster-east', position: { x: 81.0, y: 64.8 }, count: 3 },
-]
+import type { FaultAlert, LiveMonitoringData } from './liveMonitoring.types'
 
 type FaultSeed = Omit<FaultAlert, 'startedAt' | 'zone'>
 
@@ -215,8 +138,6 @@ export function buildLiveMonitoringMock(now: number): LiveMonitoringData {
     startedAt: new Date(now - seed.durationMinutes * MS_PER_MINUTE),
   }))
   return {
-    nodes: NODES,
-    clusters: CLUSTERS,
     faults,
     counters: {
       fuseAlarmNodes: 7,

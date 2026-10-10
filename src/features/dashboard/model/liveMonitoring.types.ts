@@ -8,21 +8,6 @@ export type MapLayer = 'FUSES' | 'TRANSFORMERS'
 /** State precedence shared by markers, legend and fault cards (Figma: Status – Fuses & Transformers). */
 export type NetworkState = 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL'
 
-/** Position on the placeholder basemap, in % of its width / height. Replaced by lat/lng with a real map (Q2). */
-export interface MapPosition {
-  x: number
-  y: number
-}
-
-export interface MapNode {
-  id: string
-  position: MapPosition
-  /** null when the node has no fuse set. */
-  fuseState: NetworkState | null
-  /** null when the node has no transformer. */
-  transformerState: NetworkState | null
-}
-
 /** WGS84 position as recorded for a node (decimal degrees). */
 export interface GeoCoordinates {
   latitude: number
@@ -38,12 +23,6 @@ export interface NetworkNode {
   fuseState: NetworkState | null
   /** null when the node has no transformer. */
   transformerState: NetworkState | null
-}
-
-export interface MapCluster {
-  id: string
-  position: MapPosition
-  count: number
 }
 
 export type PhaseState = 'CRITICAL' | 'WARNING' | 'OK'
@@ -95,9 +74,8 @@ export interface FaultCounters {
   phaseDroppedNodes: number
 }
 
+/** Fault panel data. Map nodes come from the node service (`useNodesQuery`). */
 export interface LiveMonitoringData {
-  nodes: MapNode[]
-  clusters: MapCluster[]
   faults: FaultAlert[]
   counters: FaultCounters
 }

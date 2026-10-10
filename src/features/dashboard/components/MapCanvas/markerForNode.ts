@@ -1,8 +1,8 @@
 /** Decides how a network node is drawn for the visible layers (fuse, transformer, both or hidden). */
-import type { MapLayer, MapNode } from '../../model/liveMonitoring.types'
+import type { MapLayer, NetworkNode } from '../../model/liveMonitoring.types'
 import type { MapMarkerVariant } from '../MapMarker/MapMarker'
 
-export function markerForNode(node: MapNode, layers: MapLayer[]): MapMarkerVariant | null {
+export function markerForNode(node: NetworkNode, layers: MapLayer[]): MapMarkerVariant | null {
   const fuseState = layers.includes('FUSES') ? node.fuseState : null
   const transformerState = layers.includes('TRANSFORMERS') ? node.transformerState : null
 

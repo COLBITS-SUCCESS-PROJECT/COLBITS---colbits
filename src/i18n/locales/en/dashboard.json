@@ -19,11 +19,15 @@
     "label": "Network map",
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
-    "attribution": "© Map data · 500 m",
+    "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noreferrer\">OpenStreetMap</a>",
     "cluster": "{{count}} clustered nodes",
     "node": "Node {{id}}",
     "fuse": "fuse: {{state}}",
-    "transformer": "transformer: {{state}}"
+    "transformer": "transformer: {{state}}",
+    "loading": "Loading nodes",
+    "empty": "There are no nodes within your scope.",
+    "error": "Nodes could not be loaded.",
+    "retry": "Retry"
   },
   "fuseState": {
     "CRITICAL": "Open fuse",

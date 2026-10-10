@@ -1,4 +1,4 @@
-/** useLiveMonitoringQuery — map nodes, faults and counters for the Live Monitoring page; reports data freshness. */
+/** useLiveMonitoringQuery — faults and counters for the Live Monitoring page; reports data freshness. */
 import { useEffect } from 'react'
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { useDataFreshnessStore } from '@/stores/dataFreshness.store'

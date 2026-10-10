@@ -7,11 +7,13 @@ import { MapToolbar } from '../components/MapToolbar/MapToolbar'
 import { FaultPanel } from '../components/FaultPanel/FaultPanel'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
+import { useNodesQuery } from '../hooks/useNodesQuery'
 import { selectFaults } from '../model/faultRules'
 import { deriveScopeOptions } from '../model/scopeOptions'
 
 export function LiveMonitoringPage() {
   const query = useLiveMonitoringQuery()
+  const nodesQuery = useNodesQuery()
   const { filters, updateFilters, toggleLayer, tab, setTab } = useLiveMonitoringFilters()
   const now = useNow()
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
@@ -27,9 +29,11 @@ export function LiveMonitoringPage() {
       />
       <div className="flex min-h-0 flex-1">
         <MapCanvas
-          nodes={query.data?.nodes ?? []}
-          clusters={query.data?.clusters ?? []}
+          nodes={nodesQuery.data ?? []}
           layers={filters.layers}
+          isLoading={nodesQuery.isPending}
+          isError={nodesQuery.isError}
+          onRetry={() => void nodesQuery.refetch()}
         >
           <MapLegend layers={filters.layers} />
         </MapCanvas>
