@@ -1,28 +1,12 @@
 name: CI
 
+# Runs on every push and pull request to main / develop (no path filter), so every PR
+# shows its checks — required by the course and by branch protection.
 on:
   push:
     branches: [main, develop]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'tsconfig*.json'
-      - 'vite.config.*'
-      - '.eslintrc*'
-      - 'eslint.config.*'
-      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main, develop]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'tsconfig*.json'
-      - 'vite.config.*'
-      - '.eslintrc*'
-      - 'eslint.config.*'
-      - '.github/workflows/ci.yml'
 
 jobs:
   quality:
