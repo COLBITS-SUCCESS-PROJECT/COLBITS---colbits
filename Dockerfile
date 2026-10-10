@@ -1,5 +1,5 @@
 # Development image for the COLBITS frontend.
-# Usage: docker compose up  →  http://localhost:5173
+# Usage: docker compose up  →  http://localhost:47173
 FROM node:20-alpine
 
 # Same pnpm major as CI (.github/workflows/ci.yml).
@@ -18,8 +18,8 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-EXPOSE 5173
+EXPOSE 47173
 
 # Re-check dependencies on every start (fast when nothing changed) so a teammate's
 # new package is picked up after `git pull` without rebuilding the image.
-CMD ["sh", "-c", "pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0 --port 5173 --strictPort"]
+CMD ["sh", "-c", "pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0"]

@@ -45,7 +45,7 @@ git checkout develop
 docker compose up
 ```
 
-Open `http://localhost:5173`. Saving a file reloads the browser automatically.
+Open `http://localhost:47173`. Saving a file reloads the browser automatically.
 
 | Task | Command |
 |---|---|
@@ -76,7 +76,7 @@ cp .env.example .env    # never commit .env
 pnpm dev
 ```
 
-Open `http://localhost:5173`.
+Open `http://localhost:47173`.
 
 > **Git hooks** are activated by `pnpm install` (husky). Every `git commit` then runs ESLint + Prettier on the staged files. If the hook blocks your commit, fix the errors and commit again.
 
@@ -100,7 +100,7 @@ If `VITE_API_BASE_URL` is missing, the app stops at startup with `[COLBITS] Requ
 ## Available scripts
 
 ```bash
-pnpm dev            # Dev server with hot reload → http://localhost:5173
+pnpm dev            # Dev server with hot reload → http://localhost:47173
 pnpm build          # Production build → dist/
 pnpm preview        # Preview the production build
 pnpm typecheck      # TypeScript check

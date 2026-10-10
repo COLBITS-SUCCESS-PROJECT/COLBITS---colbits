@@ -108,7 +108,7 @@ frontend/
 ├── .github/
 │   ├── workflows/ci.yml         # CI: typecheck · lint · tests (§19)
 │   └── pull_request_template.md # Pre-filled PR description + checklist
-├── Dockerfile, docker-compose.yml  # Optional dev container: `docker compose up` → :5173 (see README)
+├── Dockerfile, docker-compose.yml  # Optional dev container: `docker compose up` → :47173 (see README)
 ├── AGENT.md                     # ← you are here
 ├── CONTRIBUTING.md              # Step-by-step workflow: story → spec → branch → PR → review → merge
 └── README.md                    # Setup, scripts, project overview
