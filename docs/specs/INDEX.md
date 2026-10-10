@@ -21,7 +21,8 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | Story | Feature | Summary | Spec | Status | Owner |
 |---|---|---|---|---|---|
 | SCRUM-61 | `auth` | Log in with credentials | — | PLANNED | TBD |
-| SCRUM-128 | `dashboard` | Base Live Monitoring screen (M1) with sample data | [FEATURE.md](./dashboard/FEATURE.md) | IN_REVIEW | Sofia |
+| SCRUM-128 | `dashboard` | Base Live Monitoring screen (M1) with sample data | [FEATURE.md](./dashboard/FEATURE.md) | DONE | Sofia |
+| SCRUM-77 | `dashboard` | [F-12] Node markers on map at recorded coordinates (US4) | [SCRUM-77.md](./dashboard/SCRUM-77.md) | IN_PROGRESS | Sofia |
 
 ## Shared foundation (no feature spec)
 Design system and app shell work, tracked in Jira under SCRUM-128.
