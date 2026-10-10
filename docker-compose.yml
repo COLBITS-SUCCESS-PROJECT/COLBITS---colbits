@@ -1,4 +1,4 @@
-# Local development: `docker compose up` → http://localhost:5173
+# Local development: `docker compose up` → http://localhost:47173
 # Source code is mounted, so saving a file reloads the browser (HMR).
 services:
   frontend:
@@ -6,7 +6,7 @@ services:
     image: colbits-frontend-dev
     container_name: colbits-frontend
     ports:
-      - '5173:5173'
+      - '47173:47173'
     environment:
       # Values come from your .env if it exists, otherwise these defaults are used.
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
