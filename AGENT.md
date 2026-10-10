@@ -38,6 +38,7 @@ This document governs the COLBITS frontend: a React SPA that displays real-time 
 | Form validation | Zod | ^3.x |
 | i18n | i18next + react-i18next | ^24.x |
 | Charts | Recharts | ^2.x |
+| Map | Leaflet + react-leaflet (OpenStreetMap tiles) — see `docs/adr/ADR-0006-leaflet-openstreetmap.md` | ^1.9 / ^5.x |
 | HTTP | Custom fetch wrapper (`httpClient.ts`) | — |
 | Testing | Vitest + Testing Library + MSW | latest |
 | Package manager | pnpm | ^9.x |
@@ -649,6 +650,9 @@ What changes, what gets harder, what gets easier.
 - `ADR-0003`: Custom fetch wrapper over axios
 - `ADR-0004`: TanStack Query for server state, Zustand for client state
 - `ADR-0005`: WebSocket strategy for real-time sensor data
+
+**Accepted beyond the planned list:**
+- `ADR-0006`: Leaflet + OpenStreetMap for the network map
 
 ---
 
