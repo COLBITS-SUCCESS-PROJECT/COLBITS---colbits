@@ -33,7 +33,8 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 
 | Story | Summary | Owner | Status |
 |---|---|---|---|
-| SCRUM-128 | Base screen M1: map, toolbar, legend, fault panel (with sample data) | Sofia | IN_REVIEW |
+| SCRUM-128 | Base screen M1: map, toolbar, legend, fault panel (with sample data) | Sofia | DONE |
+| [SCRUM-77](./SCRUM-77.md) | [F-12] Node markers on a real map at recorded coordinates (US4) | Sofia | IN_PROGRESS |
 | — | Node detail panel (M4–M9) | TBD | PLANNED |
 | — | Inactive devices tab (M12, M14) | TBD | PLANNED |
 | — | Connect to the real API / real-time (OQ-02, OQ-03) | TBD | PLANNED |
