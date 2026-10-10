@@ -23,6 +23,23 @@ export interface MapNode {
   transformerState: NetworkState | null
 }
 
+/** WGS84 position as recorded for a node (decimal degrees). */
+export interface GeoCoordinates {
+  latitude: number
+  longitude: number
+}
+
+/** A network node (pole) within the user's scope, with its recorded coordinates (F-12). */
+export interface NetworkNode {
+  /** 10-character node ID, e.g. ND04821A07. */
+  id: string
+  coordinates: GeoCoordinates
+  /** null when the node has no fuse set. */
+  fuseState: NetworkState | null
+  /** null when the node has no transformer. */
+  transformerState: NetworkState | null
+}
+
 export interface MapCluster {
   id: string
   position: MapPosition
