@@ -1,12 +1,16 @@
 name: CI
 
-# Runs on every push and pull request to main / develop (no path filter), so every PR
-# shows its checks — required by the course and by branch protection.
+# Runs on every push to any branch and on every pull request to main / develop, so every
+# change shows its checks — required by the course and by branch protection.
 on:
   push:
-    branches: [main, develop]
   pull_request:
     branches: [main, develop]
+
+# A newer push to the same branch cancels the run that is still in progress.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   quality:
@@ -44,3 +48,17 @@ jobs:
 
       - name: Tests with coverage
         run: pnpm test:coverage
+
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_API_BASE_URL: http://localhost:8080
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 30

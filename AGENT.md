@@ -723,7 +723,7 @@ When using Claude Code in this repository:
 
 ## §19 GitHub Actions — CI
 
-The CI pipeline lives in `.github/workflows/ci.yml` and runs on every push and pull request targeting `main` or `develop`.
+The CI pipeline lives in `.github/workflows/ci.yml` and runs on **every push to any branch** and on every pull request targeting `main` or `develop`.
 
 ### What it enforces
 
@@ -732,6 +732,9 @@ The CI pipeline lives in `.github/workflows/ci.yml` and runs on every push and p
 | Type check | `pnpm typecheck` | Any TypeScript error |
 | Lint | `pnpm lint` | Any ESLint warning or boundary violation |
 | Tests + coverage | `pnpm test:coverage` | Test failure or coverage < 80% |
+| Build | `pnpm build` | The production bundle does not compile |
+
+The coverage report of every run is kept for 30 days as the **`coverage-report`** artifact (Actions → run → Artifacts).
 
 **A PR cannot be merged if CI is red.** This is the only automated gate — no manual approval from CI is needed once it goes green.
 
