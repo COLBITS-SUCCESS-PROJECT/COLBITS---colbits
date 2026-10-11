@@ -31,7 +31,9 @@ Allow users to log in to the COLBITS platform with their credentials, keep an au
 | SCRUM-61 | As a user I can log in with my credentials | TBD | PLANNED |
 
 ## 4. Design (Figma)
-No login screen in Figma yet — ask Paola (PO) before starting. Only the white logo exists; a login page on a light background needs a coloured logo.
+Login screen: **Login / Default** on Figma page *2 Templates & Pages* — <https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=8-100>. It shows the logo panel, *Sign In*, two inputs, *Remember session*, *Forgot your password?* and the submit button.
+
+*Remember session* and *Forgot your password?* are in the mockup but in no requirement — confirm with the PO before building them (Q4).
 
 ## 5. Routes
 
@@ -60,4 +62,6 @@ No login screen in Figma yet — ask Paola (PO) before starting. Only the white 
 |---|---|---|---|---|
 | Q1 | JWT or Firebase Auth? (`AGENT.md §20`, OQ-01) | Yeison / Javier | OPEN | — |
 | Q2 | Token refresh strategy? | Backend team | OPEN | — |
-| Q3 | Login screen design? | Paola (PO) | OPEN | — |
+| Q3 | Login screen design? | Paola (PO) | Answered — Figma *Login / Default* (`8-100`) | 2026-10-11 |
+| Q4 | Are *Remember session* and *Forgot your password?* in scope? | Paola (PO) | OPEN | — |
+| Q5 | US2 has only backend tasks (F-01–F-03). Who builds the login page, route guards and logout (F-11, not in any story)? | Paola (PO) / Sofia (SM) | OPEN — raised for Sprint 4 planning | — |

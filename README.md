@@ -39,7 +39,7 @@ Real-time web app for monitoring medium-voltage electrical networks (fuses and t
 Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
 
 ```bash
-git clone https://github.com/MonicaBebesita/COLBITS---colbits-frontend.git
+git clone https://github.com/COLBITS-SUCCESS-PROJECT/COLBITS---colbits-frontend.git
 cd COLBITS---colbits-frontend
 git checkout develop
 docker compose up
@@ -68,7 +68,7 @@ Open `http://localhost:47173`. Saving a file reloads the browser automatically.
 | Git | 2.40+ | `git --version` |
 
 ```bash
-git clone https://github.com/MonicaBebesita/COLBITS---colbits-frontend.git
+git clone https://github.com/COLBITS-SUCCESS-PROJECT/COLBITS---colbits-frontend.git
 cd COLBITS---colbits-frontend
 git checkout develop
 pnpm install            # also activates the git hooks
