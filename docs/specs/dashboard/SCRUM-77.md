@@ -2,9 +2,9 @@
 feature: dashboard
 story: SCRUM-77
 title: '[F-12] Display node markers on map at recorded coordinates'
-status: IN_PROGRESS
+status: DONE
 owner: Sofia
-last_updated: 2026-10-10
+last_updated: 2026-10-11
 ---
 
 # SCRUM-77 — [F-12] Display node markers on map at recorded coordinates
@@ -34,8 +34,8 @@ The marker colors already present in the base screen (SCRUM-128, sample data) ar
 
 | ID | Criterion (Given / When / Then) | Test type | Test |
 |---|---|---|---|
-| AC1 | **Given** a user whose scope contains nodes N1 and N2 but not N3, **when** the user opens the map, **then** N1 and N2 appear as markers and N3 does not appear. *(F-12 acceptance criterion)* | Automated | Integration test with two mocked users (step 5) |
-| AC2 | **Given** a node with recorded latitude and longitude, **when** the map is shown, **then** its marker is placed at exactly those coordinates. | Automated | `MapCanvas` test (step 4) |
+| AC1 | **Given** a user whose scope contains nodes N1 and N2 but not N3, **when** the user opens the map, **then** N1 and N2 appear as markers and N3 does not appear. *(F-12 acceptance criterion)* | Automated | `pages/LiveMonitoringPage.acceptance.test.tsx` (AC1, two users) |
+| AC2 | **Given** a node with recorded latitude and longitude, **when** the map is shown, **then** its marker is placed at exactly those coordinates. | Automated | `pages/LiveMonitoringPage.acceptance.test.tsx` + `MapCanvas.test.tsx` |
 | AC3 | **Given** the nodes are still loading, **when** the map is shown, **then** the user sees a loading indication and no markers. | Automated | `MapCanvas` test (step 4) |
 | AC4 | **Given** the user's scope has no nodes, **when** the map is shown, **then** the map shows an empty-state message. | Automated | `MapCanvas` test (step 4) |
 | AC5 | **Given** the node service fails, **when** the map is shown, **then** the user sees an error message with a retry action. | Automated | `MapCanvas` test (step 4) |
@@ -100,12 +100,23 @@ Fill in after testing. Every FAIL needs an action taken.
 
 | Date | Criterion | Result | Tested by | Action taken |
 |---|---|---|---|---|
-| — | AC1 | — | — | — |
-| — | AC2 | — | — | — |
-| — | AC3 | — | — | — |
-| — | AC4 | — | — | — |
-| — | AC5 | — | — | — |
-| — | AC6 | — | — | — |
+| 2026-10-11 | AC1 | PASS | Automated (CI) | — |
+| 2026-10-11 | AC2 | PASS | Automated (CI) + Sofia (manual, Chrome) | — |
+| 2026-10-11 | AC3 | PASS | Automated (CI) | — |
+| 2026-10-11 | AC4 | PASS | Automated (CI) | — |
+| 2026-10-11 | AC5 | PASS | Automated (CI) | — |
+| 2026-10-10 | AC6 | PASS | Sofia (manual, Chrome, Docker) | — |
+
+**How to run:** `pnpm exec vitest run src/features/dashboard/pages/LiveMonitoringPage.acceptance.test.tsx`. The suite also runs in CI on every push.
+
+**Issues found while testing (and action taken):**
+
+| Date | Found by | Issue | Action |
+|---|---|---|---|
+| 2026-10-10 | Manual check | The app stayed blank when the browser blocked the mock service worker | `main.tsx` now starts the app anyway; the map shows its error state (step 4) |
+| 2026-10-10 | Sofia, manual check | The map went blank (gray) at maximum zoom | Tiles are enlarged past zoom 18 with `maxNativeZoom` + a test for it (step 4) |
+
+**Limits of this evidence:** the node service is mocked (MSW) because the backend does not exist yet, so scope filtering is verified against the mock, not the real API. F-12's verification method in the Requirements Specification is "Acceptance test on the database copy" — AC1 must be re-run against the real service when US3 (F-10) is delivered.
 
 ## 9. Implementation notes
 Delivered in five small PRs, one per step:
