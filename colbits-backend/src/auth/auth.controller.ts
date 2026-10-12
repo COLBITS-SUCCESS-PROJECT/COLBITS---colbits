@@ -1,6 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Req } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Req, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
+import { RolesGuard } from './roles.guard';
 import { Request } from 'express';
 
 @Controller('auth')
@@ -18,7 +19,22 @@ export class AuthController {
   getProfile(@Req() req: any) {
     return {
       message: 'Access granted! You are inside the protected route.',
-      user: req['user'], 
+      user: req['user'],
     };
+  }
+
+  // SCRUM-147 / F-11: Logout endpoint
+  @Post('logout')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async logout(@Req() req: any) {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+      throw new UnauthorizedException('Token not provided');
+    }
+
+    return this.authService.logout(token);
   }
 }

@@ -4,16 +4,20 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User } from './user.entity';
+import { TokenBlacklist } from './token-blacklist.entity';
+import { AuthGuard } from './auth.guard';
+import { RolesGuard } from './roles.guard'; 
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]), // This gives AuthService access to the DB
+    TypeOrmModule.forFeature([User, TokenBlacklist]),
     JwtModule.register({
-      secret: 'colbits-super-secret-key', 
-      signOptions: { expiresIn: '15m' }, 
+      secret: 'colbits-super-secret-key',
+      signOptions: { expiresIn: '15m' },
     }),
   ],
-  providers: [AuthService],
+  providers: [AuthService, AuthGuard, RolesGuard], 
   controllers: [AuthController],
+  exports: [AuthGuard, RolesGuard], 
 })
 export class AuthModule {}

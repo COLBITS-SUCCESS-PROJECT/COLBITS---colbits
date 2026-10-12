@@ -1,19 +1,32 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { TokenBlacklist } from './token-blacklist.entity';
 import { Request } from 'express';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    @InjectRepository(TokenBlacklist)
+    private blacklistRepo: Repository<TokenBlacklist>,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const token = this.extractTokenFromHeader(request);
-    
+
     if (!token) {
       throw new UnauthorizedException('Token not found - Access Denied');
     }
-    
+
+    // SCRUM-147 / F-11: Check if token has been invalidated on the server
+    const isBlacklisted = await this.blacklistRepo.findOne({ where: { token } });
+    if (isBlacklisted) {
+      throw new UnauthorizedException('Token has been invalidated (Logged out)');
+    }
+
     try {
       const payload = await this.jwtService.verifyAsync(token, {
         secret: 'colbits-super-secret-key',
@@ -22,6 +35,7 @@ export class AuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
+
     return true;
   }
 
