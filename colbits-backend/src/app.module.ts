@@ -4,10 +4,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { DeviceModule } from './device/device.module';
 
 @Module({
   imports: [
-    AuthModule, // <-- This registers your login route!
+    AuthModule,
+    DeviceModule,
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -20,7 +22,7 @@ import { AuthModule } from './auth/auth.module';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         autoLoadEntities: true,
-        synchronize: false, // Keep false for production/TimescaleDB safety
+        synchronize: false, 
       }),
     }),
   ],
