@@ -11,6 +11,10 @@ services:
       POSTGRES_DB: colbits
     ports:
       - "5432:5432"
+    volumes:
+      - ./01_create_tables.sql:/docker-entrypoint-initdb.d/01_create_tables.sql
+      - ./02_dummy_inserts.sql:/docker-entrypoint-initdb.d/02_dummy_inserts.sql
+      - ./03_security_schema.sql:/docker-entrypoint-initdb.d/03_security_schema.sql
 
   pgadmin:
     image: dpage/pgadmin4
