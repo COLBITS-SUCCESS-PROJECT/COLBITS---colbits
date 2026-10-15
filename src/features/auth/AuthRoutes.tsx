@@ -1,4 +1,6 @@
-/** TODO SCRUM-61: Implement auth routes (login, JWT). */
+/** Auth feature routes — the login page (SCRUM-61). */
+import { LoginPage } from './pages/LoginPage'
+
 export function AuthRoutes() {
-  return <div>Login — coming soon</div>
+  return <LoginPage />
 }

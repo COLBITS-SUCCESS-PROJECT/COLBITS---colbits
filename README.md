@@ -92,7 +92,7 @@ Copy `.env.example` to `.env`. **Never commit `.env`** — it is in `.gitignore`
 | `VITE_APP_ENV` | — | `development` | `development` \| `production` |
 | `VITE_ENABLE_MSW` | — | `true` in `.env.example` | Mock API in the browser (MSW, dev only). Keep `true` until the backend services exist; `false` calls the real API |
 | `VITE_MAP_TILE_URL` | — | OpenStreetMap | Map tile source (see ADR-0006) |
-| `VITE_DEV_MOCK_SESSION` | — | `true` | Dev only: signs in a fake user until the login page exists (SCRUM-61) |
+| `VITE_DEV_MOCK_SESSION` | — | `true` | Dev only: signs in a fake user so you can work without the backend. Set `false` to go through the login page — with the mock API, log in as `admin` / `admin123` or `consulta` / `consulta123` ([SCRUM-61](./docs/specs/auth/SCRUM-61.md)) |
 
 If `VITE_API_BASE_URL` is missing, the app stops at startup with `[COLBITS] Required environment variable not configured: VITE_API_BASE_URL`.
 
@@ -151,7 +151,7 @@ Where does new code go?
 |---|---|
 | A component used by **one** feature | `src/features/<name>/components/` |
 | A component used by **two or more** features | `src/design-system/<atoms\|molecules\|organisms>/` |
-| A page for a sidebar section | `src/features/<name>/pages/` + route in `src/app/router/index.tsx` |
+| A page for a sidebar section | `src/features/<name>/pages/` + route in `src/app/router/appRoutes.tsx` |
 | A spec | `docs/specs/<feature>/` |
 
 Full rules: [AGENT.md §2–§6](./AGENT.md).
@@ -163,13 +163,14 @@ Full rules: [AGENT.md §2–§6](./AGENT.md).
 | Area | Status |
 |---|---|
 | Design tokens aligned with Figma (colors, Inter font family, `touch-target` utility) | ✅ |
-| **15 atoms · 9 molecules · 2 shared organisms** — full list in the [component catalog](./src/design-system/README.md) | ✅ |
+| **15 atoms · 10 molecules · 2 shared organisms** — full list in the [component catalog](./src/design-system/README.md) | ✅ |
 | `AppShell` = Figma *App Shell*: navy sidebar (with user) + top bar (title, last update, avatar) | ✅ |
 | **Live Monitoring** (`/dashboard`, Figma M1–M3): map toolbar, map with markers & legend, fault panel — with PROVISIONAL sample data | ✅ |
 | Docker dev container | ✅ |
-| Login and guards, node detail, Historical Analysis, Reports, User Management, chatbot | 🔲 see [docs/specs/INDEX.md](./docs/specs/INDEX.md) and Jira SCRUM-128 |
+| **Login** (`/login`, Figma *Login / Default*): username + password, every page behind login, map after a successful login — SCRUM-61, against the mock API until the backend accepts browser calls | ✅ |
+| Node detail, Historical Analysis, Reports, User Management, chatbot | 🔲 see [docs/specs/INDEX.md](./docs/specs/INDEX.md) and Jira SCRUM-128 |
 
-**Adding your page:** sections without a feature show `ComingSoonPage`. In `src/app/router/index.tsx`, replace `loadComingSoon` for your route with your feature's lazy import — the sidebar is already there.
+**Adding your page:** sections without a feature show `ComingSoonPage`. In `src/app/router/appRoutes.tsx`, replace `loadComingSoon` for your route with your feature's lazy import — the sidebar is already there.
 
 ---
 
