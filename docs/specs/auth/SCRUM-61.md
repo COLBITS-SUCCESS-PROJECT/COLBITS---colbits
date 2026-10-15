@@ -2,9 +2,9 @@
 feature: auth
 story: SCRUM-61
 title: '[F-01] Log in with username and password'
-status: IN_PROGRESS
+status: IN_REVIEW
 owner: Paola
-last_updated: 2026-10-14
+last_updated: 2026-10-15
 ---
 
 # SCRUM-61 — [F-01] Log in with username and password
@@ -122,7 +122,7 @@ Fill in after testing. Every FAIL needs an action taken.
 | 2026-10-14 | AC4 | PASS | Automated (local run, `pnpm test:coverage`) | — |
 | 2026-10-14 | AC5 | PASS | Automated (local run, `pnpm test:coverage`) | — |
 | 2026-10-14 | AC6 | PASS | Automated (local run, `pnpm test:coverage`) | — |
-| — | AC7 | PENDING | Paola (manual, against Figma) | — |
+| 2026-10-15 | AC7 | PASS | Paola (manual, against Figma) | Differences in §3 accepted |
 
 **How to run:** `pnpm exec vitest run src/features/auth src/app/router src/layouts/AuthLayout.test.tsx`. The suite also runs in CI on every push.
 
