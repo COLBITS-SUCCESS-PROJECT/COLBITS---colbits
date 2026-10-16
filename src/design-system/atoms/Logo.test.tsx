@@ -21,6 +21,15 @@ describe('Logo', () => {
     expect(logo).toHaveAttribute('height', '24')
   })
 
+  it('renders the large size used on the login brand panel', () => {
+    render(<Logo label="Colbits" size="lg" />)
+
+    const logo = screen.getByRole('img')
+    expect(logo).toHaveAttribute('width', '235')
+    expect(logo).toHaveAttribute('height', '40')
+    expect(logo).toHaveClass('h-10')
+  })
+
   it('is decorative when the label is empty', () => {
     const { container } = render(<Logo label="" />)
 

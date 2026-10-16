@@ -60,6 +60,7 @@ frontend/
 │   │   ├── providers/           # QueryClientProvider, I18nextProvider, AuthProvider
 │   │   └── router/
 │   │       ├── index.tsx        # RouterProvider
+│   │       ├── appRoutes.tsx    # Route tree: RequireAuth around AppShell, RedirectIfAuthenticated around /login
 │   │       ├── routes.ts        # ROUTES and ROUTE_PATTERNS constants (typed catalog)
 │   │       └── guards/          # RequireAuth, RedirectIfAuthenticated, RequireRole
 │   │
@@ -410,7 +411,7 @@ Route tree (target — guards arrive with SCRUM-61):
 └── *                         NotFoundPage
 ```
 
-To plug a feature in, replace its `loadComingSoon` entry in `src/app/router/index.tsx` with the feature's lazy import.
+To plug a feature in, replace its `loadComingSoon` entry in `src/app/router/appRoutes.tsx` with the feature's lazy import.
 
 ---
 

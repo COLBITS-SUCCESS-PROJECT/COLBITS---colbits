@@ -6,7 +6,8 @@ export type UserRole = 'ADMIN' | 'OPERATOR' | 'VIEWER'
 export interface AuthUser {
   id: string
   name: string
-  email: string
+  /** Not in the access token yet — optional until the API returns it. */
+  email?: string
   role: UserRole
 }
 
@@ -24,7 +25,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
   isAuthenticated: false,
-  isLoading: true,
+  // No session is restored at start-up (the store lives in memory, AGENT.md §5.2), so nothing is loading.
+  isLoading: false,
   setSession: (user, token) => set({ user, token, isAuthenticated: true, isLoading: false }),
   clearAuth: () => set({ user: null, token: null, isAuthenticated: false, isLoading: false }),
   setLoading: (loading) => set({ isLoading: loading }),

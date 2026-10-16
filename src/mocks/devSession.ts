@@ -1,4 +1,4 @@
-/** Dev-only fake session so the shell shows a signed-in user until login exists (TODO SCRUM-61: delete). */
+/** Dev-only fake session (VITE_DEV_MOCK_SESSION) so the team can work without the backend. Set it to false to use the login page. */
 import { useAuthStore, type AuthUser } from '@/stores/auth.store'
 import { MOCK_TOKENS } from './data/nodes.fixtures'
 

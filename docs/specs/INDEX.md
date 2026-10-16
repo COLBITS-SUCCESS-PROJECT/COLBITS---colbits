@@ -9,7 +9,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 
 | Feature | Sidebar entry / route | Spec | Status | Owner |
 |---|---|---|---|---|
-| `auth` | `/login` | [FEATURE.md](./auth/FEATURE.md) | PLANNED | TBD |
+| `auth` | `/login` | [FEATURE.md](./auth/FEATURE.md) | IN_PROGRESS | Paola |
 | `dashboard` | Live Monitoring · `/dashboard` | [FEATURE.md](./dashboard/FEATURE.md) | IN_PROGRESS | Sofia |
 | `analysis` | Historical Analysis · `/analysis` | [FEATURE.md](./analysis/FEATURE.md) | PLANNED | TBD |
 | `reports` | Reports · `/reports` | [FEATURE.md](./reports/FEATURE.md) | PLANNED | TBD |
@@ -20,7 +20,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 
 | Story | Feature | Summary | Spec | Status | Owner |
 |---|---|---|---|---|---|
-| SCRUM-61 | `auth` | Log in with credentials | — | PLANNED | TBD |
+| SCRUM-61 | `auth` | [F-01] Log in with username and password; protect every page behind login | [SCRUM-61.md](./auth/SCRUM-61.md) | IN_REVIEW | Paola |
 | SCRUM-128 | `dashboard` | Base Live Monitoring screen (M1) with sample data | [FEATURE.md](./dashboard/FEATURE.md) | DONE | Sofia |
 | SCRUM-77 | `dashboard` | [F-12] Node markers on map at recorded coordinates (US4) | [SCRUM-77.md](./dashboard/SCRUM-77.md) | DONE | Sofia |
 

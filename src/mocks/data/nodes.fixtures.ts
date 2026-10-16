@@ -3,6 +3,7 @@
  * until the backend node service and the synthetic generator exist (US1, US3).
  */
 import type { NodeDto } from '@/features/dashboard/api/nodes.dto'
+import { MOCK_LOGIN_TOKENS } from './auth.fixtures'
 
 export const NODE_FIXTURES: NodeDto[] = [
   {
@@ -122,4 +123,7 @@ export const MOCK_SCOPES: Record<string, string[] | null> = {
   [MOCK_TOKENS.NORTH]: NORTH_NODE_IDS,
   [MOCK_TOKENS.SOUTH]: SOUTH_NODE_IDS,
   [MOCK_TOKENS.NO_SCOPE]: [],
+  // Users of the mock login (auth.fixtures.ts)
+  [MOCK_LOGIN_TOKENS.ADMIN]: null,
+  [MOCK_LOGIN_TOKENS.CONSULTA]: NORTH_NODE_IDS,
 }

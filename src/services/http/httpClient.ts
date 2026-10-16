@@ -15,10 +15,18 @@ export class ApiError extends Error {
     this.name = 'ApiError'
   }
 
-  isUnauthorized() { return this.status === 401 }
-  isForbidden()    { return this.status === 403 }
-  isNotFound()     { return this.status === 404 }
-  isConflict()     { return this.status === 409 }
+  isUnauthorized() {
+    return this.status === 401
+  }
+  isForbidden() {
+    return this.status === 403
+  }
+  isNotFound() {
+    return this.status === 404
+  }
+  isConflict() {
+    return this.status === 409
+  }
 }
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -27,10 +35,12 @@ interface RequestOptions {
   method?: HttpMethod
   body?: unknown
   signal?: AbortSignal
+  /** Throw the 401 as an ApiError instead of ending the session and reloading `/login` (e.g. the login call itself). */
+  skipAuthRedirect?: boolean
 }
 
 export async function httpClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, signal: externalSignal } = options
+  const { method = 'GET', body, signal: externalSignal, skipAuthRedirect = false } = options
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -58,7 +68,7 @@ export async function httpClient<T>(path: string, options: RequestOptions = {}):
 
     clearTimeout(timeoutId)
 
-    if (res.status === 401) {
+    if (res.status === 401 && !skipAuthRedirect) {
       useAuthStore.getState().clearAuth()
       window.location.href = '/login'
       throw new ApiError(401, 'Unauthorized', 'Session expired')

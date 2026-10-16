@@ -46,7 +46,7 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 |---|---|---|
 | `/analysis` | `HistoricalAnalysisPage` | RequireAuth (pending SCRUM-61) |
 
-Currently renders `ComingSoonPage` — replace it in `src/app/router/index.tsx`.
+Currently renders `ComingSoonPage` — replace it in `src/app/router/appRoutes.tsx`.
 
 ## 6. Components
 

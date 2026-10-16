@@ -18,7 +18,8 @@ async function startMockApi(): Promise<void> {
   }
 }
 
-// TODO SCRUM-61: remove once the login page creates a real session.
+// Dev only (VITE_DEV_MOCK_SESSION): signs in a fake user so the app works without the backend.
+// Set it to false to go through the login page (SCRUM-61).
 if (ENV.DEV_MOCK_SESSION) startDevSession()
 
 const root = document.getElementById('root')
