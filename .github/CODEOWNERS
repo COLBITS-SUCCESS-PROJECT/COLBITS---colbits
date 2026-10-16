@@ -1,0 +1,4 @@
+# Reviewers requested automatically on each PR, by folder. One approval from any teammate is enough to merge.
+/frontend/  @Sofii141 @MonicaBebesita @paolaran
+/backend/   @YeisonDelgado @javi25diaz @Mahmoud-Khalil05
+/.github/   @Sofii141

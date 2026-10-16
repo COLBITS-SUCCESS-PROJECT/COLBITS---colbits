@@ -1,36 +1,28 @@
 <!--
-PR title format:
-  Story:      SCRUM-<n> | type(scope): result          e.g. SCRUM-61 | feat(auth): add login page
-  No ticket:  type(scope): result                      e.g. chore(docker): add dev container
-Append " [AI-ASSISTED]" if AI generated significant code.
-Full guide: CONTRIBUTING.md
+Title:             SCRUM-<n> | type(scope): result    e.g. SCRUM-61 | feat(auth): add login page
+Without a ticket:  type(scope): result                 e.g. chore(docker): add dev container
+Used AI? End the title with [AI-ASSISTED] or [AI-GENERATED], matching "AI use" below.
+The "pr-standards" check verifies this. Guide: CONTRIBUTING.md
 -->
 
-## Summary
-<!-- What does this PR do and why? 1–3 sentences. -->
+## What
+<!-- 1–3 lines: what changes and why. -->
+
 
 Jira: https://colbits-success.atlassian.net/browse/SCRUM-
-Spec: `docs/specs/<feature>/SCRUM-XX.md`
-
-## Changes
-<!-- Main changes, grouped by area. -->
--
-
-## Screenshots
-<!-- Required for UI changes: before / after, or the new screen next to its Figma frame. -->
 
 ## How to test
-<!-- Steps for the reviewer, e.g. "open /dashboard, click X, see Y". -->
+<!-- One step is enough, e.g. "open /dashboard and see the markers". If the UI changes, paste a screenshot. -->
 1.
 
+## AI use
+<!-- Tick only one with [x]. -->
+- [ ] **No AI**
+- [ ] **AI-assisted** (suggestions, review or parts of the code)
+- [ ] **AI-generated** (most of the code)
+
+Tool:
+
 ## Checklist
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm lint` passes
-- [ ] `pnpm test:coverage` passes (≥ 80%)
-- [ ] Happy path, empty state and error state are tested
-- [ ] No hardcoded colors or visible text (tokens + `t('namespace:key')`)
-- [ ] No `console.log`, no `TODO` without a Jira ticket
-- [ ] Spec updated in `docs/specs/` (acceptance criteria / test results) — or N/A
-- [ ] `docs/specs/INDEX.md` status updated — or N/A
-- [ ] Matches the Figma frame — or N/A
-- [ ] Reviewer assigned (Sofia, Monica or Paola)
+- [ ] CI passes (lint, tests, build)
+- [ ] I reviewed everything the AI produced before pushing it
