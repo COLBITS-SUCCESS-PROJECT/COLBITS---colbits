@@ -10,13 +10,33 @@
 
 **How we work (branches, PR titles, reviews):** [CONTRIBUTING.md](./CONTRIBUTING.md)
 
-## Quick start
+## Getting started
 
 ```bash
 git clone https://github.com/COLBITS-SUCCESS-PROJECT/COLBITS---colbits.git
 cd COLBITS---colbits
 git checkout develop
 ```
+
+### Option A — everything with Docker (recommended)
+
+Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
+
+```bash
+cp .env.example .env      # once; never commit .env
+docker compose up
+```
+
+| Service | URL |
+|---|---|
+| Frontend | `http://localhost:47173` |
+| Backend | `http://localhost:3000` |
+| pgAdmin | `http://localhost:8888` |
+| PostgreSQL | `localhost:5432` |
+
+Stop with `docker compose down`. Reset the database (re-runs `backend/database/*.sql`): `docker compose down -v`.
+
+### Option B — each app on your machine
 
 **Frontend** — `http://localhost:47173`
 
