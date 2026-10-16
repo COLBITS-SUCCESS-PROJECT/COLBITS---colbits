@@ -5,11 +5,15 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { DeviceModule } from './device/device.module';
+import { NodesModule } from './nodes/nodes.module';
+import { ScopeModule } from './scope/scope.module';
 
 @Module({
   imports: [
     AuthModule,
     DeviceModule,
+    NodesModule,
+    ScopeModule,
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
