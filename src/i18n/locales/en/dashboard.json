@@ -21,6 +21,7 @@
     "zoomOut": "Zoom out",
     "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noreferrer\">OpenStreetMap</a>",
     "cluster": "{{count}} clustered nodes",
+    "expandCluster": "Zoom in to separate the nodes",
     "node": "Node {{id}}",
     "fuse": "fuse: {{state}}",
     "transformer": "transformer: {{state}}",

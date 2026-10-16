@@ -1,8 +1,8 @@
-/** MapCanvas organism — real map with one marker per node at its recorded coordinates (Figma: Map Canvas, F-12). */
+/** MapCanvas organism — real map with one marker per node at its coordinates (F-12), grouped where they overlap (F-13). */
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { latLngBounds, type Map as LeafletMap } from 'leaflet'
+import { latLngBounds, type LeafletKeyboardEvent, type Map as LeafletMap } from 'leaflet'
 import { MapContainer, Marker, ScaleControl, TileLayer } from 'react-leaflet'
 import { Icon } from '@/design-system/atoms'
 import { ENV } from '@/config/env'
@@ -14,9 +14,11 @@ import {
   MAP_MAX_ZOOM,
 } from '../../model/liveMonitoring.constants'
 import type { MapLayer, NetworkNode, NetworkState } from '../../model/liveMonitoring.types'
+import { clusterMarkers, expansionZoom, type ClusterItem } from './clusterMarkers'
 import { createMarkerIcon } from './markerIcon'
 import { MapStateOverlay, type MapState } from './MapStateOverlay'
 import { buildNodeMarkers, toMarkerPosition } from './nodeMarkers'
+import { useMapZoom } from './useMapZoom'
 
 export interface MapCanvasProps {
   /** Nodes within the user's scope — the map draws exactly these (scope is applied by the API). */
@@ -28,6 +30,9 @@ export interface MapCanvasProps {
   /** Overlay at the bottom-left corner (the legend). */
   children?: ReactNode
 }
+
+/** Keys that activate a focused cluster, as on any button. */
+const ACTIVATION_KEYS = ['Enter', ' ']
 
 const ZOOM_BUTTON =
   'touch-target flex px-3 py-1.5 text-action-secondary transition-colors hover:bg-bg-surface-alt focus-visible:outline-2 focus-visible:outline-border-focus'
@@ -44,6 +49,8 @@ export function MapCanvas({
   const [map, setMap] = useState<LeafletMap | null>(null)
   const framedNodes = useRef('')
   const markers = useMemo(() => buildNodeMarkers(nodes, layers), [nodes, layers])
+  const zoom = useMapZoom(map, MAP_DEFAULT_ZOOM)
+  const items = useMemo(() => clusterMarkers(markers, zoom), [markers, zoom])
 
   // Frame all nodes once per node set — not on every refresh, so the user's pan / zoom is kept.
   useEffect(() => {
@@ -63,6 +70,11 @@ export function MapCanvas({
     if (layers.includes('TRANSFORMERS'))
       describe('map.transformer', node.transformerState, 'transformerState')
     return parts.join(', ')
+  }
+
+  /** Zooms in on a cluster until its nodes separate (PO decision, SCRUM-63 AC5). */
+  function expandCluster(cluster: ClusterItem) {
+    map?.setView(cluster.position, expansionZoom(cluster, zoom, MAP_MAX_ZOOM))
   }
 
   const state: MapState | null = isError
@@ -95,15 +107,33 @@ export function MapCanvas({
         />
         <ScaleControl position="bottomright" imperial={false} />
         {state === null &&
-          markers.map(({ node, position, variant }) => (
-            <Marker
-              key={node.id}
-              position={position}
-              icon={createMarkerIcon(variant, describeNode(node))}
-              interactive={false}
-              keyboard={false}
-            />
-          ))}
+          items.map((item) =>
+            item.type === 'node' ? (
+              <Marker
+                key={item.marker.node.id}
+                position={item.marker.position}
+                icon={createMarkerIcon(item.marker.variant, describeNode(item.marker.node))}
+                interactive={false}
+                keyboard={false}
+              />
+            ) : (
+              <Marker
+                key={item.id}
+                position={item.position}
+                icon={createMarkerIcon(
+                  { kind: 'cluster', count: item.markers.length },
+                  t('map.cluster', { count: item.markers.length })
+                )}
+                title={t('map.expandCluster')}
+                eventHandlers={{
+                  click: () => expandCluster(item),
+                  keypress: (event: LeafletKeyboardEvent) => {
+                    if (ACTIVATION_KEYS.includes(event.originalEvent.key)) expandCluster(item)
+                  },
+                }}
+              />
+            )
+          )}
       </MapContainer>
 
       <div className="absolute top-4 right-4 z-10 flex flex-col overflow-hidden rounded-lg border border-border-default bg-bg-surface">
