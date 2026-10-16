@@ -1,5 +1,7 @@
 # Contributing to COLBITS Frontend
 
+Frontend workflow, step by step. Branch, PR title and merge rules shared with the backend live in the [root CONTRIBUTING.md](../CONTRIBUTING.md) and are checked by `pr-standards`.
+
 This is **the** guide for how we work: from taking a Jira story to merging the PR. Follow it step by step.
 Questions → ask Sofia (Scrum Master) in the team chat.
 
@@ -109,14 +111,14 @@ Also:
 - **Title:**
   - Story: `SCRUM-<n> | type(scope): result` → `SCRUM-61 | feat(auth): add login page`
   - No ticket: `type(scope): result` → `chore(docker): add dev container`
-  - Append ` [AI-ASSISTED]` if AI generated significant code.
-- **Description:** GitHub pre-fills it from `.github/pull_request_template.md`. Fill in every section and tick the checklist.
+  - The rules are checked by `pr-standards` — see the [root CONTRIBUTING.md](../CONTRIBUTING.md).
+- **Description:** GitHub pre-fills it from `.github/pull_request_template.md`. Fill in **What**, **How to test** and **AI use**.
 - **Reviewer:** assign one other frontend teammate (Sofia, Monica or Paola).
 - **Jira:** move the story to **In Review**.
 
 ## 7. Review and merge
 
-- **1 approval + green CI** are required to merge into `develop`.
+- **1 approval** + green `ci-ok` and `pr-standards` are required to merge into `develop`.
 - The author addresses the comments by pushing new commits to the same branch.
 - After merging: delete the branch, set the spec status to `DONE` (if all acceptance criteria passed) and move the Jira story to **Done**.
 
@@ -131,11 +133,11 @@ Also:
 
 AI tools are allowed and encouraged.
 
-1. Append ` [AI-ASSISTED]` to the PR title.
+1. Tick the option that applies under **AI use** in the PR description and name the tool.
 2. **You are responsible** for everything that merges — review AI output against `AGENT.md §3`.
 3. Check especially: no color literals, no hardcoded text, no `any`, no boundary violations, no oversized files.
 4. AI never commits or pushes — you stage, review and commit yourself (`AGENT.md §18`).
 
 ## Releases
 
-`develop` → `main` only at course milestones (Alpha, Beta, Final), through a PR with 1 approval.
+`develop` → `main` only at course milestones (Alpha, Beta, Final), through a PR with 1 approval — see [Releases](../CONTRIBUTING.md#releases-course-deliveries).
