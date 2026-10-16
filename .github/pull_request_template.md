@@ -1,6 +1,7 @@
 <!--
 Title:             SCRUM-<n> | type(scope): result    e.g. SCRUM-61 | feat(auth): add login page
 Without a ticket:  type(scope): result                 e.g. chore(docker): add dev container
+Used AI? End the title with [AI-ASSISTED] or [AI-GENERATED], matching "AI use" below.
 The "pr-standards" check verifies this. Guide: CONTRIBUTING.md
 -->
 

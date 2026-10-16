@@ -4,6 +4,9 @@
 
 const TYPES = ['feat', 'fix', 'test', 'docs', 'refactor', 'style', 'build', 'ci', 'chore', 'perf', 'revert']
 const AI_OPTIONS = ['No AI', 'AI-assisted', 'AI-generated']
+// Title tag that must match the ticked AI option ("No AI" has no tag).
+const AI_TITLE_TAGS = { 'No AI': '', 'AI-assisted': '[AI-ASSISTED]', 'AI-generated': '[AI-GENERATED]' }
+const ANY_AI_TAG = /\[AI-[A-Z]+\]$/
 const MIN_SUMMARY_CHARS = 10
 const MIN_TEST_STEP_CHARS = 5
 
@@ -51,9 +54,26 @@ function checkTitle({ branch, title }) {
   return errors
 }
 
+function tickedAiOptions(body) {
+  return AI_OPTIONS.filter((option) => new RegExp(`- \\[[xX]\\] \\*\\*${option}\\*\\*`).test(body))
+}
+
+function checkAiTag({ title, body }) {
+  const ticked = tickedAiOptions(body)
+  if (ticked.length !== 1) return []
+  const expected = AI_TITLE_TAGS[ticked[0]]
+  const actual = (title.match(ANY_AI_TAG) || [''])[0]
+  if (actual === expected) return []
+  return [
+    expected
+      ? `You ticked **${ticked[0]}** in AI use: end the title with \`${expected}\`.`
+      : 'You ticked **No AI** in AI use: remove the `[AI-…]` tag from the title.',
+  ]
+}
+
 function checkBody(body) {
   const errors = []
-  const ticked = AI_OPTIONS.filter((option) => new RegExp(`- \\[[xX]\\] \\*\\*${option}\\*\\*`).test(body))
+  const ticked = tickedAiOptions(body)
   if (ticked.length !== 1) {
     errors.push('In **AI use**, tick exactly one option: No AI, AI-assisted or AI-generated.')
   } else if (ticked[0] !== 'No AI' && !/Tool:[ \t]*\S+/.test(body)) {
@@ -72,7 +92,12 @@ function checkBody(body) {
 function checkPullRequest({ branch, base, title, body }) {
   const text = (body || '').replace(/<!--[\s\S]*?-->/g, '')
   const cleanTitle = (title || '').trim()
-  return [...checkBranch({ branch, base }), ...checkTitle({ branch, title: cleanTitle }), ...checkBody(text)]
+  return [
+    ...checkBranch({ branch, base }),
+    ...checkTitle({ branch, title: cleanTitle }),
+    ...checkBody(text),
+    ...checkAiTag({ title: cleanTitle, body: text }),
+  ]
 }
 
 module.exports = { checkPullRequest }

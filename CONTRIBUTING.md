@@ -44,6 +44,8 @@ Types: `feat` `fix` `test` `docs` `refactor` `style` `build` `ci` `chore` `perf`
 - **Title:** `SCRUM-<n> | type(scope): result` → `SCRUM-61 | feat(auth): add login page`.
   Without a ticket: `type(scope): result` → `chore(repo): split frontend and backend`.
   The ticket in the title must match the one in the branch.
+  If you used AI, end the title with ` [AI-ASSISTED]` or ` [AI-GENERATED]` — it must match the **AI use** box.
+  → `SCRUM-61 | feat(auth): add login page [AI-ASSISTED]`
 - **Description:** GitHub fills in the template. Complete the three short parts:
   - **What** — 1–3 lines.
   - **How to test** — one step is enough.
@@ -63,7 +65,7 @@ After merging, delete the branch and move the Jira issue to **Done**.
 
 ## Using AI
 
-AI tools are allowed. Declare them in the PR (**AI use**) — **you are responsible** for everything you merge.
+AI tools are allowed. Declare them in the PR: tag in the title + **AI use** box, and both must match — **you are responsible** for everything you merge.
 Review what the AI produced, and never let it commit or push for you.
 
 ## Releases (course deliveries)

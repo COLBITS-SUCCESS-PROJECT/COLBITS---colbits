@@ -23,7 +23,7 @@ Tool: Claude Code
 const GOOD = {
   branch: 'SCRUM-61-login-page',
   base: 'develop',
-  title: 'SCRUM-61 | feat(auth): add login page',
+  title: 'SCRUM-61 | feat(auth): add login page [AI-ASSISTED]',
   body: GOOD_BODY,
 }
 
@@ -33,17 +33,17 @@ test('accepts a PR that follows every convention', () => {
 
 test('accepts branches and titles without a ticket', () => {
   assert.deepEqual(
-    checkPullRequest({ ...GOOD, branch: 'chore/monorepo-structure', title: 'chore(repo): split frontend and backend' }),
+    checkPullRequest({ ...GOOD, branch: 'chore/monorepo-structure', title: 'chore(repo): split frontend and backend [AI-ASSISTED]' }),
     []
   )
 })
 
 test('accepts the release PR from develop into main', () => {
-  assert.deepEqual(checkPullRequest({ ...GOOD, branch: 'develop', base: 'main', title: 'release: alpha v0.1.0' }), [])
+  assert.deepEqual(checkPullRequest({ ...GOOD, branch: 'develop', base: 'main', title: 'release: alpha v0.1.0 [AI-ASSISTED]' }), [])
 })
 
 test('rejects a branch name out of convention', () => {
-  const errors = checkPullRequest({ ...GOOD, branch: 'Backend----Repo', title: 'feat(backend): add auth' })
+  const errors = checkPullRequest({ ...GOOD, branch: 'Backend----Repo', title: 'feat(backend): add auth [AI-ASSISTED]' })
   assert.equal(errors.length, 1)
   assert.match(errors[0], /Branch/)
 })
@@ -55,7 +55,7 @@ test('rejects a PR into main that does not come from develop, release or hotfix'
 
 test('rejects a title out of convention, and a ticket that does not match the branch', () => {
   assert.match(checkPullRequest({ ...GOOD, title: 'login page' }).join(), /Title/)
-  assert.match(checkPullRequest({ ...GOOD, title: 'SCRUM-62 | feat(auth): add login page' }).join(), /SCRUM-61/)
+  assert.match(checkPullRequest({ ...GOOD, title: 'SCRUM-62 | feat(auth): add login page [AI-ASSISTED]' }).join(), /SCRUM-61/)
 })
 
 test('requires exactly one AI option, and the tool when AI was used', () => {
@@ -69,7 +69,7 @@ test('requires exactly one AI option, and the tool when AI was used', () => {
   assert.match(checkPullRequest({ ...GOOD, body: noTool }).join(), /Tool/)
 
   const noAi = GOOD_BODY.replace('[x]', '[ ]').replace('- [ ] **No AI**', '- [x] **No AI**').replace('Claude Code', '')
-  assert.deepEqual(checkPullRequest({ ...GOOD, body: noAi }), [])
+  assert.deepEqual(checkPullRequest({ ...GOOD, title: 'SCRUM-61 | feat(auth): add login page', body: noAi }), [])
 })
 
 test('rejects the empty template', () => {
@@ -78,4 +78,16 @@ test('rejects the empty template', () => {
   const template = fs.readFileSync(path.join(__dirname, '..', 'pull_request_template.md'), 'utf8')
   const errors = checkPullRequest({ ...GOOD, body: template })
   assert.equal(errors.length, 3)
+})
+
+test('requires the title tag to match the ticked AI option', () => {
+  const untagged = 'SCRUM-61 | feat(auth): add login page'
+  assert.match(checkPullRequest({ ...GOOD, title: untagged }).join(), /end the title with `\[AI-ASSISTED\]`/)
+
+  const generated = GOOD_BODY.replace('[x]', '[ ]').replace('- [ ] **AI-generated**', '- [x] **AI-generated**')
+  assert.match(checkPullRequest({ ...GOOD, body: generated }).join(), /`\[AI-GENERATED\]`/)
+  assert.deepEqual(checkPullRequest({ ...GOOD, title: `${untagged} [AI-GENERATED]`, body: generated }), [])
+
+  const noAi = GOOD_BODY.replace('[x]', '[ ]').replace('- [ ] **No AI**', '- [x] **No AI**')
+  assert.match(checkPullRequest({ ...GOOD, body: noAi }).join(), /remove the `\[AI-…\]` tag/)
 })
