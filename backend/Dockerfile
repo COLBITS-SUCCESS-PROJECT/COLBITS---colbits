@@ -1,7 +1,8 @@
 # Development image for the COLBITS backend (NestJS, watch mode).
 # Usage: `docker compose up` from the repo root  →  http://localhost:3000
+# Node 24: Jest loads the ESM-only NestJS 12 packages natively (require(esm)).
 # Debian-based (not alpine) so native modules such as bcrypt install from prebuilt binaries.
-FROM node:22-slim
+FROM node:24-slim
 
 WORKDIR /app
 
