@@ -44,12 +44,31 @@ export function TileLayer({ url, attribution, maxNativeZoom }: TileLayerProps) {
   )
 }
 
-export function Marker({ position, icon }: { position: [number, number]; icon: DivIcon }) {
+interface MarkerProps {
+  position: [number, number]
+  icon: DivIcon
+  title?: string
+  /** Leaflet handlers; only `click` and `keypress` are simulated. */
+  eventHandlers?: {
+    click?: () => void
+    keypress?: (event: { originalEvent: KeyboardEvent }) => void
+  }
+}
+
+/** A marker with a click handler behaves like Leaflet's: a focusable button. */
+export function Marker({ position, icon, title, eventHandlers }: MarkerProps) {
+  const isInteractive = Boolean(eventHandlers?.click)
+
   return (
     <div
       data-testid="map-marker"
       data-lat={position[0]}
       data-lng={position[1]}
+      title={title}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onClick={() => eventHandlers?.click?.()}
+      onKeyDown={(event) => eventHandlers?.keypress?.({ originalEvent: event.nativeEvent })}
       dangerouslySetInnerHTML={{ __html: String(icon.options.html) }}
     />
   )

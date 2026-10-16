@@ -3,7 +3,7 @@ feature: dashboard
 title: Live Monitoring
 status: IN_PROGRESS
 owner: Sofia
-last_updated: 2026-10-07
+last_updated: 2026-10-16
 ---
 
 # Feature: Live Monitoring
@@ -14,7 +14,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 ## 2. Scope
 
 ### In scope
-- Map with fuse / transformer / combined markers coloured by state, and clusters ✅
+- Map with fuse / transformer / combined markers coloured by state, grouped into clusters where they overlap (F-13) ✅
 - Layer switch (fuses, transformers, both), hierarchical filters (zone › substation › circuit) and node search ✅
 - Map legend ✅
 - Active faults panel: counters, *Active* / *Resolved* tabs, time window, alert type, classification, minimum-duration filter ✅
@@ -35,6 +35,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 |---|---|---|---|
 | SCRUM-128 | Base screen M1: map, toolbar, legend, fault panel (with sample data) | Sofia | DONE |
 | [SCRUM-77](./SCRUM-77.md) | [F-12] Node markers on a real map at recorded coordinates (US4) | Sofia | DONE |
+| [SCRUM-63](./SCRUM-63.md) | [F-13] Group overlapping node markers into one cluster (US4) | Paola | IN_REVIEW |
 | — | Node detail panel (M4–M9) | TBD | PLANNED |
 | — | Inactive devices tab (M12, M14) | TBD | PLANNED |
 | — | Connect to the real API / real-time (OQ-02, OQ-03) | TBD | PLANNED |

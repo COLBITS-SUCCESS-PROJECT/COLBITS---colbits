@@ -21,6 +21,7 @@
     "zoomOut": "Alejar",
     "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noreferrer\">OpenStreetMap</a>",
     "cluster": "{{count}} nodos agrupados",
+    "expandCluster": "Acercar para separar los nodos",
     "node": "Nodo {{id}}",
     "fuse": "fusible: {{state}}",
     "transformer": "transformador: {{state}}",
