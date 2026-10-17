@@ -92,7 +92,7 @@ Copy `.env.example` to `.env`. **Never commit `.env`** — it is in `.gitignore`
 | `VITE_APP_ENV` | — | `development` | `development` \| `production` |
 | `VITE_ENABLE_MSW` | — | `true` in `.env.example` | Mock API in the browser (MSW, dev only). Keep `true` until the backend services exist; `false` calls the real API |
 | `VITE_MAP_TILE_URL` | — | OpenStreetMap | Map tile source (see ADR-0006) |
-| `VITE_DEV_MOCK_SESSION` | — | `true` | Dev only: signs in a fake user so you can work without the backend. Set `false` to go through the login page — with the mock API, log in as `admin` / `admin123` or `consulta` / `consulta123` ([SCRUM-61](./docs/specs/auth/SCRUM-61.md)) |
+| `VITE_DEV_MOCK_SESSION` | — | `true` | Dev only: signs in a fake user so you can work without the backend. Set `false` to go through the login page — log in as `admin@colbits.com` or `client@colbits.com`, password `adminpassword` (same in the mock and the real API, [SCRUM-144](./docs/specs/auth/SCRUM-144.md)) |
 
 If `VITE_API_BASE_URL` is missing, the app stops at startup with `[COLBITS] Required environment variable not configured: VITE_API_BASE_URL`.
 

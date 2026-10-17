@@ -21,6 +21,9 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | Story | Feature | Summary | Spec | Status | Owner |
 |---|---|---|---|---|---|
 | SCRUM-61 | `auth` | [F-01] Log in with username and password; protect every page behind login | [SCRUM-61.md](./auth/SCRUM-61.md) | IN_REVIEW | Paola |
+| SCRUM-144 | `auth` | [F-01] Login connected to the real API; token and role stored | [SCRUM-144.md](./auth/SCRUM-144.md) | IN_REVIEW | Sofia |
+| SCRUM-145 | `auth` | [F-02] Token on every request; back to login on 401 | [SCRUM-145.md](./auth/SCRUM-145.md) | IN_REVIEW | Sofia |
+| SCRUM-146 | `auth` | [F-11] Logout: invalidate the token, clear data, return to login | [SCRUM-146.md](./auth/SCRUM-146.md) | IN_REVIEW | Sofia |
 | SCRUM-128 | `dashboard` | Base Live Monitoring screen (M1) with sample data | [FEATURE.md](./dashboard/FEATURE.md) | DONE | Sofia |
 | SCRUM-77 | `dashboard` | [F-12] Node markers on map at recorded coordinates (US4) | [SCRUM-77.md](./dashboard/SCRUM-77.md) | DONE | Sofia |
 | SCRUM-63 | `dashboard` | [F-13] Group overlapping node markers into one cluster (US4) | [SCRUM-63.md](./dashboard/SCRUM-63.md) | IN_REVIEW | Paola |
