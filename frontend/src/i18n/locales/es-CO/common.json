@@ -81,5 +81,10 @@
     "live": "Datos en vivo",
     "stale": "Datos desactualizados",
     "refresh": "Actualizar datos"
+  },
+  "language": {
+    "label": "Idioma",
+    "es-CO": "Español",
+    "en": "English"
   }
 }

@@ -4,6 +4,9 @@ import { createRoot } from 'react-dom/client'
 import '@/styles/index.css'
 import { App } from '@/app/App'
 import { ENV } from '@/config/env'
+import { DEFAULT_LANGUAGE, isLanguage } from '@/config/languages'
+import { applyLanguage } from '@/i18n'
+import { useUiPreferencesStore } from '@/stores/uiPreferences.store'
 import { startDevSession } from '@/mocks/devSession'
 
 /** Starts the mock API (MSW) when enabled. Loaded on demand so it never ships in the production bundle. */
@@ -17,6 +20,10 @@ async function startMockApi(): Promise<void> {
     // starts: requests go to VITE_API_BASE_URL and each screen shows its own error state.
   }
 }
+
+// Open in the language chosen last time on this browser (SCRUM-158); Spanish on a first visit.
+const savedLanguage = useUiPreferencesStore.getState().language
+applyLanguage(isLanguage(savedLanguage) ? savedLanguage : DEFAULT_LANGUAGE)
 
 // Dev only (VITE_DEV_MOCK_SESSION): signs in a fake user so the app works without the backend.
 // Set it to false to go through the login page (SCRUM-61).
