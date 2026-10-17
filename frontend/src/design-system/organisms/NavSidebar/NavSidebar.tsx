@@ -7,6 +7,7 @@ export interface NavSidebarItem {
   label: string
   icon: IconName
   end?: boolean
+  badge?: string
 }
 
 export interface NavSidebarUser {
@@ -52,7 +53,13 @@ export function NavSidebar({
           <ul className="flex flex-col gap-2">
             {items.map((item) => (
               <li key={item.to}>
-                <NavItem to={item.to} label={item.label} icon={item.icon} end={item.end} />
+                <NavItem
+                  to={item.to}
+                  label={item.label}
+                  icon={item.icon}
+                  end={item.end}
+                  badge={item.badge}
+                />
               </li>
             ))}
           </ul>

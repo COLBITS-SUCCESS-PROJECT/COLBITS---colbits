@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import type { IconName } from '@/design-system/atoms'
 import { NavSidebar, TopBar } from '@/design-system/organisms'
-import { useAuthStore } from '@/stores/auth.store'
+import { useAuthStore, type UserRole } from '@/stores/auth.store'
 import { isStale, useDataFreshnessStore } from '@/stores/dataFreshness.store'
 import { useNow } from '@/hooks/useNow'
+import { useLogout } from '@/hooks/useLogout'
 import { formatDateTime } from '@/utils/formatDateTime'
 import { ROUTES } from '@/app/router/routes'
 
@@ -15,6 +16,10 @@ interface ShellSection {
   icon: IconName
   /** i18n key prefix in `common:` — `<key>.nav`, `<key>.title`, `<key>.subtitle`. */
   key: string
+  /** Only these roles see the entry. Omit for every signed-in user. */
+  roles?: UserRole[]
+  /** Not built yet: the entry shows a "coming soon" tag. */
+  comingSoon?: boolean
 }
 
 /** Sidebar entries and their top-bar titles (Figma: Sidebar · Live Monitoring / Historical Analysis / Reports). */
@@ -22,6 +27,8 @@ const SECTIONS: ShellSection[] = [
   { to: ROUTES.dashboard, icon: 'map', key: 'section.dashboard' },
   { to: ROUTES.analysis, icon: 'chart', key: 'section.analysis' },
   { to: ROUTES.reports, icon: 'file', key: 'section.reports' },
+  // F-05 / US19 (Sprint 5): the administrator manages users and their scopes.
+  { to: ROUTES.users, icon: 'users', key: 'section.users', roles: ['ADMIN'], comingSoon: true },
 ]
 
 export function AppShell() {
@@ -30,16 +37,21 @@ export function AppShell() {
   const { pathname } = useLocation()
   const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
-  const clearAuth = useAuthStore((state) => state.clearAuth)
+  const { logout, isLoggingOut } = useLogout()
   const lastSyncedAt = useDataFreshnessStore((state) => state.lastSyncedAt)
   const now = useNow()
 
-  const section = SECTIONS.find((entry) => matchPath(`${entry.to}/*`, pathname))
+  const visibleSections = SECTIONS.filter(
+    (entry) => !entry.roles || (user !== null && entry.roles.includes(user.role))
+  )
+  const section = visibleSections.find((entry) => matchPath(`${entry.to}/*`, pathname))
   const stale = lastSyncedAt !== null && isStale(lastSyncedAt, now)
 
-  function handleLogout() {
-    clearAuth()
-    navigate(ROUTES.login)
+  // F-11: invalidate the token, forget the session, then replace the history entry so "back" stays on login.
+  async function handleLogout() {
+    if (isLoggingOut) return
+    await logout()
+    navigate(ROUTES.login, { replace: true })
   }
 
   return (
@@ -48,10 +60,15 @@ export function AppShell() {
         logoLabel={t('app.name')}
         navLabel={t('nav.label')}
         sectionLabel={t('nav.section')}
-        items={SECTIONS.map(({ to, icon, key }) => ({ to, icon, label: t(`${key}.nav`) }))}
+        items={visibleSections.map(({ to, icon, key, comingSoon }) => ({
+          to,
+          icon,
+          label: t(`${key}.nav`),
+          badge: comingSoon ? t('status.comingSoonBadge') : undefined,
+        }))}
         user={user ? { name: user.name, roleLabel: t(`role.${user.role}`) } : null}
         logoutLabel={t('nav.logout')}
-        onLogout={handleLogout}
+        onLogout={() => void handleLogout()}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar

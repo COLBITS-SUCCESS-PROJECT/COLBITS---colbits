@@ -33,7 +33,8 @@
     "empty": "No data",
     "noResults": "No results",
     "comingSoonTitle": "Coming soon",
-    "comingSoon": "This section is under construction."
+    "comingSoon": "This section is under construction.",
+    "comingSoonBadge": "Coming soon"
   },
   "section": {
     "dashboard": {
@@ -50,6 +51,11 @@
       "nav": "Reports",
       "title": "Reports",
       "subtitle": "Data export with traceability"
+    },
+    "users": {
+      "nav": "User management",
+      "title": "User management",
+      "subtitle": "Consultation users and their network scope"
     }
   },
   "freshness": {

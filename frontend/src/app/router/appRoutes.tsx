@@ -3,6 +3,7 @@ import { Navigate, type RouteObject } from 'react-router-dom'
 import { ROUTES } from './routes'
 import { RequireAuth } from './guards/RequireAuth'
 import { RedirectIfAuthenticated } from './guards/RedirectIfAuthenticated'
+import { RequireRole } from './guards/RequireRole'
 
 const loadComingSoon = () =>
   import('@/layouts/ComingSoonPage').then((m) => ({ Component: m.ComingSoonPage }))
@@ -26,6 +27,11 @@ export const appRoutes: RouteObject[] = [
           // Replace each placeholder with its feature's routes when the story enters the sprint.
           { path: `${ROUTES.analysis}/*`, lazy: loadComingSoon },
           { path: `${ROUTES.reports}/*`, lazy: loadComingSoon },
+          // User management is for the Colbits administrator only (F-05, US19 — Sprint 5).
+          {
+            element: <RequireRole roles={['ADMIN']} />,
+            children: [{ path: `${ROUTES.users}/*`, lazy: loadComingSoon }],
+          },
         ],
       },
     ],

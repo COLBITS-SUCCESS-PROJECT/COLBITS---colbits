@@ -1,6 +1,6 @@
 /** NavItem molecule — sidebar link with icon; highlights itself on the active route (Figma: Nav Item). */
 import { NavLink } from 'react-router-dom'
-import { Icon, type IconName } from '@/design-system/atoms'
+import { Badge, Icon, type IconName } from '@/design-system/atoms'
 import { cn } from '@/utils/cn'
 
 export interface NavItemProps {
@@ -9,9 +9,11 @@ export interface NavItemProps {
   icon: IconName
   /** Match the route exactly instead of also matching its sub-routes. */
   end?: boolean
+  /** Short tag after the label, e.g. "Próximamente" for a section that is not built yet. */
+  badge?: string
 }
 
-export function NavItem({ to, label, icon, end = false }: NavItemProps) {
+export function NavItem({ to, label, icon, end = false, badge }: NavItemProps) {
   return (
     <NavLink
       to={to}
@@ -28,6 +30,7 @@ export function NavItem({ to, label, icon, end = false }: NavItemProps) {
     >
       <Icon name={icon} size="lg" />
       <span className="truncate">{label}</span>
+      {badge && <Badge label={badge} tone="info" className="ml-auto" />}
     </NavLink>
   )
 }

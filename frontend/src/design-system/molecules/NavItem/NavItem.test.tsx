@@ -69,4 +69,16 @@ describe('NavItem', () => {
     const svg = screen.getByRole('link').querySelector('svg[data-icon="file"]')
     expect(svg).toHaveAttribute('aria-hidden', 'true')
   })
+
+  it('shows a tag after the label when given one', () => {
+    renderAt('/', <NavItem to="/users" label="Gestión de usuarios" icon="users" badge="Próximamente" />)
+
+    expect(screen.getByRole('link', { name: 'Gestión de usuarios Próximamente' })).toBeInTheDocument()
+  })
+
+  it('shows no tag by default', () => {
+    renderAt('/', <NavItem to="/reports" label="Reportes" icon="file" />)
+
+    expect(screen.getByRole('link', { name: 'Reportes' })).toBeInTheDocument()
+  })
 })

@@ -4,6 +4,12 @@ import { useAuthStore } from '@/stores/auth.store'
 
 const TIMEOUT_MS = 10_000
 
+/** Must match ROUTES.login (services cannot import the router). */
+export const LOGIN_PATH = '/login'
+/** Query string the login page reads to explain that the session ended (F-02). */
+export const SESSION_EXPIRED_PARAM = 'session'
+export const SESSION_EXPIRED_VALUE = 'expired'
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -69,8 +75,11 @@ export async function httpClient<T>(path: string, options: RequestOptions = {}):
     clearTimeout(timeoutId)
 
     if (res.status === 401 && !skipAuthRedirect) {
+      // F-02: the API rejected the token (missing, expired, altered or logged out). End the session and
+      // reload the login page: the reload drops every cached response, and replace() keeps the protected
+      // page out of the history, so "back" cannot show its data again.
       useAuthStore.getState().clearAuth()
-      window.location.href = '/login'
+      window.location.replace(`${LOGIN_PATH}?${SESSION_EXPIRED_PARAM}=${SESSION_EXPIRED_VALUE}`)
       throw new ApiError(401, 'Unauthorized', 'Session expired')
     }
 
