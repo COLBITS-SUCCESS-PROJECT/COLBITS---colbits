@@ -147,14 +147,15 @@ describe('AppShell', () => {
     const ADMIN = { id: '1', name: 'admin@colbits.com', role: 'ADMIN' } as const
     const VIEWER = { id: '2', name: 'client@colbits.com', role: 'VIEWER' } as const
 
-    it('is shown to the administrator, tagged as coming soon', () => {
+    it('is shown to the administrator', () => {
       useAuthStore.getState().setSession(ADMIN, 'token')
 
       renderShellAt(ROUTES.dashboard)
 
-      expect(
-        screen.getByRole('link', { name: 'Gestión de usuarios Próximamente' })
-      ).toHaveAttribute('href', ROUTES.users)
+      expect(screen.getByRole('link', { name: 'Gestión de usuarios' })).toHaveAttribute(
+        'href',
+        ROUTES.users
+      )
     })
 
     it('is hidden from a consultation user', () => {

@@ -18,8 +18,6 @@ interface ShellSection {
   key: string
   /** Only these roles see the entry. Omit for every signed-in user. */
   roles?: UserRole[]
-  /** Not built yet: the entry shows a "coming soon" tag. */
-  comingSoon?: boolean
 }
 
 /** Sidebar entries and their top-bar titles (Figma: Sidebar · Live Monitoring / Historical Analysis / Reports). */
@@ -28,7 +26,7 @@ const SECTIONS: ShellSection[] = [
   { to: ROUTES.analysis, icon: 'chart', key: 'section.analysis' },
   { to: ROUTES.reports, icon: 'file', key: 'section.reports' },
   // F-05 / US19 (Sprint 5): the administrator manages users and their scopes.
-  { to: ROUTES.users, icon: 'users', key: 'section.users', roles: ['ADMIN'], comingSoon: true },
+  { to: ROUTES.users, icon: 'users', key: 'section.users', roles: ['ADMIN'] },
 ]
 
 export function AppShell() {
@@ -60,12 +58,7 @@ export function AppShell() {
         logoLabel={t('app.name')}
         navLabel={t('nav.label')}
         sectionLabel={t('nav.section')}
-        items={visibleSections.map(({ to, icon, key, comingSoon }) => ({
-          to,
-          icon,
-          label: t(`${key}.nav`),
-          badge: comingSoon ? t('status.comingSoonBadge') : undefined,
-        }))}
+        items={visibleSections.map(({ to, icon, key }) => ({ to, icon, label: t(`${key}.nav`) }))}
         user={user ? { name: user.name, roleLabel: t(`role.${user.role}`) } : null}
         logoutLabel={t('nav.logout')}
         onLogout={() => void handleLogout()}

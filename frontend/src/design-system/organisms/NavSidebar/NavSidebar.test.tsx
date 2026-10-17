@@ -81,11 +81,4 @@ describe('NavSidebar', () => {
     expect(within(nav).queryByRole('list')).not.toBeInTheDocument()
   })
 
-  it('passes the tag of an item to its link', () => {
-    renderSidebar({
-      items: [{ to: '/users', label: 'Gestión de usuarios', icon: 'users', badge: 'Próximamente' }],
-    })
-
-    expect(screen.getByRole('link', { name: 'Gestión de usuarios Próximamente' })).toBeInTheDocument()
-  })
 })
