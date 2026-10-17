@@ -1,0 +1,22 @@
+{
+  "name": "colbits-synthetic-generator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Seeded synthetic data generator for the COLBITS platform (US1: F-90, F-91, F-92). Fills a PostgreSQL/TimescaleDB database with the same schema as Colbits' production database.",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "bin": { "colbits-generate": "src/cli.ts" },
+  "scripts": {
+    "generate": "node --experimental-strip-types --no-warnings src/cli.ts",
+    "test": "node --experimental-strip-types --no-warnings --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.7.2"
+  }
+}

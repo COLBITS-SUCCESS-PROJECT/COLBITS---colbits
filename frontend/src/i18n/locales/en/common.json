@@ -1,0 +1,61 @@
+{
+  "app": {
+    "name": "Colbits"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "section": "Menu",
+    "logout": "Log out"
+  },
+  "role": {
+    "ADMIN": "Administrator",
+    "OPERATOR": "Grid operator",
+    "VIEWER": "Viewer"
+  },
+  "button": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "export": "Export",
+    "refresh": "Refresh",
+    "loading": "Loading..."
+  },
+  "status": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "empty": "No data",
+    "noResults": "No results",
+    "comingSoonTitle": "Coming soon",
+    "comingSoon": "This section is under construction."
+  },
+  "section": {
+    "dashboard": {
+      "nav": "Live monitoring",
+      "title": "Live grid monitoring",
+      "subtitle": "Real-time georeferenced supervision of the network"
+    },
+    "analysis": {
+      "nav": "Historical analysis",
+      "title": "Historical analysis",
+      "subtitle": "Aggregated fault metrics and trends"
+    },
+    "reports": {
+      "nav": "Reports",
+      "title": "Reports",
+      "subtitle": "Data export with traceability"
+    }
+  },
+  "freshness": {
+    "lastUpdate": "Last update: {{time}}",
+    "live": "Live data",
+    "stale": "Stale data",
+    "refresh": "Refresh data"
+  }
+}

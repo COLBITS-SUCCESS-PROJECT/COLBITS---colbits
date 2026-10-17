@@ -1,0 +1,54 @@
+/* Valores primitivos — no usar directamente en componentes. Usar tokens semánticos. */
+/* Fuente: Figma "COLBITS Mockups v3" → página 0 Foundations + página 1 Design System (Atoms). */
+:root {
+  /* Navy (marca) */
+  --color-navy-900: #1b2a4a;
+  --color-navy-700: #2a3f6b;
+  --color-navy-400: #7f8db0;
+  --color-navy-200: #b8c2d9;
+
+  /* Blue (marca + info) */
+  --color-blue-50: #e8eefb;
+  --color-blue-500: #3b5ba9;
+  --color-blue-600: #2f6feb;
+  --color-blue-700: #2f4a94;
+
+  /* Red (CTA principal + crítico) */
+  --color-red-50: #fdecea;
+  --color-red-500: #e53935;
+  --color-red-700: #b42318;
+
+  /* Yellow (advertencia) */
+  --color-yellow-50: #fff6db;
+  --color-yellow-100: #fff1d6;
+  --color-yellow-500: #f5b300;
+  --color-yellow-800: #8a5a00;
+
+  /* Green (normal / resuelto) */
+  --color-green-50: #e6f5ec;
+  --color-green-500: #2e9e5b;
+  --color-green-700: #1e7a45;
+
+  /* Slate (estado gris / inactivo) */
+  --color-slate-400: #9aa3b2;
+
+  /* Ink (texto) */
+  --color-ink-900: #1a1f2e;
+  --color-ink-600: #4b5563;
+  --color-ink-500: #6b7280;
+  --color-ink-400: #9ca3af;
+
+  /* Gray (bordes y superficies) */
+  --color-gray-25: #f8f9fb;
+  --color-gray-50: #f5f6f8;
+  --color-gray-100: #eef0f4;
+  --color-gray-200: #e3e6ec;
+  --color-gray-300: #c9cfdb;
+
+  /* Map placeholder */
+  --color-map-land: #e9eef3;
+
+  /* White / Black */
+  --color-white: #ffffff;
+  --color-black: #000000;
+}

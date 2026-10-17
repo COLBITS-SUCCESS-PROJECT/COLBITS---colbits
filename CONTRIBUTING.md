@@ -1,58 +1,79 @@
-# Contributing to COLBITS Frontend
+# Contributing to COLBITS
 
-## Before you start
+The rules every teammate follows, frontend and backend. Two GitHub checks verify them on every PR:
+**`ci-ok`** (lint, tests, build) and **`pr-standards`** (branch, title, description). Both must be green, and **one teammate must approve** (course Definition of Done).
 
-Read `agent.md` in full. Every rule there is enforced by CI or code review.
+App-specific guides: [frontend/CONTRIBUTING.md](./frontend/CONTRIBUTING.md) (specs, atomic design, tests) · [backend/README.md](./backend/README.md)
 
-## Branch workflow
+## 1. Branch
 
-```
-main           ← stable production code
-└── develop    ← integration branch (all PRs target this)
-    └── SCRUM-42-add-sensor-chart   ← your branch
-```
+Always start from an up-to-date `develop`:
 
-1. Branch from `develop`: `git checkout -b SCRUM-<n>-<description-kebab-case>`
-2. Keep branches short-lived (1–3 days max)
-3. Rebase on `develop` before opening a PR: `git rebase develop`
-
-## Commit messages
-
-Use **Conventional Commits**:
-
-```
-feat(dashboard): add SensorChart component
-fix(alerts): correct threshold comparison logic
-test(devices): add empty state test for DeviceTable
-docs(agent): update open questions table
-refactor(auth): extract token refresh logic to hook
+```bash
+git checkout develop
+git pull origin develop
+git checkout -b SCRUM-61-login-page
 ```
 
-No Jira ticket in the commit message (it's in the branch name and PR title).
+| Situation | Branch name | Example |
+|---|---|---|
+| Jira story or task | `SCRUM-<n>-<short-description>` | `SCRUM-61-login-page` |
+| Tooling without a ticket | `chore/<description>` | `chore/monorepo-structure` |
+| CI change | `ci/<description>` | `ci/backend-coverage` |
+| Documentation only | `docs/<description>` | `docs/api-contract` |
+| Urgent fix | `hotfix/<description>` | `hotfix/login-redirect-loop` |
+| Delivery preparation | `release/<version>` | `release/v0.1.0` |
 
-## Pull request checklist
+Lowercase, words separated by hyphens. One story = one branch = one PR.
 
-- [ ] Branch name: `SCRUM-<n>-<description>`
-- [ ] PR title: `SCRUM-<n> | type(scope): result`
-- [ ] If AI was used: append ` [AI-ASSISTED]` to the title, add a note in `docs/bitacora-ia/`
-- [ ] `pnpm typecheck` passes
-- [ ] `pnpm lint` passes
-- [ ] `pnpm test:coverage` passes (≥70%)
-- [ ] No `console.log`, no commented-out code, no hardcoded strings/colors
-- [ ] SPEC.md updated if feature behavior changed
-- [ ] SDD section updated if API/state/domain model changed
-- [ ] Reviewed by at least one other frontend teammate
+## 2. Commits
 
-## Using AI assistance
+[Conventional Commits](https://www.conventionalcommits.org/): `type(scope): what changed`
 
-AI-generated code is allowed and encouraged. Rules:
+```
+feat(auth): add login page
+fix(device): handle missing coordinates
+test(dashboard): add map acceptance tests
+```
 
-1. Mark the PR with ` [AI-ASSISTED]`
-2. **You are responsible** for everything that merges — review AI output against agent.md §3
-3. Verify: no literal colors, no raw strings, no `any`, no boundary violations, no oversized files
-4. Document what was generated vs what you wrote in `docs/bitacora-ia/YYYY-MM-DD-SCRUM-XX.md`
+Types: `feat` `fix` `test` `docs` `refactor` `style` `build` `ci` `chore` `perf` `revert`.
 
-## Pre-commit hook
+## 3. Pull request
 
-Prettier and ESLint `--fix` run automatically on staged files before every commit.
-If the hook fails, fix the issues and try again — don't skip with `--no-verify`.
+- **Base branch:** `develop`.
+- **Title:** `SCRUM-<n> | type(scope): result` → `SCRUM-61 | feat(auth): add login page`.
+  Without a ticket: `type(scope): result` → `chore(repo): split frontend and backend`.
+  The ticket in the title must match the one in the branch.
+  If you used AI, end the title with ` [AI-ASSISTED]` or ` [AI-GENERATED]` — it must match the **AI use** box.
+  → `SCRUM-61 | feat(auth): add login page [AI-ASSISTED]`
+- **Description:** GitHub fills in the template. Complete the three short parts:
+  - **What** — 1–3 lines.
+  - **How to test** — one step is enough.
+  - **AI use** — tick one: *No AI*, *AI-assisted* or *AI-generated*; if you used AI, write the tool after `Tool:`.
+- **Reviewers** are requested automatically by folder (`.github/CODEOWNERS`). Any one of them can approve.
+- If `pr-standards` fails, its summary says what to fix. Edit the title or description and it runs again by itself.
+
+## 4. Merge
+
+| Into | Requirements |
+|---|---|
+| `develop` | **1 approval**, `ci-ok` and `pr-standards` green, conversations resolved, branch up to date with `develop`. |
+| `main` | Same rules, and only from `develop`, `release/…` or `hotfix/…`. |
+
+The reviewer checks that the PR does what the Jira issue and its acceptance criteria say, and that tests cover it.
+After merging, delete the branch and move the Jira issue to **Done**.
+
+## Using AI
+
+AI tools are allowed. Declare them in the PR: tag in the title + **AI use** box, and both must match — **you are responsible** for everything you merge.
+Review what the AI produced, and never let it commit or push for you.
+
+## Releases (course deliveries)
+
+1. Open a PR `develop → main` titled `release: alpha v0.1.0` (Beta `v0.2.0`, Final `v1.0.0`).
+2. After merging, tag `main`:
+   ```bash
+   git checkout main && git pull
+   git tag -a v0.1.0 -m "Alpha prototype"
+   git push origin v0.1.0
+   ```
