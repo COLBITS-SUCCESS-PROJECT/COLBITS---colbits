@@ -1,0 +1,9 @@
+{
+  "generic": "An unexpected error occurred. Try again.",
+  "network": "No connection. Check your network and try again.",
+  "timeout": "The request took too long. Try again.",
+  "unauthorized": "Session expired. Please log in again.",
+  "forbidden": "You do not have permission to do this.",
+  "notFound": "The requested resource does not exist.",
+  "serverError": "Server error. The technical team was notified."
+}

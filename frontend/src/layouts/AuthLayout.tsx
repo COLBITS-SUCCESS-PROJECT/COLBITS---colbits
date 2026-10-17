@@ -2,9 +2,12 @@
 import { Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Logo } from '@/design-system/atoms'
+import { LanguageSwitch } from '@/design-system/molecules'
+import { useLanguage } from '@/hooks/useLanguage'
 
 export function AuthLayout() {
   const { t } = useTranslation(['auth', 'common'])
+  const language = useLanguage()
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg-surface md:flex-row">
@@ -18,7 +21,15 @@ export function AuthLayout() {
           </p>
         </div>
       </div>
-      <main className="flex flex-1 items-center justify-center px-6 py-12">
+      <main className="relative flex flex-1 items-center justify-center px-6 py-12">
+        {/* Visitors choose the language before logging in (SCRUM-158). */}
+        <LanguageSwitch
+          className="absolute top-4 right-4"
+          options={language.options}
+          value={language.language}
+          onChange={language.setLanguage}
+          label={language.label}
+        />
         <div className="w-full max-w-100">
           <Outlet />
         </div>

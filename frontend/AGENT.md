@@ -470,9 +470,11 @@ Use `<Icon name="..." />` only. Never import directly from `lucide-react` except
 ## §10 Internationalization
 
 - **Zero visible strings in `.tsx` files.** Every word, placeholder, aria-label, button label, tooltip, and error message goes through `t('namespace:key')`.
-- **El idioma del frontend es español.** Toda la UI, etiquetas, mensajes de error y notificaciones deben estar en español (es-CO). El código (nombres de variables, funciones, tipos) va en inglés.
-- Primary language: `es-CO`. English (`en`) is secondary and not editorially reviewed.
-- `fallbackLng: 'es-CO'` — missing `en` keys fall back gracefully.
+- **The UI is bilingual: Spanish (`es-CO`, default) and English (`en`).** The user switches with the ES | EN switch in the top bar and on the login page (SCRUM-158); the choice is stored in `uiPreferences` (localStorage).
+- **Every new or changed key goes into both `locales/es-CO/` and `locales/en/` in the same PR.** `src/i18n/locales.test.ts` fails if a namespace or a key exists in one language and not the other, or if a text is empty.
+- Write the Spanish text first (the client's language), then the English one. Code (variables, functions, types) stays in English.
+- Only UI text is translated. Data from the API or the database (node names, backend messages) is shown as it comes.
+- Language codes, `<html lang>` values and switch labels live in `src/config/languages.ts`. Dates, times and durations use `i18n.language`, so they follow the switch.
 
 ### Namespace assignment
 
@@ -698,7 +700,7 @@ A frontend story is done when:
 3. Lint passes: `pnpm lint`
 4. Tests pass with ≥80% coverage: `pnpm test:coverage`
 5. Happy path, error state, and empty state covered by tests
-6. No dead code, no `console.log`, no hardcoded strings or colors
+6. No dead code, no `console.log`, no hardcoded strings or colors; every text exists in `es-CO` **and** `en`
 7. Story spec in `docs/specs/` updated (acceptance test results) and `docs/specs/INDEX.md` status set
 8. Relevant SDD section updated if API / state / domain model changed
 9. Peer-reviewed by at least one other frontend team member

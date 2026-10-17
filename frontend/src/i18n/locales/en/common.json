@@ -32,8 +32,27 @@
     "error": "An error occurred",
     "empty": "No data",
     "noResults": "No results",
+    "notFound": "Page not found",
     "comingSoonTitle": "Coming soon",
     "comingSoon": "This section is under construction."
+  },
+  "pagination": {
+    "page": "Page",
+    "of": "of",
+    "rowsPerPage": "Rows per page"
+  },
+  "date": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "lastWeek": "Last week",
+    "lastMonth": "Last month",
+    "custom": "Custom"
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "minLength": "At least {{min}} characters",
+    "maxLength": "At most {{max}} characters"
   },
   "section": {
     "dashboard": {
@@ -62,5 +81,10 @@
     "live": "Live data",
     "stale": "Stale data",
     "refresh": "Refresh data"
+  },
+  "language": {
+    "label": "Language",
+    "es-CO": "Español",
+    "en": "English"
   }
 }

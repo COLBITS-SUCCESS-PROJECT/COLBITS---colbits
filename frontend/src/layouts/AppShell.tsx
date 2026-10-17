@@ -3,10 +3,12 @@ import { Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import type { IconName } from '@/design-system/atoms'
+import { LanguageSwitch } from '@/design-system/molecules'
 import { NavSidebar, TopBar } from '@/design-system/organisms'
 import { useAuthStore, type UserRole } from '@/stores/auth.store'
 import { isStale, useDataFreshnessStore } from '@/stores/dataFreshness.store'
 import { useNow } from '@/hooks/useNow'
+import { useLanguage } from '@/hooks/useLanguage'
 import { useLogout } from '@/hooks/useLogout'
 import { formatDateTime } from '@/utils/formatDateTime'
 import { ROUTES } from '@/app/router/routes'
@@ -38,6 +40,7 @@ export function AppShell() {
   const { logout, isLoggingOut } = useLogout()
   const lastSyncedAt = useDataFreshnessStore((state) => state.lastSyncedAt)
   const now = useNow()
+  const language = useLanguage()
 
   const visibleSections = SECTIONS.filter(
     (entry) => !entry.roles || (user !== null && entry.roles.includes(user.role))
@@ -79,6 +82,14 @@ export function AppShell() {
                   onRefresh: () => void queryClient.invalidateQueries(),
                   refreshLabel: t('freshness.refresh'),
                 }
+          }
+          languageSwitch={
+            <LanguageSwitch
+              options={language.options}
+              value={language.language}
+              onChange={language.setLanguage}
+              label={language.label}
+            />
           }
           user={user ? { name: user.name } : null}
         />
