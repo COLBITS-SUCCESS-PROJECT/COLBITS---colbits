@@ -1,24 +1,30 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller';
-import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 
 describe('AuthController', () => {
-  let controller: AuthController;
+  const authService = {
+    validateAndLogin: jest.fn().mockResolvedValue({ access_token: 't' }),
+    logout: jest.fn().mockResolvedValue({ message: 'Successfully logged out' }),
+  };
+  const controller = new AuthController(authService as unknown as AuthService);
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: {} }],
-    })
-      .overrideGuard(AuthGuard)
-      .useValue({ canActivate: () => true })
-      .compile();
+  beforeEach(() => jest.clearAllMocks());
 
-    controller = module.get<AuthController>(AuthController);
+  it('logs in with the username and password of the body', async () => {
+    await expect(controller.login({ username: 'admin@colbits.com', password: 'p' })).resolves.toEqual({
+      access_token: 't',
+    });
+    expect(authService.validateAndLogin).toHaveBeenCalledWith('admin@colbits.com', 'p');
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+  it('logs out the token of the Authorization header', async () => {
+    await controller.logout({ headers: { authorization: 'Bearer abc.def.ghi' } });
+
+    expect(authService.logout).toHaveBeenCalledWith('abc.def.ghi');
+  });
+
+  it('rejects a logout without a token', async () => {
+    await expect(controller.logout({ headers: {} })).rejects.toThrow(UnauthorizedException);
   });
 });

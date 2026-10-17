@@ -16,7 +16,7 @@ Allow users to log in to the COLBITS platform with their credentials, keep an au
 ### In scope
 - Login form (username + password) — SCRUM-61
 - Route guards: `RequireAuth`, `RedirectIfAuthenticated` — SCRUM-61; `RequireRole` with user management
-- Logout (button already in the sidebar → clears `auth.store` and goes to `/login`; calling `POST /auth/logout` is F-11, not assigned yet)
+- Logout (F-11): calls `POST /auth/logout`, clears the session and cached data, returns to `/login` — [SCRUM-146](./SCRUM-146.md)
 - Session kept in memory for the life of the access token (15 min); no refresh token yet (Q2)
 
 ### Out of scope
@@ -67,4 +67,4 @@ Taken from the backend repo (commit 51f87ea) until the backend publishes an Open
 | Q2 | Token refresh strategy? | Backend team | OPEN — no refresh endpoint yet; the token lasts 15 minutes | — |
 | Q3 | Login screen design? | Paola (PO) | Answered — Figma *Login / Default* (`8-100`) | 2026-10-11 |
 | Q4 | Are *Remember session* and *Forgot your password?* in scope? | Paola (PO) | Answered — no, they are left out (in no requirement) | 2026-10-14 |
-| Q5 | US2 has only backend tasks (F-01–F-03). Who builds the login page, route guards and logout (F-11, not in any story)? | Paola (PO) / Sofia (SM) | Login page and guards: Paola (SCRUM-61). Frontend part of logout (F-11): still OPEN | 2026-10-14 |
+| Q5 | US2 has only backend tasks (F-01–F-03). Who builds the login page, route guards and logout (F-11, not in any story)? | Paola (PO) / Sofia (SM) | Login page and guards: Paola (SCRUM-61). Frontend part of logout (F-11): Sofia, SCRUM-146 (2026-10-17) | 2026-10-14 |

@@ -50,6 +50,11 @@
       "nav": "Reports",
       "title": "Reports",
       "subtitle": "Data export with traceability"
+    },
+    "users": {
+      "nav": "User management",
+      "title": "User management",
+      "subtitle": "Consultation users and their network scope"
     }
   },
   "freshness": {

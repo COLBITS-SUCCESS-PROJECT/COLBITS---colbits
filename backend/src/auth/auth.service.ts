@@ -5,6 +5,11 @@ import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { TokenBlacklist } from './token-blacklist.entity';
 import * as bcrypt from 'bcrypt';
+import { INVALID_CREDENTIALS } from './auth.constants';
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
 
 @Injectable()
 export class AuthService {
@@ -16,15 +21,21 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async validateAndLogin(username: string, pass: string) {
+  // F-01: only an active account with the right username and password gets an access token.
+  async validateAndLogin(username: unknown, pass: unknown) {
+    // A missing username would become `where: { username: undefined }`, which matches any row.
+    if (!isNonEmptyString(username) || !isNonEmptyString(pass)) {
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
+    }
+
     const user = await this.usersRepository.findOne({ where: { username } });
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!user || !user.is_active) {
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
     const isMatch = await bcrypt.compare(pass, user.password_hash);
     if (!isMatch) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
     const payload = { sub: user.id, username: user.username, role: user.role };

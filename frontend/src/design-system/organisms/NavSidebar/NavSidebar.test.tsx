@@ -80,4 +80,5 @@ describe('NavSidebar', () => {
     expect(within(nav).queryAllByRole('link')).toHaveLength(0)
     expect(within(nav).queryByRole('list')).not.toBeInTheDocument()
   })
+
 })

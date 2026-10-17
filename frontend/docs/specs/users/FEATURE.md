@@ -46,7 +46,7 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 |---|---|---|
 | `/users` | `UserManagementPage` | RequireRole(`ADMIN`) |
 
-Not in the router yet: add `users` to `ROUTES` and the admin entry to `AppShell` when the first story starts.
+**Already in place (2026-10-17, SCRUM-61 PR):** the sidebar shows *Gestión de usuarios* **only to `ADMIN`**; the page says *Próximamente*, and `/users` is protected by `RequireRole roles={['ADMIN']}` (any other role goes to the map). The page is the shared *coming soon* placeholder until US19 enters a sprint.
 
 ## 6. Components
 

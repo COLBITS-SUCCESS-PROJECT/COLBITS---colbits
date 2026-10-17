@@ -29,7 +29,7 @@ This story covers the **frontend part of F-01**:
 | Requirement | What | Owner |
 |---|---|---|
 | F-01, F-02, F-03 (API) | `POST /auth/login`, token check on every service, two roles | Backend (Mahmoud) — in the backend repo |
-| F-11 (frontend part) | Call `POST /auth/logout` and clear cached data on logout | Not assigned yet |
+| F-11 (frontend part) | Call `POST /auth/logout` and clear cached data on logout | Sofia — [SCRUM-146](./SCRUM-146.md) |
 | NF-05, NF-06 | Account lock after 5 failed logins, 15-minute idle expiry | Backend |
 | *Remember session*, *Forgot your password?* | In the Figma mockup but in no requirement | Left out — PO decision 2026-10-14 ([FEATURE.md](./FEATURE.md) Q4) |
 
@@ -100,15 +100,15 @@ Roles in the token → frontend roles (`features/auth/api/auth.mapper.ts`):
 | `consultation user` | `VIEWER` | Consulta |
 | anything else | `VIEWER` | Consulta (least privilege) |
 
-**Local development.** The mock API (MSW, `VITE_ENABLE_MSW=true`) answers `POST /auth/login` for two test users: `admin` / `admin123` (whole network) and `consulta` / `consulta123` (north scope). To go through the login page, set `VITE_DEV_MOCK_SESSION=false` in your `.env`; with `true` (the default) a fake user is signed in automatically.
+**Local development.** The mock API (MSW, `VITE_ENABLE_MSW=true`) answers `POST /auth/login` for the same two users as the backend seed: `admin@colbits.com` / `adminpassword` (whole network) and `client@colbits.com` / `adminpassword` (north scope) — see [SCRUM-144.md](./SCRUM-144.md) §6. To go through the login page, set `VITE_DEV_MOCK_SESSION=false` in your `.env`; with `true` (the default) a fake user is signed in automatically.
 
 ## 7. Open questions
 
 | ID | Question | Owner | Blocking | Answer |
 |---|---|---|---|---|
 | Q1 | Exact role values returned by the API | Backend (Mahmoud) | No | Taken from the backend code: `Colbits administrator`, `consultation user`. Unknown values fall back to `VIEWER` |
-| Q2 | The API does not accept calls from the frontend origin yet (CORS) and listens on port 3000 | Backend (Mahmoud) | Yes, to test against the real API | OPEN — meanwhile the login is tested against the mock API |
-| Q3 | The `users` and `token_blacklist` tables are missing from `create_tables.sql` | Backend (Mahmoud) | Yes, to test against the real API | OPEN |
+| Q2 | The API does not accept calls from the frontend origin yet (CORS) and listens on port 3000 | Backend (Mahmoud) | Yes, to test against the real API | Solved in [SCRUM-144](./SCRUM-144.md) (`CORS_ORIGIN`, `PORT` from `.env`) |
+| Q3 | The `users` and `token_blacklist` tables are missing from `create_tables.sql` | Backend (Mahmoud) | Yes, to test against the real API | Solved — `backend/database/03_security_schema.sql` |
 | Q4 | Keep the session after a page reload? | Paola (PO) | No | Not for now: the auth store lives in memory (`AGENT.md §5.2`) and the token expires after 15 minutes |
 
 ## 8. Acceptance test results
@@ -128,7 +128,7 @@ Fill in after testing. Every FAIL needs an action taken.
 
 **Browser check (2026-10-15):** AC1–AC6 also checked by hand in the browser against the mock API (AI-assisted run on Paola's machine).
 
-**Limits of this evidence:** the login service is mocked (MSW) because the real API cannot be called from the browser yet (Q2, Q3). AC1, AC2 and AC4 must be re-run against the real API once those are solved.
+**Limits of this evidence:** the login service is mocked (MSW) because the real API cannot be called from the browser yet (Q2, Q3). AC1, AC2 and AC4 were re-run against the real API on 2026-10-17 — results in [SCRUM-144.md](./SCRUM-144.md) §8.
 
 ## 9. Implementation notes
 - `httpClient` sends any 401 to `/login` with a full page reload. The login call passes `skipAuthRedirect: true`, so a wrong password shows the message instead of reloading the page.

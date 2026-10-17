@@ -1,4 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,7 @@ export class AuthGuard implements CanActivate {
     private jwtService: JwtService,
     @InjectRepository(TokenBlacklist)
     private blacklistRepo: Repository<TokenBlacklist>,
+    private configService: ConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -28,8 +30,9 @@ export class AuthGuard implements CanActivate {
     }
 
     try {
+      // The secret is passed explicitly: this guard is also instantiated in modules whose JwtModule has no secret.
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: 'colbits-super-secret-key',
+        secret: this.configService.getOrThrow<string>('JWT_SECRET'),
       });
       request['user'] = payload;
     } catch {
