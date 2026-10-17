@@ -51,6 +51,11 @@ services:
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-adminpassword}
       DB_NAME: ${DB_NAME:-colbits}
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:47173
+      # Local development only: set your own JWT_SECRET in .env for anything shared.
+      JWT_SECRET: ${JWT_SECRET:-local-dev-secret-change-me}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       FALCON_INACTIVITY_HOURS: ${FALCON_INACTIVITY_HOURS:-9}
       SMAC_INACTIVITY_HOURS: ${SMAC_INACTIVITY_HOURS:-3}
       # File events do not cross the Windows/macOS → Docker boundary; poll instead.
