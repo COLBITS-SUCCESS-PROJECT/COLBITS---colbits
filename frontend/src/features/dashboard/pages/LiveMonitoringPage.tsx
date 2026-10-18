@@ -1,6 +1,9 @@
 /** LiveMonitoringPage — map toolbar + map with legend + fault panel (Figma: Monitor / Fuses layer, M1). */
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Icon } from '@/design-system/atoms'
 import { useNow } from '@/hooks/useNow'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { MapCanvas } from '../components/MapCanvas/MapCanvas'
 import { MapLegend } from '../components/MapLegend/MapLegend'
 import { MapToolbar } from '../components/MapToolbar/MapToolbar'
@@ -12,12 +15,28 @@ import { selectFaults } from '../model/faultRules'
 import { deriveScopeOptions } from '../model/scopeOptions'
 
 export function LiveMonitoringPage() {
+  const { t } = useTranslation('dashboard')
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
+  const isDesktopViewport = useMediaQuery('(min-width: 1280px)')
+  const closeMobilePanel = useCallback(() => setMobilePanelOpen(false), [])
   const query = useLiveMonitoringQuery()
   const nodesQuery = useNodesQuery()
   const { filters, updateFilters, toggleLayer, tab, setTab } = useLiveMonitoringFilters()
   const now = useNow()
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
   const scope = useMemo(() => deriveScopeOptions(faults), [faults])
+  const activeFaults = useMemo(
+    () => selectFaults(faults, filters, 'OPEN', now),
+    [faults, filters, now]
+  )
+  const resolvedFaults = useMemo(
+    () => selectFaults(faults, filters, 'RESOLVED', now),
+    [faults, filters, now]
+  )
+
+  useEffect(() => {
+    if (isDesktopViewport) setMobilePanelOpen(false)
+  }, [isDesktopViewport])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -27,7 +46,7 @@ export function LiveMonitoringPage() {
         onToggleLayer={toggleLayer}
         onChange={updateFilters}
       />
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <MapCanvas
           nodes={nodesQuery.data ?? []}
           layers={filters.layers}
@@ -36,18 +55,40 @@ export function LiveMonitoringPage() {
           onRetry={() => void nodesQuery.refetch()}
         >
           <MapLegend layers={filters.layers} />
+          <button
+            type="button"
+            aria-controls="fault-panel"
+            aria-expanded={mobilePanelOpen}
+            onClick={() => setMobilePanelOpen(true)}
+            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-action-secondary px-4 text-sm font-semibold text-text-inverse shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus xl:hidden"
+          >
+            <Icon name="alert" size="sm" />
+            {t('panel.openMobile', { count: activeFaults.length })}
+          </button>
         </MapCanvas>
+        {mobilePanelOpen && (
+          <button
+            type="button"
+            aria-label={t('panel.closeMobile')}
+            className="absolute inset-0 z-10 bg-bg-overlay/40 xl:hidden"
+            onClick={closeMobilePanel}
+          />
+        )}
         <FaultPanel
+          className={`${mobilePanelOpen ? 'flex' : 'hidden'} absolute inset-x-0 bottom-0 z-20 max-h-[82%] rounded-t-xl border-t shadow-card xl:relative xl:inset-auto xl:z-auto xl:flex xl:h-full xl:max-h-none xl:rounded-none xl:border-t-0 xl:shadow-none`}
           tab={tab}
           onTabChange={setTab}
-          activeFaults={selectFaults(faults, filters, 'OPEN', now)}
-          resolvedFaults={selectFaults(faults, filters, 'RESOLVED', now)}
+          activeFaults={activeFaults}
+          resolvedFaults={resolvedFaults}
           counters={query.data?.counters ?? null}
           filters={filters}
           onFiltersChange={updateFilters}
           isLoading={query.isPending}
           isError={query.isError}
           onRetry={() => void query.refetch()}
+          closeLabel={t('panel.closeMobile')}
+          isMobileOpen={mobilePanelOpen && !isDesktopViewport}
+          onClose={closeMobilePanel}
         />
       </div>
     </div>

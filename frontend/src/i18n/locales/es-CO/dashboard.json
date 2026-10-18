@@ -6,6 +6,11 @@
   "toolbar": {
     "label": "Capas y filtros del mapa",
     "layers": "Capas del mapa",
+    "filters": "Filtros de ubicación",
+    "locationFilters": "Ubicación",
+    "locationFiltersSelected": "Ubicación ({{count}})",
+    "showLocationFilters": "Mostrar filtros de ubicación",
+    "hideLocationFilters": "Ocultar filtros de ubicación",
     "zone": "Zona",
     "substation": "Subestación",
     "circuit": "Circuito",
@@ -44,11 +49,15 @@
   },
   "legend": {
     "title": "Leyenda",
+    "showDetails": "Mostrar información de la leyenda: {{details}}",
+    "hideDetails": "Ocultar información de la leyenda: {{details}}",
     "FUSES": "Fusibles · Falcon",
     "TRANSFORMERS": "Transformadores · SMAC"
   },
   "panel": {
     "title": "Gestión de fallas",
+    "openMobile": "Fallas ({{count}})",
+    "closeMobile": "Cerrar panel de fallas",
     "activeCount": "{{count}} activas",
     "tabsLabel": "Tipo de alarmas",
     "tab": {

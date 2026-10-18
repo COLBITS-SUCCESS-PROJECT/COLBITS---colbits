@@ -1,4 +1,5 @@
 /** AppShell layout — navy sidebar + top bar + page slot shared by every signed-in page (Figma: Template / App Shell). */
+import { useCallback, useEffect, useState } from 'react'
 import { Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
@@ -7,6 +8,7 @@ import { NavSidebar, TopBar } from '@/design-system/organisms'
 import { useAuthStore } from '@/stores/auth.store'
 import { isStale, useDataFreshnessStore } from '@/stores/dataFreshness.store'
 import { useNow } from '@/hooks/useNow'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { formatDateTime } from '@/utils/formatDateTime'
 import { ROUTES } from '@/app/router/routes'
 
@@ -33,6 +35,13 @@ export function AppShell() {
   const clearAuth = useAuthStore((state) => state.clearAuth)
   const lastSyncedAt = useDataFreshnessStore((state) => state.lastSyncedAt)
   const now = useNow()
+  const isMobileViewport = useMediaQuery('(max-width: 767px)')
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const closeMobileNav = useCallback(() => setIsMobileNavOpen(false), [])
+
+  useEffect(() => {
+    if (!isMobileViewport) setIsMobileNavOpen(false)
+  }, [isMobileViewport])
 
   const section = SECTIONS.find((entry) => matchPath(`${entry.to}/*`, pathname))
   const stale = lastSyncedAt !== null && isStale(lastSyncedAt, now)
@@ -43,7 +52,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-bg-page">
+    <div className="flex h-dvh min-w-0 overflow-hidden bg-bg-page">
       <NavSidebar
         logoLabel={t('app.name')}
         navLabel={t('nav.label')}
@@ -52,6 +61,10 @@ export function AppShell() {
         user={user ? { name: user.name, roleLabel: t(`role.${user.role}`) } : null}
         logoutLabel={t('nav.logout')}
         onLogout={handleLogout}
+        closeLabel={t('nav.close')}
+        isMobile={isMobileViewport}
+        isMobileOpen={!isMobileViewport || isMobileNavOpen}
+        onClose={closeMobileNav}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
@@ -71,6 +84,9 @@ export function AppShell() {
                 }
           }
           user={user ? { name: user.name } : null}
+          menuLabel={t('nav.open')}
+          onMenuClick={() => setIsMobileNavOpen(true)}
+          menuExpanded={isMobileNavOpen}
         />
         <main className="min-h-0 flex-1 overflow-y-auto">
           <Outlet />

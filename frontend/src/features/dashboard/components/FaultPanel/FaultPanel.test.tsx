@@ -124,4 +124,23 @@ describe('FaultPanel', () => {
     expect(screen.getByText('No hay fallas que coincidan con los filtros.')).toBeInTheDocument()
     expect(screen.getByText('0 activas')).toBeInTheDocument()
   })
+
+  it('renders the mobile sheet as a closable dialog', async () => {
+    const onClose = vi.fn()
+    renderPanel({
+      closeLabel: 'Cerrar panel de fallas',
+      isMobileOpen: true,
+      onClose,
+    })
+
+    const panel = screen.getByRole('dialog', { name: 'Gestión de fallas' })
+    expect(panel).toHaveAttribute('aria-modal', 'true')
+    expect(document.activeElement).toBe(
+      within(panel).getByRole('button', { name: 'Cerrar panel de fallas' })
+    )
+    await userEvent.click(within(panel).getByRole('button', { name: 'Cerrar panel de fallas' }))
+    expect(onClose).toHaveBeenCalledOnce()
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(2)
+  })
 })

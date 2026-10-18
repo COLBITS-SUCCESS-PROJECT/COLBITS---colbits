@@ -1,8 +1,11 @@
 /** FaultPanel organism — fault management side panel: tabs, node counters, filters and alarm list (Figma: Fault Panel). */
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { IconButton } from '@/design-system/atoms'
 import { CounterCard, Tabs, getTabId, getTabPanelId } from '@/design-system/molecules'
 import { ROUTES } from '@/app/router/routes'
+import { cn } from '@/utils/cn'
 import type { FaultFilters as Filters } from '../../model/faultRules'
 import type { FaultAlert, FaultCounters } from '../../model/liveMonitoring.types'
 import type { FaultTab } from '../../hooks/useLiveMonitoringFilters'
@@ -23,26 +26,95 @@ export interface FaultPanelProps {
   isLoading: boolean
   isError: boolean
   onRetry: () => void
+  closeLabel?: string
+  isMobileOpen?: boolean
+  onClose?: () => void
+  className?: string
 }
 
 export function FaultPanel(props: FaultPanelProps) {
-  const { tab, onTabChange, activeFaults, resolvedFaults, counters, filters, onFiltersChange } =
-    props
+  const {
+    tab,
+    onTabChange,
+    activeFaults,
+    resolvedFaults,
+    counters,
+    filters,
+    onFiltersChange,
+    closeLabel,
+    isMobileOpen = false,
+    onClose,
+  } = props
   const { t } = useTranslation('dashboard')
+  const panelRef = useRef<HTMLElement>(null)
   const listState = { isLoading: props.isLoading, isError: props.isError, onRetry: props.onRetry }
+
+  useEffect(() => {
+    if (!isMobileOpen || !onClose) return
+    const closePanel = onClose
+
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const getFocusableElements = () =>
+      panelRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), select, input'
+      )
+    const focusableElements = getFocusableElements()
+    const firstElement = focusableElements?.[0]
+    const lastElement =
+      focusableElements && focusableElements.length > 0
+        ? focusableElements[focusableElements.length - 1]
+        : undefined
+    firstElement?.focus()
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') closePanel()
+      if (event.key !== 'Tab' || !firstElement || !lastElement) return
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previouslyFocused?.focus()
+    }
+  }, [isMobileOpen, onClose])
 
   return (
     <aside
       aria-labelledby="fault-panel-title"
-      className="flex w-90 shrink-0 flex-col gap-3 overflow-y-auto border-l border-border-default bg-bg-panel px-2.5 pt-4 pb-2.5"
+      id="fault-panel"
+      aria-modal={isMobileOpen ? true : undefined}
+      role={isMobileOpen ? 'dialog' : 'complementary'}
+      ref={panelRef}
+      className={cn(
+        'min-w-0 flex-col gap-3 overflow-y-auto border-border-default bg-bg-panel px-4 pt-4 pb-4 xl:w-90 xl:shrink-0 xl:border-l xl:px-2.5 xl:pb-2.5',
+        props.className
+      )}
     >
       <header className="flex items-center justify-between px-1">
         <h2 id="fault-panel-title" className="text-base font-semibold text-text-heading">
           {t('panel.title')}
         </h2>
-        <span className="text-xs font-medium text-text-subtle">
-          {t('panel.activeCount', { count: activeFaults.length })}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-text-subtle">
+            {t('panel.activeCount', { count: activeFaults.length })}
+          </span>
+          {closeLabel && props.onClose && (
+            <IconButton
+              icon="close"
+              label={closeLabel}
+              onClick={props.onClose}
+              className="xl:hidden"
+            />
+          )}
+        </div>
       </header>
 
       <Tabs

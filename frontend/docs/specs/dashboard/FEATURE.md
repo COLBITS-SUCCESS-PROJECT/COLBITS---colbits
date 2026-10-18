@@ -22,6 +22,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - Node detail panel: live status, time series (Falcon / SMAC), alarm history 🔲
 - Top bar with last-refresh timestamp and *Live* / *Stale* state ✅ (shared, in `AppShell`)
 - Stale-data banner, alarm selection → map focus 🔲
+- Responsive layout: mobile navigation drawer, collapsible location filters and map legend, and fault panel bottom sheet below desktop width ✅
 
 ### Out of scope
 - Historical charts and rankings (→ `analysis`)
@@ -98,3 +99,4 @@ Not defined yet — pending backend OpenAPI (OQ-02). The page reads `LiveMonitor
 | Q2 | Which map library / basemap provider? | Frontend team | **Leaflet + OpenStreetMap** — ADR-0006. Markers at real coordinates (SCRUM-77) | 2026-10-10 |
 | Q3 | After how long without data is the view *Stale*? | Paola (PO) | OPEN — 5 min meanwhile (`STALE_AFTER_MS`) | — |
 | Q4 | Spanish copy for toolbar options ("Todas" instead of "Todas las subestaciones") to fit Figma widths | Paola (PO) | Proposed | 2026-10-07 |
+| Q5 | Minimum viewport and mobile fault-panel presentation | Paola (PO) | **360 px minimum; panel opens as a bottom sheet over the map on mobile.** | 2026-10-18 |

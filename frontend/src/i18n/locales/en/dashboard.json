@@ -6,6 +6,11 @@
   "toolbar": {
     "label": "Map layers and filters",
     "layers": "Map layers",
+    "filters": "Location filters",
+    "locationFilters": "Location",
+    "locationFiltersSelected": "Location ({{count}})",
+    "showLocationFilters": "Show location filters",
+    "hideLocationFilters": "Hide location filters",
     "zone": "Zone",
     "substation": "Substation",
     "circuit": "Circuit",
@@ -44,11 +49,15 @@
   },
   "legend": {
     "title": "Legend",
+    "showDetails": "Show legend details: {{details}}",
+    "hideDetails": "Hide legend details: {{details}}",
     "FUSES": "Fuses · Falcon",
     "TRANSFORMERS": "Transformers · SMAC"
   },
   "panel": {
     "title": "Fault management",
+    "openMobile": "Faults ({{count}})",
+    "closeMobile": "Close fault panel",
     "activeCount": "{{count}} active",
     "tabsLabel": "Alarm type",
     "tab": {

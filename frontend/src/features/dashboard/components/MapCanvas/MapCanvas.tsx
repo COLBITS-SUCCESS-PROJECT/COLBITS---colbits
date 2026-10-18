@@ -62,6 +62,15 @@ export function MapCanvas({
     })
   }, [map, nodes])
 
+  useEffect(() => {
+    if (!map || typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }))
+    observer.observe(map.getContainer())
+
+    return () => observer.disconnect()
+  }, [map])
+
   function describeNode(node: NetworkNode) {
     const parts: string[] = [t('map.node', { id: node.id })]
     const describe = (key: string, state: NetworkState | null, stateKey: string) =>
@@ -155,7 +164,11 @@ export function MapCanvas({
         </button>
       </div>
 
-      {children && <div className="absolute bottom-4 left-4 z-10">{children}</div>}
+      {children && (
+        <div className="absolute right-4 bottom-4 left-4 z-10 flex items-end justify-between gap-3">
+          {children}
+        </div>
+      )}
       {state && <MapStateOverlay state={state} onRetry={onRetry} />}
     </section>
   )

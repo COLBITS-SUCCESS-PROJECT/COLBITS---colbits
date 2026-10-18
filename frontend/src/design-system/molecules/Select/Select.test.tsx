@@ -41,12 +41,12 @@ describe('Select', () => {
     expect(screen.getByLabelText('Zona')).toHaveAttribute('id', 'zone')
   })
 
-  it('is 44px tall by default and 38px in the compact toolbar size', () => {
+  it('keeps compact controls touch-sized on mobile and condenses them at desktop widths', () => {
     const { rerender } = render(<Select label="Zona" options={OPTIONS} />)
     expect(screen.getByRole('combobox')).toHaveClass('h-11')
 
     rerender(<Select label="Zona" options={OPTIONS} size="sm" />)
-    expect(screen.getByRole('combobox')).toHaveClass('h-9.5')
+    expect(screen.getByRole('combobox')).toHaveClass('h-11', 'lg:h-9.5')
   })
 
   it('cannot be changed when disabled', () => {

@@ -25,14 +25,17 @@ export function Select({ label, options, size = 'md', id, className, ...rest }: 
 
   return (
     <div className={cn('flex min-w-0 flex-col gap-1', className)}>
-      <label htmlFor={selectId} className="text-overline leading-tight font-medium text-text-subtle">
+      <label
+        htmlFor={selectId}
+        className="text-overline leading-tight font-medium text-text-subtle"
+      >
         {label}
       </label>
       <span className="relative">
         <select
           id={selectId}
           className={cn(
-            size === 'sm' ? 'h-9.5' : 'h-11',
+            size === 'sm' ? 'h-11 lg:h-9.5' : 'h-11',
             'w-full cursor-pointer appearance-none truncate rounded-lg border border-border-default bg-bg-surface pr-9 pl-3 text-sm text-text-primary outline-hidden transition-colors',
             'focus:border-border-focus focus:ring-1 focus:ring-border-focus',
             'disabled:cursor-not-allowed disabled:bg-bg-surface-alt disabled:text-text-muted'
