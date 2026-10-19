@@ -7,6 +7,7 @@ export const STATE_TO_STATUS: Record<NetworkState, StatusDotStatus> = {
   WARNING: 'warning',
   INACTIVE: 'offline',
   NORMAL: 'online',
+  UNKNOWN: 'unknown',
 }
 
 export const STATE_BG_CLASS: Record<NetworkState, string> = {
@@ -14,6 +15,7 @@ export const STATE_BG_CLASS: Record<NetworkState, string> = {
   WARNING: 'bg-status-warning',
   INACTIVE: 'bg-status-offline',
   NORMAL: 'bg-status-online',
+  UNKNOWN: 'bg-status-unknown',
 }
 
 export const SEVERITY_BG_CLASS: Record<FaultSeverity, string> = {

@@ -10,10 +10,12 @@ const STATE_KEY: Record<MapLayer, string> = { FUSES: 'fuseState', TRANSFORMERS: 
 
 export interface MapLegendProps {
   layers: MapLayer[]
+  /** Adds the gray "no data" entry while the backend does not report some states yet. */
+  hasUnknown?: boolean
   className?: string
 }
 
-export function MapLegend({ layers, className }: MapLegendProps) {
+export function MapLegend({ layers, hasUnknown = false, className }: MapLegendProps) {
   const { t } = useTranslation('dashboard')
 
   return (
@@ -32,7 +34,7 @@ export function MapLegend({ layers, className }: MapLegendProps) {
           <h3 className="text-micro font-semibold text-text-subtle uppercase">
             {t(`legend.${layer}`)}
           </h3>
-          {STATES.map((state) => (
+          {(hasUnknown ? [...STATES, 'UNKNOWN' as const] : STATES).map((state) => (
             <LegendItem
               key={state}
               status={STATE_TO_STATUS[state]}

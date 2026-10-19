@@ -6,7 +6,8 @@ export type DeviceKind = 'FALCON' | 'SMAC'
 export type MapLayer = 'FUSES' | 'TRANSFORMERS'
 
 /** State precedence shared by markers, legend and fault cards (Figma: Status – Fuses & Transformers). */
-export type NetworkState = 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL'
+/** UNKNOWN = the backend does not report this device's state yet (shown in gray, "no data"). */
+export type NetworkState = 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL' | 'UNKNOWN'
 
 /** WGS84 position as recorded for a node (decimal degrees). */
 export interface GeoCoordinates {
