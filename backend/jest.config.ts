@@ -22,6 +22,9 @@ const config: Config = {
     'src/**/*.(t|j)s',
     'libs/**/*.(t|j)s',
     'apps/**/*.(t|j)s',
+    // Wiring only (no logic to test): the requirement measures the services.
+    '!**/*.module.ts',
+    '!**/main.ts',
   ],
   coverageDirectory: './coverage',
   testEnvironment: 'node',
