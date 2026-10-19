@@ -27,4 +27,11 @@ describe('AuthController', () => {
   it('rejects a logout without a token', async () => {
     await expect(controller.logout({ headers: {} })).rejects.toThrow(UnauthorizedException);
   });
+
+  // Ported from backend-mahmoud-tasks (Mahmoud): the profile route returns the user set by AuthGuard.
+  it('returns the authenticated user on the profile route', () => {
+    const user = { sub: 1, username: 'admin@colbits.com', role: 'Colbits administrator' };
+
+    expect(controller.getProfile({ user })).toMatchObject({ user });
+  });
 });
