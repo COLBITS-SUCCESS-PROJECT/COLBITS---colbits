@@ -9,7 +9,7 @@ export interface NodeDto {
   latitude: number | null
   longitude: number | null
   /**
-   * Fuse / transformer state (US6 SCRUM-65, US7 SCRUM-105). Not sent yet by the backend.
+   * fuse_state: sent by the backend since US6 (SCRUM-65). transformer_state: not sent yet (US7 SCRUM-105).
    * Absent = state not known yet · null = the node has no such device.
    */
   fuse_state?: NodeStateDto | null
