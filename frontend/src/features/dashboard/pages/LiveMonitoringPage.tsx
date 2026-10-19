@@ -18,6 +18,9 @@ export function LiveMonitoringPage() {
   const now = useNow()
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
   const scope = useMemo(() => deriveScopeOptions(faults), [faults])
+  const hasUnknownState = (nodesQuery.data ?? []).some(
+    (node) => node.fuseState === 'UNKNOWN' || node.transformerState === 'UNKNOWN'
+  )
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -35,7 +38,7 @@ export function LiveMonitoringPage() {
           isError={nodesQuery.isError}
           onRetry={() => void nodesQuery.refetch()}
         >
-          <MapLegend layers={filters.layers} />
+          <MapLegend layers={filters.layers} hasUnknown={hasUnknownState} />
         </MapCanvas>
         <FaultPanel
           tab={tab}

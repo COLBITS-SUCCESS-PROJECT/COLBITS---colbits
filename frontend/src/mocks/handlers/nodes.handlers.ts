@@ -20,7 +20,9 @@ export const nodesHandlers = [
     }
 
     const scope = MOCK_SCOPES[token]
-    const nodes = scope === null ? NODE_FIXTURES : NODE_FIXTURES.filter((n) => scope.includes(n.id))
-    return HttpResponse.json(nodes)
+    const nodes =
+      scope === null ? NODE_FIXTURES : NODE_FIXTURES.filter((n) => scope.includes(n.name))
+    // Same shape as backend/src/nodes/nodes.service.ts → { count, nodes }
+    return HttpResponse.json({ count: nodes.length, nodes })
   }),
 ]
