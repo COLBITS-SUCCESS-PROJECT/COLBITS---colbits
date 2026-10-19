@@ -12,7 +12,11 @@ const TEST_HASH_ROUNDS = 4;
 describe('AuthService', () => {
   let service: AuthService;
   let users: jest.Mocked<Pick<Repository<User>, 'findOne'>>;
-  let blacklist: jest.Mocked<Pick<Repository<TokenBlacklist>, 'create' | 'save'>>;
+  // Plain mocks: Repository.create/save are overloaded, so jest.Mocked<Pick<...>> does not type-check.
+  let blacklist: {
+    create: jest.Mock<TokenBlacklist, [Partial<TokenBlacklist>]>;
+    save: jest.Mock<Promise<TokenBlacklist>, [Partial<TokenBlacklist>]>;
+  };
   let jwt: jest.Mocked<Pick<JwtService, 'signAsync'>>;
   let activeAdmin: User;
 
