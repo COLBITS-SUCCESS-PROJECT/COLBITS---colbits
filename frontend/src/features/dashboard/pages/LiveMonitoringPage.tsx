@@ -18,8 +18,11 @@ export function LiveMonitoringPage() {
   const now = useNow()
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
   const scope = useMemo(() => deriveScopeOptions(faults), [faults])
+  // Only the visible layers count: a transformer state still missing must not flag the fuse layer.
   const hasUnknownState = (nodesQuery.data ?? []).some(
-    (node) => node.fuseState === 'UNKNOWN' || node.transformerState === 'UNKNOWN'
+    (node) =>
+      (filters.layers.includes('FUSES') && node.fuseState === 'UNKNOWN') ||
+      (filters.layers.includes('TRANSFORMERS') && node.transformerState === 'UNKNOWN')
   )
 
   return (

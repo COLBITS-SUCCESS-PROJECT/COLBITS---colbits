@@ -83,7 +83,8 @@ interface NodeDto {
   name: string               // node ID (primary key of `nodes`), e.g. 0000100001
   latitude: number | null
   longitude: number | null
-  // Not sent yet — US6 (SCRUM-65) / US7 (SCRUM-105). Absent = unknown, null = no such device.
+  // fuse_state: sent since US6 (SCRUM-65) · transformer_state: not yet (US7, SCRUM-105).
+  // Absent = unknown, null = no such device.
   fuse_state?: 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL' | null
   transformer_state?: 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL' | null
 }
@@ -94,7 +95,7 @@ interface NodeDto {
 | GET | `/nodes` | Nodes within the authenticated user's scope (filtered by the backend, F-10). Requires `Authorization: Bearer <token>`. |
 
 - Nodes without coordinates are left out by the mapper.
-- While the backend does not send the states, nodes are drawn in gray ("Sin dato") and the legend shows that entry.
+- A state the backend does not send yet is drawn in gray ("Sin dato"); the legend shows that entry only for visible layers.
 - The MSW mock returns the same `{ count, nodes }` shape so mocked and real runs behave the same.
 
 ## 7. Open questions
