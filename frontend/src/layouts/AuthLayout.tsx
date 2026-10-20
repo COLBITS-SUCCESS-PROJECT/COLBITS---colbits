@@ -21,8 +21,7 @@ export function AuthLayout() {
           </p>
         </div>
       </div>
-      <main className="flex min-w-0 flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
-      <main className="relative flex flex-1 items-center justify-center px-6 py-12">
+      <main className="relative flex min-w-0 flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
         {/* Visitors choose the language before logging in (SCRUM-158). */}
         <LanguageSwitch
           className="absolute top-4 right-4"
