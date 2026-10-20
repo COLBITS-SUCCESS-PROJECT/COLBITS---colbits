@@ -63,6 +63,19 @@ describe('applyNodeScope', () => {
     });
   });
 
+  it('matches circuits, substations and zones by id, never by name', () => {
+    const query = makeQuery();
+    const sql = applyNodeScope(query, 'node.name', {
+      kind: 'restricted',
+      userId: 42,
+    }).getQuery();
+
+    expect(sql).toContain('us.entity_id = c.id::text');
+    expect(sql).toContain('us.entity_id = s.id::text');
+    expect(sql).toContain('us.entity_id = s.zone_id::text');
+    expect(sql).not.toMatch(/us\.entity_id\s*=\s*(c|s|z)\.name/);
+  });
+
   it('keeps the user ID parameterized', () => {
     const query = makeQuery();
     const result = applyNodeScope(query, 'node.name', {
