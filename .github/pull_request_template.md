@@ -1,19 +1,13 @@
-<!--
-Title:             SCRUM-<n> | type(scope): result    e.g. SCRUM-61 | feat(auth): add login page
-Without a ticket:  type(scope): result                 e.g. chore(docker): add dev container
-Used AI? End the title with [AI-ASSISTED] or [AI-GENERATED], matching "AI use" below.
-The "pr-standards" check verifies this. Guide: CONTRIBUTING.md
--->
-
 ## What
-<!-- 1–3 lines: what changes and why. -->
+Make the monitoring view responsive for the SCRUM-160 story.
 
 
-Jira: https://colbits-success.atlassian.net/browse/SCRUM-
+Jira: [https://colbits-success.atlassian.net/browse/SCRUM-](https://colbits-success.atlassian.net/browse/SCRUM-160?atlOrigin=eyJpIjoiZTQ4ZmM0ZTk2MTQ0NDNhM2EzNTIxMTkxNDRmMDYyZjAiLCJwIjoiaiJ9)
 
 ## How to test
-<!-- One step is enough, e.g. "open /dashboard and see the markers". If the UI changes, paste a screenshot. -->
-1.
+1. Run docker compose up in the project root directory.
+2. Go to http://localhost:47173/ in your browser.
+3. Resize the window and observe the responsiveness.
 
 ## AI use
 <!-- Tick only one with [x]. -->
