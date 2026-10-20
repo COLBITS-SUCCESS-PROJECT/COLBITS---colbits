@@ -1,5 +1,6 @@
 /**
- * PROVISIONAL test users of the mock login service (dev and tests only) — the real users live in the backend.
+ * Test users of the mock login service (dev and tests only). Same usernames, passwords and roles as the
+ * backend seed (backend/database/03_security_schema.sql), so the same login works with the mock and the real API.
  * The tokens are JWT-shaped (unsigned) so the app reads their claims like real ones.
  */
 import type { AccessTokenPayloadDto } from '@/features/auth/api/auth.dto'
@@ -19,12 +20,12 @@ export interface MockLoginUser {
 }
 
 export const MOCK_LOGIN_TOKENS = {
-  ADMIN: mockAccessToken({ sub: 1, username: 'admin', role: 'Colbits administrator' }),
-  CONSULTA: mockAccessToken({ sub: 2, username: 'consulta', role: 'consultation user' }),
+  ADMIN: mockAccessToken({ sub: 1, username: 'admin@colbits.com', role: 'Colbits administrator' }),
+  CONSULTA: mockAccessToken({ sub: 2, username: 'client@colbits.com', role: 'consultation user' }),
 } as const
 
-/** Documented in docs/specs/auth/SCRUM-61.md §6. Scopes: admin = whole network, consulta = north. */
+/** Documented in docs/specs/auth/SCRUM-144.md. Scopes: admin = whole network, client = north. */
 export const MOCK_LOGIN_USERS: MockLoginUser[] = [
-  { username: 'admin', password: 'admin123', token: MOCK_LOGIN_TOKENS.ADMIN },
-  { username: 'consulta', password: 'consulta123', token: MOCK_LOGIN_TOKENS.CONSULTA },
+  { username: 'admin@colbits.com', password: 'adminpassword', token: MOCK_LOGIN_TOKENS.ADMIN },
+  { username: 'client@colbits.com', password: 'adminpassword', token: MOCK_LOGIN_TOKENS.CONSULTA },
 ]

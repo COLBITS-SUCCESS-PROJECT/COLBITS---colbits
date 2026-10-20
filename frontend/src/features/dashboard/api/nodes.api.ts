@@ -4,8 +4,8 @@ import type { NetworkNode } from '../model/liveMonitoring.types'
 import type { NodesResponseDto } from './nodes.dto'
 import { toNetworkNodes } from './nodes.mapper'
 
-// PROVISIONAL — pending OpenAPI confirmation (OQ-02)
-export const NODES_ENDPOINT = '/api/v1/nodes'
+// PROVISIONAL — pending OpenAPI confirmation (OQ-02). Same path as backend/src/nodes/nodes.controller.ts.
+export const NODES_ENDPOINT = '/nodes'
 
 /** Nodes within the authenticated user's scope. The backend applies the scope (F-10). */
 export async function fetchNodes(signal?: AbortSignal): Promise<NetworkNode[]> {

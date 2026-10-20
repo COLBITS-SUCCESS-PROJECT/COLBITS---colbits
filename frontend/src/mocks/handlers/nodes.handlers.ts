@@ -2,18 +2,17 @@
 import { http, HttpResponse } from 'msw'
 import { NODES_ENDPOINT } from '@/features/dashboard/api/nodes.api'
 import { MOCK_SCOPES, NODE_FIXTURES } from '../data/nodes.fixtures'
+import { isTokenRevoked } from '../data/revokedTokens'
+import { bearerToken } from './bearerToken'
 
-const BEARER_PREFIX = 'Bearer '
 const UNAUTHORIZED = 401
 
 export const nodesHandlers = [
   http.get(`*${NODES_ENDPOINT}`, ({ request }) => {
-    const authorization = request.headers.get('Authorization') ?? ''
-    const token = authorization.startsWith(BEARER_PREFIX)
-      ? authorization.slice(BEARER_PREFIX.length)
-      : ''
+    const token = bearerToken(request)
 
-    if (!(token in MOCK_SCOPES)) {
+    // F-02: no data without a valid token; F-11: a logged-out token is no longer valid.
+    if (!(token in MOCK_SCOPES) || isTokenRevoked(token)) {
       return HttpResponse.json(
         { title: 'Unauthorized', detail: 'Missing or invalid access token', status: UNAUTHORIZED },
         { status: UNAUTHORIZED }
@@ -21,7 +20,9 @@ export const nodesHandlers = [
     }
 
     const scope = MOCK_SCOPES[token]
-    const nodes = scope === null ? NODE_FIXTURES : NODE_FIXTURES.filter((n) => scope.includes(n.id))
-    return HttpResponse.json(nodes)
+    const nodes =
+      scope === null ? NODE_FIXTURES : NODE_FIXTURES.filter((n) => scope.includes(n.name))
+    // Same shape as backend/src/nodes/nodes.service.ts → { count, nodes }
+    return HttpResponse.json({ count: nodes.length, nodes })
   }),
 ]

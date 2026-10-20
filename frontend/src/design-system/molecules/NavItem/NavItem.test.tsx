@@ -69,4 +69,5 @@ describe('NavItem', () => {
     const svg = screen.getByRole('link').querySelector('svg[data-icon="file"]')
     expect(svg).toHaveAttribute('aria-hidden', 'true')
   })
+
 })

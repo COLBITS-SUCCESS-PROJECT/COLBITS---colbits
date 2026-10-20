@@ -39,13 +39,15 @@
     "CRITICAL": "Open fuse",
     "WARNING": "No voltage",
     "INACTIVE": "Inactive > 9 h",
-    "NORMAL": "Normal"
+    "NORMAL": "Normal",
+    "UNKNOWN": "No data"
   },
   "transformerState": {
     "CRITICAL": "2+ phases down",
     "WARNING": "1 phase down",
     "INACTIVE": "Inactive > 3 h",
-    "NORMAL": "All phases OK"
+    "NORMAL": "All phases OK",
+    "UNKNOWN": "No data"
   },
   "legend": {
     "title": "Legend",

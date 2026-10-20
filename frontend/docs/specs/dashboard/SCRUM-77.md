@@ -68,24 +68,35 @@ The Figma canvas is explicitly a *basemap placeholder*; this task replaces it wi
 3. The map shows one marker per node at its recorded coordinates, framed so all of them are visible.
 4. The user can zoom and pan the map.
 
-## 6. Data and endpoints (PROVISIONAL)
+## 6. Data and endpoints
+
+Contract **as implemented by the backend** (`backend/src/nodes`), verified against the running API on 2026-10-19.
 
 ```ts
-// PROVISIONAL — pending OpenAPI confirmation (AGENT.md §20, OQ-02)
+// GET /nodes — response
+interface NodesResponseDto {
+  count: number
+  nodes: NodeDto[]
+}
+
 interface NodeDto {
-  id: string // 10-character node ID, e.g. ND04821A07
-  latitude: number
-  longitude: number
-  fuse_state: 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL' | null
-  transformer_state: 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL' | null
+  name: string               // node ID (primary key of `nodes`), e.g. 0000100001
+  latitude: number | null
+  longitude: number | null
+  // fuse_state: sent since US6 (SCRUM-65) · transformer_state: not yet (US7, SCRUM-105).
+  // Absent = unknown, null = no such device.
+  fuse_state?: 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL' | null
+  transformer_state?: 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL' | null
 }
 ```
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/v1/nodes` | Nodes within the authenticated user's scope (filtered by the backend, F-10) |
+| GET | `/nodes` | Nodes within the authenticated user's scope (filtered by the backend, F-10). Requires `Authorization: Bearer <token>`. |
 
-Sample data uses coordinates in **Cali, Colombia**, where Colbits operates.
+- Nodes without coordinates are left out by the mapper.
+- A state the backend does not send yet is drawn in gray ("Sin dato"); the legend shows that entry only for visible layers.
+- The MSW mock returns the same `{ count, nodes }` shape so mocked and real runs behave the same.
 
 ## 7. Open questions
 

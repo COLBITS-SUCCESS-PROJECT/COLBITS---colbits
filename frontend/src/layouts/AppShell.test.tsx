@@ -1,10 +1,12 @@
 /** Integration tests for the AppShell layout (sidebar + top bar + router + i18n + stores). */
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach, beforeAll, afterAll } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/i18n'
+import { server } from '@/mocks/server'
+import { isTokenRevoked, resetRevokedTokens } from '@/mocks/data/revokedTokens'
 import { useAuthStore } from '@/stores/auth.store'
 import { STALE_AFTER_MS, useDataFreshnessStore } from '@/stores/dataFreshness.store'
 import { ROUTES } from '@/app/router/routes'
@@ -37,14 +39,18 @@ function renderShellAt(path: string) {
 }
 
 describe('AppShell', () => {
+  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
   beforeEach(() => {
     useAuthStore.getState().clearAuth()
     useDataFreshnessStore.getState().reset()
+    resetRevokedTokens()
   })
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    server.resetHandlers()
   })
+  afterAll(() => server.close())
 
   it('renders the sidebar, the section title in the top bar and the page', () => {
     // Arrange & Act
@@ -117,14 +123,15 @@ describe('AppShell', () => {
     expect(screen.getAllByRole('img', { name: 'Monica Castellanos' })).toHaveLength(2)
   })
 
-  it('clears the session and goes to login on logout', async () => {
+  it('invalidates the token, clears the session and goes to login on logout (F-11)', async () => {
     useAuthStore.getState().setSession(OPERATOR, 'token')
     renderShellAt(ROUTES.dashboard)
 
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
+    expect(await screen.findByText('login-page')).toBeInTheDocument()
+    expect(isTokenRevoked('token')).toBe(true)
     expect(useAuthStore.getState().isAuthenticated).toBe(false)
-    expect(screen.getByText('login-page')).toBeInTheDocument()
   })
 
   it('hides the freshness pill until live data has arrived', () => {
@@ -152,5 +159,30 @@ describe('AppShell', () => {
       'data-status',
       'critical'
     )
+  })
+
+  describe('user management entry (F-05, US19)', () => {
+    const ADMIN = { id: '1', name: 'admin@colbits.com', role: 'ADMIN' } as const
+    const VIEWER = { id: '2', name: 'client@colbits.com', role: 'VIEWER' } as const
+
+    it('is shown to the administrator', () => {
+      useAuthStore.getState().setSession(ADMIN, 'token')
+
+      renderShellAt(ROUTES.dashboard)
+
+      expect(screen.getByRole('link', { name: 'Gestión de usuarios' })).toHaveAttribute(
+        'href',
+        ROUTES.users
+      )
+    })
+
+    it('is hidden from a consultation user', () => {
+      useAuthStore.getState().setSession(VIEWER, 'token')
+
+      renderShellAt(ROUTES.dashboard)
+
+      expect(screen.queryByRole('link', { name: /Gestión de usuarios/ })).not.toBeInTheDocument()
+      expect(screen.getAllByRole('link')).toHaveLength(3)
+    })
   })
 })

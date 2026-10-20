@@ -1,4 +1,5 @@
-/** TopBar organism — page title, data freshness, notifications and user avatar on every page (Figma: Top Bar). */
+/** TopBar organism — page title, data freshness, language, notifications and user avatar on every page (Figma: Top Bar). */
+import type { ReactNode } from 'react'
 import { Avatar, IconButton } from '@/design-system/atoms'
 import { RefreshTimestamp, type RefreshTimestampProps } from '@/design-system/molecules'
 
@@ -19,6 +20,8 @@ export interface TopBarProps {
   refresh?: RefreshTimestampProps
   /** Bell button (Figma organism shows it; the monitoring page hides it). */
   notifications?: TopBarNotifications
+  /** Language switch (a LanguageSwitch molecule), shown before the avatar. */
+  languageSwitch?: ReactNode
   user: TopBarUser | null
   menuLabel?: string
   onMenuClick?: () => void
@@ -34,6 +37,7 @@ export function TopBar({
   menuLabel,
   onMenuClick,
   menuExpanded = false,
+  languageSwitch,
 }: TopBarProps) {
   return (
     <header className="flex min-h-16 shrink-0 items-center justify-between gap-2 border-b border-border-default bg-bg-surface px-4 py-2 sm:gap-6 sm:px-6 sm:py-0">
@@ -61,6 +65,7 @@ export function TopBar({
         {notifications && (
           <IconButton icon="bell" label={notifications.label} onClick={notifications.onClick} />
         )}
+        {languageSwitch}
         {user && <Avatar name={user.name} imageUrl={user.avatarUrl} />}
       </div>
     </header>

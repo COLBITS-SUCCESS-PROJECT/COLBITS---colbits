@@ -15,11 +15,11 @@ import { LoginPage } from './LoginPage'
 
 const SERVER_ERROR = 500
 
-function renderLoginPage() {
+function renderLoginPage(entry: string = ROUTES.login) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[ROUTES.login]}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path={ROUTES.login} element={<LoginPage />} />
           <Route path={ROUTES.dashboard} element={<p>map-page</p>} />
@@ -52,20 +52,20 @@ describe('LoginPage', () => {
     renderLoginPage()
 
     // Act
-    await logInAs('admin', 'admin123')
+    await logInAs('admin@colbits.com', 'adminpassword')
 
     // Assert
     expect(await screen.findByText('map-page')).toBeInTheDocument()
     const session = useAuthStore.getState()
     expect(session.isAuthenticated).toBe(true)
     expect(session.token).toBe(MOCK_LOGIN_TOKENS.ADMIN)
-    expect(session.user).toEqual({ id: '1', name: 'admin', role: 'ADMIN' })
+    expect(session.user).toEqual({ id: '1', name: 'admin@colbits.com', role: 'ADMIN' })
   })
 
   it('gives a consultation user the read-only role', async () => {
     renderLoginPage()
 
-    await logInAs('consulta', 'consulta123')
+    await logInAs('client@colbits.com', 'adminpassword')
 
     expect(await screen.findByText('map-page')).toBeInTheDocument()
     expect(useAuthStore.getState().user?.role).toBe('VIEWER')
@@ -74,18 +74,18 @@ describe('LoginPage', () => {
   it('says the credentials are invalid and stays on the page (AC2)', async () => {
     renderLoginPage()
 
-    await logInAs('admin', 'wrong-password')
+    await logInAs('admin@colbits.com', 'wrong-password')
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Usuario o contraseña incorrectos')
     expectStillOnLoginPage()
-    expect(screen.getByLabelText('Usuario')).toHaveValue('admin')
+    expect(screen.getByLabelText('Usuario')).toHaveValue('admin@colbits.com')
   })
 
   it('asks to try again when the server cannot be reached (AC4)', async () => {
     server.use(http.post(`*${LOGIN_ENDPOINT}`, () => HttpResponse.error()))
     renderLoginPage()
 
-    await logInAs('admin', 'admin123')
+    await logInAs('admin@colbits.com', 'adminpassword')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No pudimos conectar con el servidor. Intenta de nuevo.'
@@ -101,11 +101,38 @@ describe('LoginPage', () => {
     )
     renderLoginPage()
 
-    await logInAs('admin', 'admin123')
+    await logInAs('admin@colbits.com', 'adminpassword')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No pudimos iniciar sesión. Intenta de nuevo.'
     )
     expectStillOnLoginPage()
+  })
+
+  describe('after the API ended the session (F-02, SCRUM-145)', () => {
+    const EXPIRED_ENTRY = `${ROUTES.login}?session=expired`
+
+    it('explains that the session ended', () => {
+      renderLoginPage(EXPIRED_ENTRY)
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Tu sesión terminó. Inicia sesión de nuevo para continuar.'
+      )
+    })
+
+    it('shows only the login error once a new attempt fails', async () => {
+      renderLoginPage(EXPIRED_ENTRY)
+
+      await logInAs('admin@colbits.com', 'wrong-password')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Usuario o contraseña incorrectos')
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    it('says nothing about the session on a normal visit', () => {
+      renderLoginPage()
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
   })
 })

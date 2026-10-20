@@ -4,5 +4,9 @@
     "rootDir": "./src"
   },
   "include": ["src"],
+  "watchOptions": {
+    "watchFile": "fixedPollingInterval",
+    "watchDirectory": "fixedPollingInterval"
+  },
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }

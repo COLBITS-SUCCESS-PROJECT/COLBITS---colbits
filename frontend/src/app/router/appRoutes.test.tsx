@@ -8,6 +8,9 @@ import { useAuthStore } from '@/stores/auth.store'
 import { appRoutes } from './appRoutes'
 import { ROUTES } from './routes'
 
+/** Lazy routes load their module on first visit, which can take more than the default 1 s on a busy CI run. */
+const LAZY_ROUTE_TIMEOUT = { timeout: 5000 }
+
 function renderAppAt(path: string) {
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] })
   render(
@@ -29,7 +32,7 @@ describe('appRoutes', () => {
 
       // Assert
       expect(
-        await screen.findByRole('heading', { level: 1, name: 'Iniciar sesión' })
+        await screen.findByRole('heading', { level: 1, name: 'Iniciar sesión' }, LAZY_ROUTE_TIMEOUT)
       ).toBeInTheDocument()
       expect(router.state.location.pathname).toBe(ROUTES.login)
     }
@@ -38,6 +41,6 @@ describe('appRoutes', () => {
   it('shows the not-found page for an unknown address', async () => {
     renderAppAt('/does-not-exist')
 
-    expect(await screen.findByText('Página no encontrada')).toBeInTheDocument()
+    expect(await screen.findByText('Página no encontrada', {}, LAZY_ROUTE_TIMEOUT)).toBeInTheDocument()
   })
 })

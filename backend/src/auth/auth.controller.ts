@@ -1,8 +1,6 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Req, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
-import { RolesGuard } from './roles.guard';
-import { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -10,7 +8,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  login(@Body() loginDto: Record<string, any>) {
+  login(@Body() loginDto: { username?: unknown; password?: unknown }) {
     return this.authService.validateAndLogin(loginDto.username, loginDto.password);
   }
 

@@ -75,11 +75,11 @@ describe('SCRUM-77 · F-12 — node markers at recorded coordinates', () => {
     const markers = map.getAllByTestId('map-marker')
 
     const inScope = NODE_FIXTURES.filter((node) =>
-      ['ND04821A07', 'ND01120A02', 'ND06102B03', 'ND07740D02'].includes(node.id)
+      ['ND04821A07', 'ND01120A02', 'ND06102B03', 'ND07740D02'].includes(node.name)
     )
     expect(markers).toHaveLength(inScope.length)
     for (const node of inScope) {
-      const marker = map.getByRole('img', { name: markerOf(node.id) }).closest('[data-lat]')
+      const marker = map.getByRole('img', { name: markerOf(node.name) }).closest('[data-lat]')
       expect(marker).toHaveAttribute('data-lat', String(node.latitude))
       expect(marker).toHaveAttribute('data-lng', String(node.longitude))
     }

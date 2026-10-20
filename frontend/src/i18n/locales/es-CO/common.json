@@ -71,6 +71,11 @@
       "nav": "Reportes",
       "title": "Reportes",
       "subtitle": "Exportación de datos con trazabilidad"
+    },
+    "users": {
+      "nav": "Gestión de usuarios",
+      "title": "Gestión de usuarios",
+      "subtitle": "Usuarios de consulta y su alcance en la red"
     }
   },
   "freshness": {
@@ -78,5 +83,10 @@
     "live": "Datos en vivo",
     "stale": "Datos desactualizados",
     "refresh": "Actualizar datos"
+  },
+  "language": {
+    "label": "Idioma",
+    "es-CO": "Español",
+    "en": "English"
   }
 }

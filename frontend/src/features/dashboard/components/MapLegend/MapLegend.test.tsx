@@ -47,4 +47,12 @@ describe('MapLegend', () => {
 
     expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0)
   })
+  it('adds the gray "no data" entry only while some states are unknown', () => {
+    const { rerender } = render(<MapLegend layers={['FUSES']} />)
+    expect(screen.queryByText('Sin dato')).not.toBeInTheDocument()
+
+    rerender(<MapLegend layers={['FUSES']} hasUnknown />)
+
+    expect(screen.getByText('Sin dato')).toBeInTheDocument()
+  })
 })

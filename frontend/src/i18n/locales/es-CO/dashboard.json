@@ -39,13 +39,15 @@
     "CRITICAL": "Fusible abierto",
     "WARNING": "Sin tensión",
     "INACTIVE": "Inactivo > 9 h",
-    "NORMAL": "Normal"
+    "NORMAL": "Normal",
+    "UNKNOWN": "Sin dato"
   },
   "transformerState": {
     "CRITICAL": "2+ fases caídas",
     "WARNING": "1 fase caída",
     "INACTIVE": "Inactivo > 3 h",
-    "NORMAL": "Todas las fases OK"
+    "NORMAL": "Todas las fases OK",
+    "UNKNOWN": "Sin dato"
   },
   "legend": {
     "title": "Leyenda",
