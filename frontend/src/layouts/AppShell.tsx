@@ -1,4 +1,5 @@
 /** AppShell layout — navy sidebar + top bar + page slot shared by every signed-in page (Figma: Template / App Shell). */
+import { useCallback, useEffect, useState } from 'react'
 import { Outlet, matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
@@ -8,6 +9,7 @@ import { NavSidebar, TopBar } from '@/design-system/organisms'
 import { useAuthStore, type UserRole } from '@/stores/auth.store'
 import { isStale, useDataFreshnessStore } from '@/stores/dataFreshness.store'
 import { useNow } from '@/hooks/useNow'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useLanguage } from '@/hooks/useLanguage'
 import { useLogout } from '@/hooks/useLogout'
 import { formatDateTime } from '@/utils/formatDateTime'
@@ -40,6 +42,13 @@ export function AppShell() {
   const { logout, isLoggingOut } = useLogout()
   const lastSyncedAt = useDataFreshnessStore((state) => state.lastSyncedAt)
   const now = useNow()
+  const isMobileViewport = useMediaQuery('(max-width: 767px)')
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
+  const closeMobileNav = useCallback(() => setIsMobileNavOpen(false), [])
+
+  useEffect(() => {
+    if (!isMobileViewport) setIsMobileNavOpen(false)
+  }, [isMobileViewport])
   const language = useLanguage()
 
   const visibleSections = SECTIONS.filter(
@@ -56,7 +65,7 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-bg-page">
+    <div className="flex h-dvh min-w-0 overflow-hidden bg-bg-page">
       <NavSidebar
         logoLabel={t('app.name')}
         navLabel={t('nav.label')}
@@ -64,7 +73,11 @@ export function AppShell() {
         items={visibleSections.map(({ to, icon, key }) => ({ to, icon, label: t(`${key}.nav`) }))}
         user={user ? { name: user.name, roleLabel: t(`role.${user.role}`) } : null}
         logoutLabel={t('nav.logout')}
-        onLogout={() => void handleLogout()}
+        onLogout={handleLogout}
+        closeLabel={t('nav.close')}
+        isMobile={isMobileViewport}
+        isMobileOpen={!isMobileViewport || isMobileNavOpen}
+        onClose={closeMobileNav}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
@@ -92,6 +105,9 @@ export function AppShell() {
             />
           }
           user={user ? { name: user.name } : null}
+          menuLabel={t('nav.open')}
+          onMenuClick={() => setIsMobileNavOpen(true)}
+          menuExpanded={isMobileNavOpen}
         />
         <main className="min-h-0 flex-1 overflow-y-auto">
           <Outlet />

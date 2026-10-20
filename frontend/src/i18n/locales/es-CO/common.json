@@ -5,7 +5,9 @@
   "nav": {
     "label": "Navegación principal",
     "section": "Menú",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "open": "Abrir menú de navegación",
+    "close": "Cerrar menú de navegación"
   },
   "role": {
     "ADMIN": "Administrador",

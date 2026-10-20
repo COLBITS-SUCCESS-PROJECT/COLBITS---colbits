@@ -64,6 +64,18 @@ describe('LiveMonitoringPage', () => {
     )
   })
 
+  it('opens the mobile fault sheet and closes it from its close control', async () => {
+    renderPage()
+    await screen.findByText('3 activas')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Fallas (3)' }))
+
+    const panel = screen.getByRole('dialog', { name: 'Gestión de fallas' })
+    expect(panel).toHaveAttribute('aria-modal', 'true')
+    await userEvent.click(within(panel).getByRole('button', { name: 'Cerrar panel de fallas' }))
+    expect(screen.queryByRole('dialog', { name: 'Gestión de fallas' })).not.toBeInTheDocument()
+  })
+
   it('narrows the fault list with the toolbar search', async () => {
     renderPage()
     await screen.findByText('3 activas')

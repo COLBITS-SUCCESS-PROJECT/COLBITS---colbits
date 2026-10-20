@@ -30,7 +30,9 @@ export function RefreshTimestamp({
       )}
     >
       <StatusDot status={isStale ? 'critical' : 'online'} label={statusLabel} />
-      <span className="text-xs font-medium whitespace-nowrap text-text-secondary">{label}</span>
+      <span className="hidden text-xs font-medium whitespace-nowrap text-text-secondary lg:inline">
+        {label}
+      </span>
       {onRefresh && (
         <button
           type="button"

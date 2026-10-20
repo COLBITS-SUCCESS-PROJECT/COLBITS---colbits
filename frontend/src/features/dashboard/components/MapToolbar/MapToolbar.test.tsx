@@ -47,8 +47,27 @@ describe('MapToolbar', () => {
     expect(onToggleLayer).toHaveBeenCalledWith('TRANSFORMERS')
   })
 
+  it('opens and closes the location filters from the compact filter control', async () => {
+    renderToolbar()
+    const toggle = screen.getByRole('button', { name: 'Mostrar filtros de ubicación' })
+    const filters = screen.getByRole('group', { name: 'Filtros de ubicación' })
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(filters).toHaveClass('hidden')
+
+    await userEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(filters).toHaveClass('grid')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ocultar filtros de ubicación' }))
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(filters).toHaveClass('hidden')
+  })
+
   it('offers "all" plus every scope value and reports the selection', async () => {
     const { onChange } = renderToolbar()
+    await userEvent.click(screen.getByRole('button', { name: 'Mostrar filtros de ubicación' }))
     const substation = screen.getByRole('combobox', { name: 'Subestación' })
 
     await userEvent.selectOptions(substation, 'SE-Sur')

@@ -19,6 +19,7 @@ import {
   LogOut,
   Map,
   MapPin,
+  Menu,
   MessageCircle,
   Minus,
   PenLine,
@@ -41,6 +42,7 @@ import {
 export const ICON_REGISTRY = {
   // Figma: 0 Foundations → Iconography (24px, 2px stroke)
   map: Map,
+  menu: Menu,
   alert: TriangleAlert,
   chart: ChartNoAxesColumn,
   file: FileText,

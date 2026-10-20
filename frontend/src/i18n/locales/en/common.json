@@ -5,7 +5,9 @@
   "nav": {
     "label": "Main navigation",
     "section": "Menu",
-    "logout": "Log out"
+    "logout": "Log out",
+    "open": "Open navigation menu",
+    "close": "Close navigation menu"
   },
   "role": {
     "ADMIN": "Administrator",

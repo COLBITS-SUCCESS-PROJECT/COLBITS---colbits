@@ -24,7 +24,11 @@ export function FaultFilters({ filters, onChange }: FaultFiltersProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="group" aria-labelledby="fault-window-label" className="flex items-center gap-1.5">
+      <div
+        role="group"
+        aria-labelledby="fault-window-label"
+        className="flex flex-wrap items-center gap-1.5"
+      >
         <span
           id="fault-window-label"
           className="text-micro font-semibold tracking-caps text-text-secondary uppercase"
@@ -67,7 +71,7 @@ export function FaultFilters({ filters, onChange }: FaultFiltersProps) {
         />
       </div>
 
-      <div className="flex items-center gap-2 pl-1">
+      <div className="flex flex-wrap items-center gap-2 pl-1">
         <Toggle
           isOn={filters.onlyLongFaults}
           onChange={(onlyLongFaults) => onChange({ onlyLongFaults })}

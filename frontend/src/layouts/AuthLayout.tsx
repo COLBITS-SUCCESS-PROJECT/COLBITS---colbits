@@ -11,7 +11,7 @@ export function AuthLayout() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg-surface md:flex-row">
-      <div className="flex flex-col items-center justify-center gap-10 bg-nav-bg px-8 py-12 text-center md:w-1/2">
+      <div className="flex flex-col items-center justify-center gap-6 bg-nav-bg px-6 py-8 text-center sm:gap-10 sm:px-8 sm:py-12 md:w-1/2">
         <Logo label={t('common:app.name')} size="lg" />
         <div className="flex flex-col items-center gap-6">
           <p className="text-base text-nav-text">{t('auth:brand.tagline')}</p>
@@ -21,7 +21,7 @@ export function AuthLayout() {
           </p>
         </div>
       </div>
-      <main className="relative flex flex-1 items-center justify-center px-6 py-12">
+      <main className="relative flex min-w-0 flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
         {/* Visitors choose the language before logging in (SCRUM-158). */}
         <LanguageSwitch
           className="absolute top-4 right-4"

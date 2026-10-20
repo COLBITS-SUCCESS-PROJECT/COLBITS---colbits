@@ -13,6 +13,8 @@ export const mockMap = {
   zoomOut: vi.fn(),
   setView: vi.fn(),
   getZoom: vi.fn(() => zoom),
+  getContainer: vi.fn(() => document.createElement('div')),
+  invalidateSize: vi.fn(),
   on: vi.fn((event: string, listener: Listener) => {
     listeners.set(event, (listeners.get(event) ?? new Set<Listener>()).add(listener))
   }),

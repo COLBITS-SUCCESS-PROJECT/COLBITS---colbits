@@ -1,6 +1,6 @@
 /** Tests for the MapCanvas organism and its marker helpers (SCRUM-77 · F-12, SCRUM-63 · F-13). */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { act, render, screen, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@/i18n'
 import { mockMap, resetMockMap, zoomMockMapTo } from '@/mocks/leafletMap.mock'
@@ -68,6 +68,43 @@ describe('MapCanvas', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetMockMap()
+  })
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('refreshes Leaflet sizing when the map container resizes', async () => {
+    let onResize: ResizeObserverCallback | undefined
+    const observe = vi.fn()
+    const disconnect = vi.fn()
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          onResize = callback
+        }
+        observe = observe
+        disconnect = disconnect
+      }
+    )
+
+    const { unmount } = render(
+      <MapCanvas
+        nodes={[N1, N2]}
+        layers={['FUSES', 'TRANSFORMERS']}
+        isLoading={false}
+        isError={false}
+        onRetry={vi.fn()}
+      />
+    )
+
+    await waitFor(() =>
+      expect(observe).toHaveBeenCalledWith(mockMap.getContainer.mock.results[0].value)
+    )
+    act(() => onResize?.([], {} as ResizeObserver))
+    expect(mockMap.invalidateSize).toHaveBeenCalledWith({ pan: false })
+
+    unmount()
+    expect(disconnect).toHaveBeenCalledOnce()
   })
 
   it('shows one marker per node in scope at its recorded coordinates (AC1, AC2)', () => {

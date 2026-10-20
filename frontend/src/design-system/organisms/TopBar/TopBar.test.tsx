@@ -65,4 +65,20 @@ describe('TopBar', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
+
+  it('renders a labelled mobile navigation toggle when configured', async () => {
+    const onMenuClick = vi.fn()
+    render(
+      <TopBar
+        title="Monitoreo"
+        user={null}
+        menuLabel="Abrir navegación"
+        onMenuClick={onMenuClick}
+      />
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir navegación' }))
+
+    expect(onMenuClick).toHaveBeenCalledOnce()
+  })
 })

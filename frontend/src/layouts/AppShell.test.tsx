@@ -47,6 +47,7 @@ describe('AppShell', () => {
   })
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
     server.resetHandlers()
   })
   afterAll(() => server.close())
@@ -68,6 +69,23 @@ describe('AppShell', () => {
       screen.getByText('Supervisión georreferenciada de la red en tiempo real')
     ).toBeInTheDocument()
     expect(screen.getByText('dashboard-content')).toBeInTheDocument()
+  })
+
+  it('opens the mobile navigation drawer from the top bar', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(max-width: 767px)',
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }))
+    )
+    renderShellAt(ROUTES.dashboard)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Abrir menú de navegación' }))
+
+    expect(screen.getByRole('dialog', { name: 'Navegación principal' })).toBeInTheDocument()
   })
 
   it('updates the page and the top bar title when a sidebar link is clicked', async () => {

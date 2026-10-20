@@ -81,4 +81,22 @@ describe('NavSidebar', () => {
     expect(within(nav).queryByRole('list')).not.toBeInTheDocument()
   })
 
+  it('renders a closable modal navigation drawer on mobile', async () => {
+    const onClose = vi.fn()
+    renderSidebar({ isMobile: true, isMobileOpen: true, closeLabel: 'Cerrar menú', onClose })
+
+    expect(screen.getByRole('dialog', { name: 'Navegación principal' })).toHaveAttribute(
+      'aria-modal',
+      'true'
+    )
+    expect(document.activeElement).toBe(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Cerrar menú' })
+    )
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Cerrar menú' })
+    )
+    expect(onClose).toHaveBeenCalledOnce()
+    await userEvent.keyboard('{Escape}')
+    expect(onClose).toHaveBeenCalledTimes(2)
+  })
 })
