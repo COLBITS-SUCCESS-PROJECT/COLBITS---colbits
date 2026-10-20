@@ -72,6 +72,9 @@ export function MapLegend({ layers, hasUnknown = false, className }: MapLegendPr
             ))}
           </div>
         ))}
+        {hasUnknown && (
+          <LegendItem status={STATE_TO_STATUS.UNKNOWN} label={t('fuseState.UNKNOWN')} />
+        )}
       </div>
     </section>
   )
