@@ -37,7 +37,9 @@ VALUES
     ('client@colbits.com', E'$2b$10$qU/WlDIpMkzSurINwDX7mO9bD.Qoz3e1xwUSlVb3OrlyLAf0wvfJm', 'consultation user');
 
 -- 6. Assign sample scope to the consultation user
+-- entity_id is the numeric id for zone, substation and circuit, and the node name for node.
+-- Never a circuit name: 'CTO 1' exists twice (circuit ids 1 and 3), so only the id is unambiguous.
 INSERT INTO user_scopes (user_id, entity_type, entity_id) 
 VALUES 
-    (2, 'circuit', 'CTO 1'),
+    (2, 'circuit', '1'),
     (2, 'node', '0000100001');
