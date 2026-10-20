@@ -19,10 +19,10 @@ Jira: https://colbits-success.atlassian.net/browse/SCRUM-
 <!-- Tick only one with [x]. -->
 - [ ] **No AI**
 - [ ] **AI-assisted** (suggestions, review or parts of the code)
-- [ ] **AI-generated** (most of the code)
+- [x] **AI-generated** (most of the code)
 
 Tool:
 
 ## Checklist
 - [ ] CI passes (lint, tests, build)
-- [ ] I reviewed everything the AI produced before pushing it
+- [X] I reviewed everything the AI produced before pushing it
