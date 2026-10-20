@@ -12,10 +12,10 @@ Jira: [https://colbits-success.atlassian.net/browse/SCRUM-](https://colbits-succ
 ## AI use
 <!-- Tick only one with [x]. -->
 - [ ] **No AI**
-- [ ] **AI-assisted** (suggestions, review or parts of the code)
-- [x] **AI-generated** (most of the code)
+- [x] **AI-assisted** (suggestions, review or parts of the code)
+- [ ] **AI-generated** (most of the code)
 
-Tool:
+Tool: OpenCode model Bick Pickle
 
 ## Checklist
 - [ ] CI passes (lint, tests, build)
