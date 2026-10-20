@@ -12,6 +12,10 @@ import {
   NodeState,
   deriveFuseState,
 } from './fuse-state';
+import {
+  DEFAULT_SMAC_INACTIVITY_HOURS,
+  SMAC_INACTIVITY_SQL,
+} from './smac-state';
 
 interface FuseSummaryRow {
   node_id: string;
@@ -21,12 +25,19 @@ interface FuseSummaryRow {
   any_inactive: boolean;
 }
 
+interface SmacInactivityRow {
+  node_id: string;
+  any_inactive: boolean;
+}
+
 export interface NodeView {
   name: string;
   latitude: number | null;
   longitude: number | null;
   /** US6: fuse-layer colour; null when the node has no fuses. */
   fuse_state: NodeState | null;
+  /** US5 · F-37: true when a SMAC on the node is inactive; null when the node has no transformer. */
+  smac_inactive: boolean | null;
 }
 
 /**
@@ -70,13 +81,16 @@ export class NodesService {
     applyNodeScope(countQuery, 'node.name', scope);
 
     const count = await countQuery.getCount();
-    const fuseStates = await this.fuseStatesFor(rows.map((node) => node.name));
+    const nodeNames = rows.map((node) => node.name);
+    const fuseStates = await this.fuseStatesFor(nodeNames);
+    const smacInactivity = await this.smacInactivityFor(nodeNames);
 
     const nodes: NodeView[] = rows.map((node) => ({
       name: node.name,
       latitude: node.latitude,
       longitude: node.longitude,
       fuse_state: fuseStates.get(node.name) ?? null,
+      smac_inactive: smacInactivity.get(node.name) ?? null,
     }));
 
     return { count, nodes };
@@ -106,13 +120,41 @@ export class NodesService {
     );
   }
 
+  /** US5 · F-37: whether each node has an inactive SMAC (nodes without transformers are absent). */
+  private async smacInactivityFor(
+    nodeNames: string[],
+  ): Promise<Map<string, boolean>> {
+    if (nodeNames.length === 0) return new Map();
+
+    const rows: SmacInactivityRow[] = await this.nodesRepository.query(
+      SMAC_INACTIVITY_SQL,
+      [nodeNames, this.smacInactivityHours()],
+    );
+
+    return new Map(rows.map((row) => [row.node_id, row.any_inactive]));
+  }
+
   /** NF: threshold configurable without code changes (same variable as DeviceService). */
   private falconInactivityHours(): number {
-    const configured = Number(
-      this.configService.get('FALCON_INACTIVITY_HOURS'),
+    return this.hoursFromConfig(
+      'FALCON_INACTIVITY_HOURS',
+      DEFAULT_FALCON_INACTIVITY_HOURS,
     );
+  }
+
+  /** NF-07: SMAC threshold, same rules as the Falcon one. */
+  private smacInactivityHours(): number {
+    return this.hoursFromConfig(
+      'SMAC_INACTIVITY_HOURS',
+      DEFAULT_SMAC_INACTIVITY_HOURS,
+    );
+  }
+
+  /** A positive number of hours from the config, or the default when missing or invalid. */
+  private hoursFromConfig(key: string, fallback: number): number {
+    const configured = Number(this.configService.get(key));
     return Number.isFinite(configured) && configured > 0
       ? configured
-      : DEFAULT_FALCON_INACTIVITY_HOURS;
+      : fallback;
   }
 }
