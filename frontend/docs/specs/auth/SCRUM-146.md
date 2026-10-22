@@ -2,9 +2,9 @@
 feature: auth
 story: SCRUM-146
 title: '[F-11] Logout: call the logout endpoint, delete the token and return to the login page'
-status: IN_REVIEW
+status: DONE
 owner: Sofia
-last_updated: 2026-10-17
+last_updated: 2026-10-21
 ---
 
 # SCRUM-146 — [F-11] Logout

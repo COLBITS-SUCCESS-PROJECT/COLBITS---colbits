@@ -4,7 +4,7 @@ story: SCRUM-77
 title: '[F-12] Display node markers on map at recorded coordinates'
 status: DONE
 owner: Sofia
-last_updated: 2026-10-11
+last_updated: 2026-10-21
 ---
 
 # SCRUM-77 — [F-12] Display node markers on map at recorded coordinates
@@ -103,8 +103,8 @@ interface NodeDto {
 | ID | Question | Owner | Blocking | Answer |
 |---|---|---|---|---|
 | Q1 | Which map library? | Sofia | No | **Leaflet + OpenStreetMap** (2026-10-10) — recorded in an ADR in step 3 |
-| Q2 | Real endpoint path and field names for nodes? | Backend team | No | OPEN — provisional contract above, isolated in the mapper |
-| Q3 | Are the state fields part of the node list, or a separate service? | Backend team / Monica | No | OPEN — kept in the node for now so existing colors keep working |
+| Q2 | Real endpoint path and field names for nodes? | Backend team | No | **`GET /nodes`** returning `{ count, nodes }` — verified against the running API (2026-10-19, PR #28) |
+| Q3 | Are the state fields part of the node list, or a separate service? | Backend team / Monica | No | **Part of the node list**: `fuse_state` since US6 ([SCRUM-65](./SCRUM-65.md), PR #29) |
 
 ## 8. Acceptance test results
 Fill in after testing. Every FAIL needs an action taken.
@@ -117,6 +117,7 @@ Fill in after testing. Every FAIL needs an action taken.
 | 2026-10-11 | AC4 | PASS | Automated (CI) | — |
 | 2026-10-11 | AC5 | PASS | Automated (CI) | — |
 | 2026-10-10 | AC6 | PASS | Sofia (manual, Chrome, Docker) | — |
+| 2026-10-20 | AC1 (re-run, real API) | PASS | Manual, real API + map in Docker (AI-assisted run on Sofia's machine) | After US3 (PR #34): `admin@colbits.com` sees 50 nodes, `client@colbits.com` sees only the 10 nodes of its circuit (`count` = 10) |
 
 **How to run:** `pnpm exec vitest run src/features/dashboard/pages/LiveMonitoringPage.acceptance.test.tsx`. The suite also runs in CI on every push.
 
@@ -127,7 +128,7 @@ Fill in after testing. Every FAIL needs an action taken.
 | 2026-10-10 | Manual check | The app stayed blank when the browser blocked the mock service worker | `main.tsx` now starts the app anyway; the map shows its error state (step 4) |
 | 2026-10-10 | Sofia, manual check | The map went blank (gray) at maximum zoom | Tiles are enlarged past zoom 18 with `maxNativeZoom` + a test for it (step 4) |
 
-**Limits of this evidence:** the node service is mocked (MSW) because the backend does not exist yet, so scope filtering is verified against the mock, not the real API. F-12's verification method in the Requirements Specification is "Acceptance test on the database copy" — AC1 must be re-run against the real service when US3 (F-10) is delivered.
+**Limits of this evidence:** the node service is mocked (MSW) because the backend does not exist yet, so scope filtering is verified against the mock, not the real API. F-12's verification method in the Requirements Specification is "Acceptance test on the database copy" — AC1 must be re-run against the real service when US3 (F-10) is delivered. **Done on 2026-10-20** (row above).
 
 ## 9. Implementation notes
 Delivered in five small PRs, one per step:

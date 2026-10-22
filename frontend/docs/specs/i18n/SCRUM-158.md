@@ -2,9 +2,9 @@
 feature: i18n
 story: SCRUM-158
 title: 'Language switch: change the app between Spanish and English with a toggle'
-status: IN_REVIEW
+status: DONE
 owner: Sofia
-last_updated: 2026-10-17
+last_updated: 2026-10-21
 ---
 
 # SCRUM-158 — Language switch (Spanish ⇄ English)
