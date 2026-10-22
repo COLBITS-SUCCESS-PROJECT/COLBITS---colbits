@@ -2,9 +2,9 @@
 feature: auth
 story: SCRUM-144
 title: '[F-01] Connect the login view to the API: call the login endpoint and store the token and role'
-status: IN_REVIEW
+status: DONE
 owner: Sofia
-last_updated: 2026-10-17
+last_updated: 2026-10-21
 ---
 
 # SCRUM-144 — [F-01] Connect the login view to the API

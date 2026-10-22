@@ -3,7 +3,7 @@ feature: dashboard
 title: Live Monitoring
 status: IN_PROGRESS
 owner: Sofia
-last_updated: 2026-10-16
+last_updated: 2026-10-21
 ---
 
 # Feature: Live Monitoring
@@ -37,9 +37,10 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | SCRUM-128 | Base screen M1: map, toolbar, legend, fault panel (with sample data) | Sofia | DONE |
 | [SCRUM-77](./SCRUM-77.md) | [F-12] Node markers on a real map at recorded coordinates (US4) | Sofia | DONE |
 | [SCRUM-63](./SCRUM-63.md) | [F-13] Group overlapping node markers into one cluster (US4) | Paola | IN_REVIEW |
+| [SCRUM-65](./SCRUM-65.md) | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18) | Sofia | DONE |
 | — | Node detail panel (M4–M9) | TBD | PLANNED |
 | — | Inactive devices tab (M12, M14) | TBD | PLANNED |
-| — | Connect to the real API / real-time (OQ-02, OQ-03) | TBD | PLANNED |
+| — | Real-time updates within 20 s (US12, OQ-03) | TBD | PLANNED |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`

@@ -2,9 +2,9 @@
 feature: auth
 story: SCRUM-145
 title: '[F-02] Send the token with every API request and return to the login page when the API answers 401'
-status: IN_REVIEW
+status: DONE
 owner: Sofia
-last_updated: 2026-10-17
+last_updated: 2026-10-21
 ---
 
 # SCRUM-145 — [F-02] Token on every request, login again on 401
