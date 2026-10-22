@@ -1,25 +1,49 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import type { Request } from 'express';
+import { ScopeService } from '../scope/scope.service';
 import { DeviceController } from './device.controller';
 import { DeviceService } from './device.service';
 
 describe('DeviceController', () => {
-  const checkInactivity = jest.fn().mockReturnValue({ isInactive: false });
-  const controller = new DeviceController({ checkInactivity } as unknown as DeviceService);
+  const checkInactivity = jest.fn().mockResolvedValue({ isInactive: false });
+  const resolve = jest.fn().mockResolvedValue({ kind: 'unrestricted' });
+  const controller = new DeviceController(
+    { checkInactivity } as unknown as DeviceService,
+    { resolve } as unknown as ScopeService,
+  );
+  const mockReq = {
+    user: { sub: 1, role: 'Colbits administrator' },
+  } as unknown as Request;
 
-  beforeEach(() => checkInactivity.mockClear());
-
-  it('passes a valid query to the service', () => {
-    controller.getInactivityStatus('F1', 'Falcon', '2026-10-17T10:00:00Z');
-
-    expect(checkInactivity).toHaveBeenCalledWith('F1', 'Falcon', '2026-10-17T10:00:00Z');
+  beforeEach(() => {
+    checkInactivity.mockClear();
+    resolve.mockClear();
   });
 
-  it('requires deviceId, type and lastTimestamp', () => {
-    expect(() => controller.getInactivityStatus('', 'Falcon', 'x')).toThrow(BadRequestException);
+  it('resolves user scope and passes the query to the service', async () => {
+    await controller.getInactivityStatus('1301000001', 'Falcon', mockReq);
+
+    expect(resolve).toHaveBeenCalledWith(1);
+    expect(checkInactivity).toHaveBeenCalledWith('1301000001', 'Falcon', {
+      kind: 'unrestricted',
+    });
+  });
+
+  it('rejects requests without a valid user identity (401)', async () => {
+    await expect(
+      controller.getInactivityStatus(
+        '1301000001',
+        'Falcon',
+        {} as unknown as Request,
+      ),
+    ).rejects.toThrow(UnauthorizedException);
     expect(checkInactivity).not.toHaveBeenCalled();
   });
 
-  it('accepts only Falcon or SMAC', () => {
-    expect(() => controller.getInactivityStatus('F1', 'Other', 'x')).toThrow('type must be Falcon or SMAC');
+  it('accepts only Falcon or SMAC', async () => {
+    await expect(
+      controller.getInactivityStatus('1301000001', 'Other', mockReq),
+    ).rejects.toThrow(BadRequestException);
+    expect(checkInactivity).not.toHaveBeenCalled();
   });
 });

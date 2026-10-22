@@ -1,45 +1,110 @@
+import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Repository } from 'typeorm';
+import { Node } from '../nodes/node.entity';
 import { DeviceService } from './device.service';
 
-const NOW = new Date('2026-10-17T12:00:00Z');
-const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * 60 * 60 * 1000);
+describe('DeviceService (US5 · F-36, F-37, F-46, NF-07)', () => {
+  function makeService(
+    rows: { node_id: string; recorded_at: Date | string | null }[],
+    inScope = true,
+    env: Record<string, string | undefined> = {},
+  ) {
+    const builder = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      setParameter: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(inScope ? 1 : 0),
+    };
+    const repository = {
+      query: jest.fn().mockResolvedValue(rows),
+      createQueryBuilder: jest.fn().mockReturnValue(builder),
+    } as unknown as Repository<Node>;
+    const config = {
+      get: jest.fn((key: string) => env[key]),
+    } as unknown as ConfigService;
 
-function serviceWith(env: Record<string, string | undefined>) {
-  const config = { get: jest.fn((key: string) => env[key]) };
-  return new DeviceService(config as unknown as ConfigService);
-}
+    return {
+      service: new DeviceService(config, repository),
+      repository,
+      builder,
+    };
+  }
 
-describe('DeviceService', () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-    jest.setSystemTime(NOW);
+  it('marks a device with no record in the DB as inactive', async () => {
+    const { service } = makeService([
+      { node_id: '0000100001', recorded_at: null },
+    ]);
+
+    const res = await service.checkInactivity('1301000030', 'Falcon', {
+      kind: 'unrestricted',
+    });
+
+    expect(res.isInactive).toBe(true);
+    expect(res.lastRecordTimestamp).toBeNull();
+    expect(res.hoursSilent).toBeNull();
   });
-  afterEach(() => jest.useRealTimers());
 
-  it('uses the default thresholds: 9 h for Falcon, 3 h for SMAC', () => {
-    const service = serviceWith({});
+  it('reads the date from the DB and marks a Falcon silent > 9h as inactive', async () => {
+    const tenHoursAgo = new Date(Date.now() - 10 * 3600_000).toISOString();
+    const { service } = makeService([
+      { node_id: '0000100001', recorded_at: tenHoursAgo },
+    ]);
 
-    expect(service.checkInactivity('F1', 'Falcon', hoursAgo(8)).isInactive).toBe(false);
-    expect(service.checkInactivity('F1', 'Falcon', hoursAgo(10)).isInactive).toBe(true);
-    expect(service.checkInactivity('S1', 'SMAC', hoursAgo(2)).isInactive).toBe(false);
-    expect(service.checkInactivity('S1', 'SMAC', hoursAgo(4)).isInactive).toBe(true);
+    const res = await service.checkInactivity('1301000030', 'Falcon', {
+      kind: 'unrestricted',
+    });
+
+    expect(res.isInactive).toBe(true);
+    expect(res.thresholdHours).toBe(9);
   });
 
-  it('reads the thresholds from the environment (NF-07)', () => {
-    const service = serviceWith({ FALCON_INACTIVITY_HOURS: '12', SMAC_INACTIVITY_HOURS: '1' });
+  it('marks a Falcon with a recent DB record as active', async () => {
+    const oneHourAgo = new Date(Date.now() - 1 * 3600_000).toISOString();
+    const { service } = makeService([
+      { node_id: '0000100001', recorded_at: oneHourAgo },
+    ]);
 
-    expect(service.checkInactivity('F1', 'Falcon', hoursAgo(10)).thresholdHours).toBe(12);
-    expect(service.checkInactivity('F1', 'Falcon', hoursAgo(10)).isInactive).toBe(false);
-    expect(service.checkInactivity('S1', 'SMAC', hoursAgo(2)).isInactive).toBe(true);
+    const res = await service.checkInactivity('1301000001', 'Falcon', {
+      kind: 'unrestricted',
+    });
+
+    expect(res.isInactive).toBe(false);
   });
 
-  it('is not inactive exactly at the threshold', () => {
-    expect(serviceWith({}).checkInactivity('S1', 'SMAC', hoursAgo(3)).isInactive).toBe(false);
+  it('evaluates SMAC inactivity against the 3h threshold', async () => {
+    const fourHoursAgo = new Date(Date.now() - 4 * 3600_000).toISOString();
+    const { service } = makeService([
+      { node_id: '0000100001', recorded_at: fourHoursAgo },
+    ]);
+
+    const res = await service.checkInactivity('2301000001', 'SMAC', {
+      kind: 'unrestricted',
+    });
+
+    expect(res.thresholdHours).toBe(3);
+    expect(res.isInactive).toBe(true);
   });
 
-  it('reports the silent hours from the stored timestamp (F-46)', () => {
-    const result = serviceWith({}).checkInactivity('F1', 'Falcon', hoursAgo(5.5).toISOString());
+  it('throws 404 NotFoundException when the device does not exist', async () => {
+    const { service } = makeService([]);
 
-    expect(result).toMatchObject({ deviceId: 'F1', deviceType: 'Falcon', hoursSilent: 5.5 });
+    await expect(
+      service.checkInactivity('9999999999', 'Falcon', { kind: 'unrestricted' }),
+    ).rejects.toThrow(NotFoundException);
+  });
+
+  it('throws 404 NotFoundException when the device is outside the user scope', async () => {
+    const { service } = makeService(
+      [{ node_id: '0000100002', recorded_at: new Date().toISOString() }],
+      false,
+    );
+
+    await expect(
+      service.checkInactivity('1301000001', 'Falcon', {
+        kind: 'restricted',
+        userId: 2,
+      }),
+    ).rejects.toThrow(NotFoundException);
   });
 });

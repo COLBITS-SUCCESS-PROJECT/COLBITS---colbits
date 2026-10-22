@@ -1,24 +1,50 @@
-import { Controller, Get, Query, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Param,
+  Query,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
+import type { Request } from 'express';
+import { AuthGuard } from '../auth/auth.guard';
+import { ScopeService } from '../scope/scope.service';
 import { DeviceService } from './device.service';
 
 @Controller('device')
+@UseGuards(AuthGuard)
 export class DeviceController {
-  constructor(private readonly deviceService: DeviceService) {}
+  constructor(
+    private readonly deviceService: DeviceService,
+    private readonly scopeService: ScopeService,
+  ) {}
 
-  @Get('inactivity-status')
-  getInactivityStatus(
-    @Query('deviceId') deviceId: string,
-    @Query('type') type: string, // Changed to general string to allow the safety check
-    @Query('lastTimestamp') lastTimestamp: string,
+  @Get(':deviceId/inactivity-status')
+  async getInactivityStatus(
+    @Param('deviceId') deviceId: string,
+    @Query('type') type: string,
+    @Req() request: Request,
   ) {
-    if (!deviceId || !type || !lastTimestamp) {
-      throw new BadRequestException('deviceId, type, and lastTimestamp are required');
-    }
-    if (type !== 'Falcon' && type !== 'SMAC') {
+    if (!deviceId || (type !== 'Falcon' && type !== 'SMAC')) {
       throw new BadRequestException('type must be Falcon or SMAC');
     }
 
-    // Cast the type back to the strict literal for the service
-    return this.deviceService.checkInactivity(deviceId, type as 'Falcon' | 'SMAC', lastTimestamp);
+    const userId: unknown = (
+      request as Request & { user?: { sub?: unknown } }
+    ).user?.sub;
+
+    if (
+      typeof userId !== 'number' ||
+      !Number.isSafeInteger(userId) ||
+      userId <= 0
+    ) {
+      throw new UnauthorizedException('Invalid user identity');
+    }
+
+    const scope = await this.scopeService.resolve(userId);
+
+    return this.deviceService.checkInactivity(deviceId, type, scope);
   }
 }
