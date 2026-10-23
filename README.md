@@ -78,6 +78,10 @@ npm install
 npm run start:dev
 ```
 
+## Public link (Render)
+
+The stack is deployed from [`render.yaml`](./render.yaml). Setup, loading the data and free-plan limits: [docs/deploy-render.md](./docs/deploy-render.md).
+
 ## Branches
 
 | Branch | Purpose | Who merges |
