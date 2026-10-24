@@ -51,7 +51,7 @@ services:
     name: colbits-web
     runtime: static
     rootDir: frontend
-    buildCommand: npm install -g pnpm@9 && pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
     staticPublishPath: dist
     # Single-page app: every route (/login, /dashboard…) is served by index.html.
     routes:
