@@ -10,12 +10,19 @@ The whole stack runs on [Render](https://render.com) free plan, from [`render.ya
 
 Every push to `develop` redeploys the backend and the frontend automatically.
 
-## Free plan limits
-- **The backend sleeps** after 15 minutes without visits. The first request after that takes about 1 minute; open the link a few minutes before a demo.
-- **The free database expires** 30 days after it is created (Render sends an email before). To keep it, upgrade it or create a new one and load the data again.
-- **Data gets old.** The generated telemetry ends when the generator runs, so after 9 hours every node turns gray (inactive). Run step 4 again before each demo.
+## The database prepares itself
+Before the API starts, [`backend/scripts/prepare-db.mjs`](../backend/scripts/prepare-db.mjs) runs:
 
-## 1. Create the services (once)
+1. **Empty database** → runs `backend/database/01`, `02` and `03` (tables, sample rows and the test users), the same files Docker runs locally.
+2. **Data older than `DATA_REFRESH_HOURS`** (1 h) → runs the generator ending "now", so the map does not turn gray just because the data is old.
+
+The free backend sleeps after 15 minutes without visits and starts again on the next visit, so **anyone who opens the link gets fresh data**, with no manual steps. Test users: see the root `README.md`.
+
+## Free plan limits
+- **The first visit after a pause takes about 1 minute** (the backend wakes up and refreshes the data). Open the link a few minutes before a demo.
+- **The free database expires** 30 days after it is created (Render sends an email before). Create a new one and redeploy: the backend fills it again by itself.
+
+## Create the services (once)
 1. Sign in to Render with the GitHub account that has access to `COLBITS-SUCCESS-PROJECT/COLBITS---colbits`.
 2. **New → Blueprint**, pick the repository and the `develop` branch. Render reads `render.yaml`.
 3. Render asks for two values. The URLs are `https://<service-name>.onrender.com`; if a name is taken, Render adds a suffix, so check the real URL on each service page and correct the value afterwards if needed:
@@ -25,31 +32,10 @@ Every push to `develop` redeploys the backend and the frontend automatically.
 
 If you change `VITE_API_BASE_URL` later, run **Manual Deploy** on `colbits-web`: Vite writes it into the build.
 
-## 2. Get the database URL
-On the `colbits-db` page → **Connections** → copy the **External Database URL**. It contains the password: do not commit it or paste it in chats. In PowerShell, from the repo root:
-
-```powershell
-$env:RENDER_DB_URL = "<paste the External Database URL here>?sslmode=require"
-```
-
-## 3. Create the tables and the users (once)
-Docker Desktop must be running.
-
-```powershell
-docker run --rm -v "${PWD}/backend/database:/sql" postgres:15 sh -c "psql '$env:RENDER_DB_URL' -f /sql/01_create_tables.sql && psql '$env:RENDER_DB_URL' -f /sql/02_dummy_inserts.sql && psql '$env:RENDER_DB_URL' -f /sql/03_security_schema.sql"
-```
-
-This creates the test users `admin@colbits.com` and `client@colbits.com` (password in the root `README.md`).
-
-## 4. Load fresh data (before each demo)
-
-```powershell
-cd generator
-$end = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"); docker run --rm -v "${PWD}:/gen:ro" node:24-slim sh -c "mkdir /work && cd /gen && tar --exclude=node_modules -cf - . | tar -xf - -C /work && cd /work && npm ci --silent && npm run -s generate -- --db '$env:RENDER_DB_URL' --reset --end $end --silent-devices 6"
-```
-
-It must end with `Done in ... s`. Same seed as local development, so the node IDs are the same.
-
-## 5. Check
+## Check
 1. Open the frontend URL → login page.
 2. Log in as `admin@colbits.com` → 50 nodes on the map. Log out and log in as `client@colbits.com` → 10 nodes.
+3. If something looks wrong, the `colbits-api` **Logs** show the `[prepare-db]` lines of the last start.
+
+## Run the preparation locally
+Same script against any database: `cd backend && node scripts/prepare-db.mjs` with `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` and `DB_NAME` set (`npm ci --prefix ../generator` first). `PREPARE_DB=false` skips it.

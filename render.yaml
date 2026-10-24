@@ -17,8 +17,11 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm ci && npm run build
-    startCommand: npm run start:prod
+    # The generator is installed too: scripts/prepare-db.mjs uses it to load fresh data.
+    buildCommand: npm ci && npm run build && npm ci --prefix ../generator
+    # Creates the tables and users on an empty database, and refreshes the data when it is
+    # older than DATA_REFRESH_HOURS (the free service sleeps, so this runs on each wake-up).
+    startCommand: node scripts/prepare-db.mjs && npm run start:prod
     healthCheckPath: /
     envVars:
       # NestJS 12 is ESM-only: Node 24, same as CI and Docker.
@@ -43,6 +46,8 @@ services:
         value: '9'
       - key: SMAC_INACTIVITY_HOURS
         value: '3'
+      - key: DATA_REFRESH_HOURS
+        value: '1'
       # The frontend URL (Render asks for it on the first deploy), e.g. https://colbits-web.onrender.com
       - key: CORS_ORIGIN
         sync: false
