@@ -31,6 +31,22 @@
 $ npm install
 ```
 
+## API documentation
+
+Start the backend, then open the interactive Swagger UI at `http://localhost:3000/api/docs`.
+The OpenAPI JSON document is available at `http://localhost:3000/api/docs/json`.
+
+To try protected endpoints, call `POST /auth/login` with a valid username and password, copy the
+`access_token` from the response, and paste the token (without the `Bearer` prefix) into Swagger's
+**Authorize** dialog. Swagger adds the `Bearer` prefix to requests automatically.
+
+For example, `GET /device/inactivity-status?deviceId=0501000001&type=SMAC&lastTimestamp=4` evaluates a
+SMAC that has been silent for four hours. Replace the device ID with an existing device visible to
+the authenticated user (for example, `SMAC-042` if it exists in that database). `lastTimestamp` is
+entered as elapsed hours; the API converts it into the ISO `lastRecordTimestamp` in the response.
+Values greater than three hours for SMAC or nine hours for Falcon produce `isInactive: true` by
+default. Use the same query parameters in Swagger's **Try it out** form to test the thresholds.
+
 ## Compile and run the project
 
 ```bash

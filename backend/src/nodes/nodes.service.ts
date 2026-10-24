@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { Node } from './node.entity';
 import { ScopeContext } from '../scope/scope.types';
 import { applyNodeScope } from '../scope/scope-query.helper';
+import { NodeViewDto } from './dto/nodes.dto';
 import {
   DEFAULT_FALCON_INACTIVITY_HOURS,
   FALCON_FUSE_OPEN,
@@ -28,16 +29,6 @@ interface FuseSummaryRow {
 interface SmacInactivityRow {
   node_id: string;
   any_inactive: boolean;
-}
-
-export interface NodeView {
-  name: string;
-  latitude: number | null;
-  longitude: number | null;
-  /** US6: fuse-layer colour; null when the node has no fuses. */
-  fuse_state: NodeState | null;
-  /** US5 · F-37: true when a SMAC on the node is inactive; null when the node has no transformer. */
-  smac_inactive: boolean | null;
 }
 
 /**
@@ -85,7 +76,7 @@ export class NodesService {
     const fuseStates = await this.fuseStatesFor(nodeNames);
     const smacInactivity = await this.smacInactivityFor(nodeNames);
 
-    const nodes: NodeView[] = rows.map((node) => ({
+    const nodes: NodeViewDto[] = rows.map((node) => ({
       name: node.name,
       latitude: node.latitude,
       longitude: node.longitude,

@@ -6,7 +6,13 @@
  *   INACTIVE (gray)   — none of the above and at least one Falcon inactive
  *   NORMAL   (green)  — every Falcon reported within its period, closed and with voltage
  */
-export type NodeState = 'CRITICAL' | 'WARNING' | 'INACTIVE' | 'NORMAL';
+export const NODE_STATES = [
+  'CRITICAL',
+  'WARNING',
+  'INACTIVE',
+  'NORMAL',
+] as const;
+export type NodeState = (typeof NODE_STATES)[number];
 
 /** Value stored by Falcon devices in `last_falcon_values.fuse_state` (production data is in Spanish). */
 export const FALCON_FUSE_OPEN = 'Abierto';
