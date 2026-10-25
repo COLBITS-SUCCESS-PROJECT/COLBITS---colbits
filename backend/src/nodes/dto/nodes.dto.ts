@@ -48,3 +48,41 @@ export class NodesResponseDto {
   @ApiProperty({ type: () => [NodeViewDto] })
   nodes: NodeViewDto[];
 }
+
+export class FuseSetViewDto {
+  @ApiProperty({
+    example: 2,
+    description: 'Fuse set identifier (fuses_sets.id).',
+  })
+  id: number;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'A',
+    description:
+      'Branch letter on a node with several fuse sets; null when the node has a single set.',
+  })
+  set_id: string | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 18,
+    description:
+      'Number of clients fed by this fuse set (F-29). Null when Colbits has not recorded it, which is not the same as zero.',
+  })
+  client_count: number | null;
+}
+
+export class NodeFuseSetsResponseDto {
+  @ApiProperty({ example: '0000100002', description: 'Node identifier.' })
+  node: string;
+
+  @ApiProperty({
+    type: () => [FuseSetViewDto],
+    description:
+      'Fuse sets of the node, single set first, then by branch letter. Empty when the node has none.',
+  })
+  fuse_sets: FuseSetViewDto[];
+}
