@@ -20,11 +20,11 @@ describe('DeviceController', () => {
     resolve.mockClear();
   });
 
-  it('resolves user scope and passes the query to the service', async () => {
-    await controller.getInactivityStatus('1301000001', 'Falcon', mockReq);
+  it('resolves user scope and passes query parameters to the service', async () => {
+    await controller.getInactivityStatus('1301000001', 'Falcon', '4', mockReq);
 
     expect(resolve).toHaveBeenCalledWith(1);
-    expect(checkInactivity).toHaveBeenCalledWith('1301000001', 'Falcon', {
+    expect(checkInactivity).toHaveBeenCalledWith('1301000001', 'Falcon', 4, {
       kind: 'unrestricted',
     });
   });
@@ -34,6 +34,7 @@ describe('DeviceController', () => {
       controller.getInactivityStatus(
         '1301000001',
         'Falcon',
+        '4',
         {} as unknown as Request,
       ),
     ).rejects.toThrow(UnauthorizedException);
@@ -42,8 +43,23 @@ describe('DeviceController', () => {
 
   it('accepts only Falcon or SMAC', async () => {
     await expect(
-      controller.getInactivityStatus('1301000001', 'Other', mockReq),
+      controller.getInactivityStatus('1301000001', 'Other', '4', mockReq),
     ).rejects.toThrow(BadRequestException);
     expect(checkInactivity).not.toHaveBeenCalled();
   });
+
+  it.each(['', 'abc', '-1', 'Infinity'])(
+    'rejects invalid lastTimestamp %p',
+    async (lastTimestamp) => {
+      await expect(
+        controller.getInactivityStatus(
+          '1301000001',
+          'Falcon',
+          lastTimestamp,
+          mockReq,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(checkInactivity).not.toHaveBeenCalled();
+    },
+  );
 });
