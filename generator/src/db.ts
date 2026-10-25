@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import type { GeneratorConfig } from './config.ts';
 import type { Network } from './network.ts';
+import { planScenarios } from './scenarios.ts';
 import { falconRows, pickSilentDevices, smacRows } from './telemetry.ts';
 
 const SCHEMA_FILE = new URL('../sql/schema.sql', import.meta.url);
@@ -57,6 +58,7 @@ export async function resetData(client: pg.ClientBase): Promise<void> {
 export async function writeDataset(client: pg.ClientBase, network: Network, config: GeneratorConfig, log: (msg: string) => void = () => {}): Promise<InsertSummary> {
   const summary: InsertSummary = {};
   const silent = pickSilentDevices(network, config);
+  const plan = planScenarios(network, config, silent);
   const step = async (table: string, columns: string[], rows: Iterable<unknown[]>): Promise<void> => {
     summary[table] = await insertRows(client, table, columns, rows);
     log(`  ${table.padEnd(16)} ${summary[table]}`);
@@ -82,23 +84,26 @@ export async function writeDataset(client: pg.ClientBase, network: Network, conf
     await step('falcon_values', [
       'hw_id', 'custom_id', 'post', 'recorded_at', 'angle_incl', 'internal_temperature', 'supercaps_per', 'solar_panel',
       'fuse_state', 'is_voltage_present', 'is_fuse_alarm', 'is_free_fall_alarm', 'is_solar_panel_alarm',
-    ], falconRows(network, config, silent));
+    ], falconRows(network, config, silent, plan));
 
     // One pass per SMAC table so each insert stays a single statement type.
     await step('smac_vc_values', [
       'hw_id', 'custom_id', 'recorded_at', 'internal_temperature', 'battery_per',
       'va', 'vb', 'vc', 'ia', 'ib', 'ic', 'in_', 'cuf_percent', 'vuf_percent', 'load_percent',
-    ], map(smacRows(network, config, silent), (r) => r.vc));
+    ], map(smacRows(network, config, silent, plan), (r) => r.vc));
     await step('smac_pw_values', [
       'hw_id', 'custom_id', 'recorded_at',
       'phase_a_active_power', 'phase_b_active_power', 'phase_c_active_power',
       'phase_a_reactive_power', 'phase_b_reactive_power', 'phase_c_reactive_power',
       'phase_a_apparent_power', 'phase_b_apparent_power',
-    ], map(smacRows(network, config, silent), (r) => r.pw));
+    ], map(smacRows(network, config, silent, plan), (r) => r.pw));
     await step('smac_pf_values', [
       'hw_id', 'custom_id', 'recorded_at',
       'phase_c_apparent_power', 'phase_a_power_factor', 'phase_b_power_factor', 'phase_c_power_factor',
-    ], map(smacRows(network, config, silent), (r) => r.pf));
+    ], map(smacRows(network, config, silent, plan), (r) => r.pf));
+
+    // F-93 / F-94: device-reported events of the induced scenarios (Technical Annex §4.2 codes).
+    await step('alarms', ['hw_id', 'custom_id', 'event_code', 'event_type', 'alarm', 'value', 'recorded_at'], plan.alarms);
 
     await client.query('COMMIT');
   } catch (error) {
