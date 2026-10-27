@@ -40,7 +40,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | [SCRUM-65](./SCRUM-65.md) | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18) | Sofia | DONE |
 | — | Node detail panel (M4–M9) | TBD | PLANNED |
 | — | Inactive devices tab (M12, M14) | TBD | PLANNED |
-| — | Real-time updates within 20 s (US12, OQ-03) | TBD | PLANNED |
+| [SCRUM-110](./SCRUM-110.md) | US12 · Live node state updates: the map refreshes every 15 s (F-25, F-26, F-30, NF-01) | Paola | IN_REVIEW |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
@@ -85,7 +85,7 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 
 Other code:
 - `model/` — types, constants, `faultRules.ts` (phase classification, filters, sort: customers affected → oldest first), `scopeOptions.ts`, **`liveMonitoring.mock.ts` (PROVISIONAL sample data from the Figma)**
-- `hooks/` — `useLiveMonitoringQuery` (TanStack Query, polling every 60 s, marks data freshness), `useLiveMonitoringFilters` (UI state)
+- `hooks/` — `useLiveMonitoringQuery` (TanStack Query, polling every 15 s, marks data freshness), `useLiveMonitoringFilters` (UI state)
 - `api/` — node service: `nodes.dto.ts` (PROVISIONAL), `nodes.mapper.ts`, `nodes.api.ts`; hook `useNodesQuery`
 - Map: Leaflet + OpenStreetMap inside `MapCanvas` only (ADR-0006). Sample nodes in Cali come from the MSW mock (`src/mocks/`)
 
@@ -96,7 +96,7 @@ Not defined yet — pending backend OpenAPI (OQ-02). The page reads `LiveMonitor
 
 | ID | Question | Owner | Answer | Date |
 |---|---|---|---|---|
-| Q1 | WebSocket or polling for live data? (`AGENT.md §20`, OQ-03) | Javier / Mahmoud | OPEN — polling every 60 s meanwhile | — |
+| Q1 | WebSocket or polling for live data? (`AGENT.md §20`, OQ-03) | Javier / Mahmoud | **Polling every 15 s** — [decision](../../decisions/live-updates.md), [SCRUM-110](./SCRUM-110.md) | 2026-10-27 |
 | Q2 | Which map library / basemap provider? | Frontend team | **Leaflet + OpenStreetMap** — ADR-0006. Markers at real coordinates (SCRUM-77) | 2026-10-10 |
 | Q3 | After how long without data is the view *Stale*? | Paola (PO) | OPEN — 5 min meanwhile (`STALE_AFTER_MS`) | — |
 | Q4 | Spanish copy for toolbar options ("Todas" instead of "Todas las subestaciones") to fit Figma widths | Paola (PO) | Proposed | 2026-10-07 |

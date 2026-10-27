@@ -29,6 +29,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | SCRUM-77 | `dashboard` | [F-12] Node markers on map at recorded coordinates (US4) | [SCRUM-77.md](./dashboard/SCRUM-77.md) | DONE | Sofia |
 | SCRUM-65 | `dashboard` | US6 · Fuse layer node colors (F-15 to F-18) | [SCRUM-65.md](./dashboard/SCRUM-65.md) | DONE | Sofia |
 | SCRUM-63 | `dashboard` | [F-13] Group overlapping node markers into one cluster (US4) | [SCRUM-63.md](./dashboard/SCRUM-63.md) | IN_REVIEW | Paola |
+| SCRUM-110 | `dashboard` | US12 · Live node state updates: the map refreshes every 15 s (F-30, NF-01) | [SCRUM-110.md](./dashboard/SCRUM-110.md) | IN_REVIEW | Paola |
 
 ## Shared foundation (no feature spec)
 Design system and app shell work, tracked in Jira under SCRUM-128.
