@@ -759,7 +759,7 @@ See `.github/workflows/ci.yml`. Do not edit it without discussing with the team 
 |---|---|---|---|
 | OQ-01 | What authentication method does the COLBITS backend use? JWT? Firebase? | Yeison/Javier | Auth feature |
 | OQ-02 | Is there a confirmed OpenAPI spec from the backend? | Backend team | All DTOs are PROVISIONAL |
-| OQ-03 | Real-time data: WebSocket or polling? | Javier/Mahmoud | Dashboard feature |
+| OQ-03 | ~~Real-time data: WebSocket or polling?~~ **Answered:** polling `GET /nodes` every 15 s (NF-01). See [`docs/decisions/live-updates.md`](./docs/decisions/live-updates.md). | Javier/Mahmoud | — |
 | OQ-04 | ~~Figma link for COLBITS UI mockups~~ **Answered:** [COLBITS Mockups v3](https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3) | Paola | — |
 | OQ-05 | Supported browsers and minimum screen sizes | Paola/customer | **Answered:** responsive layout targets 360 px mobile minimum; mobile fault panel uses a bottom sheet. See [`docs/decisions/responsive-design.md`](./docs/decisions/responsive-design.md). |
 | OQ-06 | Does the app need offline/low-connectivity support? | Customer | Service Worker decision |
