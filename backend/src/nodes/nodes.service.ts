@@ -87,7 +87,7 @@ export class NodesService {
     return { count, nodes };
   }
 
-  /** US6 · F-15 to F-18: fuse-layer state of each node (nodes without fuses are absent). */
+  /**  fuse-layer state of each node (nodes without fuses are absent). */
   private async fuseStatesFor(
     nodeNames: string[],
   ): Promise<Map<string, NodeState | null>> {
@@ -111,7 +111,7 @@ export class NodesService {
     );
   }
 
-  /** US5 · F-37: whether each node has an inactive SMAC (nodes without transformers are absent). */
+  /**  whether each node has an inactive SMAC (nodes without transformers are absent). */
   private async smacInactivityFor(
     nodeNames: string[],
   ): Promise<Map<string, boolean>> {
@@ -125,7 +125,7 @@ export class NodesService {
     return new Map(rows.map((row) => [row.node_id, row.any_inactive]));
   }
 
-  /** NF: threshold configurable without code changes (same variable as DeviceService). */
+  /** threshold configurable without code changes (same variable as DeviceService). */
   private falconInactivityHours(): number {
     return this.hoursFromConfig(
       'FALCON_INACTIVITY_HOURS',
@@ -133,7 +133,7 @@ export class NodesService {
     );
   }
 
-  /** NF-07: SMAC threshold, same rules as the Falcon one. */
+  /** SMAC threshold, same rules as the Falcon one. */
   private smacInactivityHours(): number {
     return this.hoursFromConfig(
       'SMAC_INACTIVITY_HOURS',
