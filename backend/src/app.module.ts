@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { DeviceModule } from './device/device.module';
 import { NodesModule } from './nodes/nodes.module';
 import { ScopeModule } from './scope/scope.module';
+import { FaultsModule } from './faults/faults.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ScopeModule } from './scope/scope.module';
         synchronize: false, 
       }),
     }),
+    FaultsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
