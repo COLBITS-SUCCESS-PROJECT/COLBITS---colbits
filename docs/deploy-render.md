@@ -8,7 +8,7 @@ The whole stack runs on [Render](https://render.com) free plan, from [`render.ya
 | `colbits-api` | NestJS backend | `https://colbits-api.onrender.com` |
 | `colbits-web` | React frontend (the link to share) | `https://colbits-web.onrender.com` |
 
-Every push to `develop` redeploys the backend and the frontend automatically.
+Render deploys **`main` only**: every merge into `main` (a release, see `CONTRIBUTING.md`) redeploys the backend and the frontend. Work merged into `develop` does not reach the public link until the next release.
 
 ## The database prepares itself
 Before the API starts, [`backend/scripts/prepare-db.mjs`](../backend/scripts/prepare-db.mjs) runs:
@@ -24,7 +24,7 @@ The free backend sleeps after 15 minutes without visits and starts again on the 
 
 ## Create the services (once)
 1. Sign in to Render with the GitHub account that has access to `COLBITS-SUCCESS-PROJECT/COLBITS---colbits`.
-2. **New → Blueprint**, pick the repository and the `develop` branch. Render reads `render.yaml`.
+2. **New → Blueprint**, pick the repository and the `main` branch. Render reads `render.yaml`.
 3. Render asks for two values. The URLs are `https://<service-name>.onrender.com`; if a name is taken, Render adds a suffix, so check the real URL on each service page and correct the value afterwards if needed:
    - `CORS_ORIGIN` (backend) = the frontend URL, e.g. `https://colbits-web.onrender.com`
    - `VITE_API_BASE_URL` (frontend) = the backend URL, e.g. `https://colbits-api.onrender.com`

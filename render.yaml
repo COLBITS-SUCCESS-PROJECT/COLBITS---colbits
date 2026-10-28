@@ -1,5 +1,6 @@
 # Render Blueprint: the whole COLBITS stack with a public link (Render → New → Blueprint).
-# Step-by-step guide and how to load the data: docs/deploy-render.md
+# Step-by-step guide: docs/deploy-render.md
+# Render deploys only `main` (course releases); work merged into `develop` does not reach the public link.
 #   colbits-db   PostgreSQL 15
 #   colbits-api  NestJS backend   → https://colbits-api.onrender.com (or similar)
 #   colbits-web  React frontend   → https://colbits-web.onrender.com (or similar)
@@ -15,6 +16,7 @@ services:
   - type: web
     name: colbits-api
     runtime: node
+    branch: main
     plan: free
     rootDir: backend
     # The generator is installed too: scripts/prepare-db.mjs uses it to load fresh data.
@@ -55,6 +57,7 @@ services:
   - type: web
     name: colbits-web
     runtime: static
+    branch: main
     rootDir: frontend
     buildCommand: pnpm install --frozen-lockfile && pnpm build
     staticPublishPath: dist
