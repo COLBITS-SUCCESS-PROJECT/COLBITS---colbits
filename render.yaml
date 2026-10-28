@@ -1,0 +1,74 @@
+# Render Blueprint: the whole COLBITS stack with a public link (Render → New → Blueprint).
+# Step-by-step guide: docs/deploy-render.md
+# Render deploys only `main` (course releases); work merged into `develop` does not reach the public link.
+#   colbits-db   PostgreSQL 15
+#   colbits-api  NestJS backend   → https://colbits-api.onrender.com (or similar)
+#   colbits-web  React frontend   → https://colbits-web.onrender.com (or similar)
+
+databases:
+  - name: colbits-db
+    plan: free
+    databaseName: colbits
+    user: colbits
+    postgresMajorVersion: '15'
+
+services:
+  - type: web
+    name: colbits-api
+    runtime: node
+    branch: main
+    plan: free
+    rootDir: backend
+    # The generator is installed too: scripts/prepare-db.mjs uses it to load fresh data.
+    buildCommand: npm ci && npm run build && npm ci --prefix ../generator
+    # Creates the tables and users on an empty database, and refreshes the data when it is
+    # older than DATA_REFRESH_HOURS (the free service sleeps, so this runs on each wake-up).
+    startCommand: node scripts/prepare-db.mjs && npm run start:prod
+    healthCheckPath: /
+    envVars:
+      # NestJS 12 is ESM-only: Node 24, same as CI and Docker.
+      - key: NODE_VERSION
+        value: '24'
+      # Render's internal connection (same region), so no SSL settings are needed.
+      - key: DB_HOST
+        fromDatabase: { name: colbits-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: colbits-db, property: port }
+      - key: DB_USER
+        fromDatabase: { name: colbits-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: colbits-db, property: password }
+      - key: DB_NAME
+        fromDatabase: { name: colbits-db, property: database }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: FALCON_INACTIVITY_HOURS
+        value: '9'
+      - key: SMAC_INACTIVITY_HOURS
+        value: '3'
+      - key: DATA_REFRESH_HOURS
+        value: '1'
+      # The frontend URL (Render asks for it on the first deploy), e.g. https://colbits-web.onrender.com
+      - key: CORS_ORIGIN
+        sync: false
+
+  - type: web
+    name: colbits-web
+    runtime: static
+    branch: main
+    rootDir: frontend
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    staticPublishPath: dist
+    # Single-page app: every route (/login, /dashboard…) is served by index.html.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # The backend URL (Render asks for it on the first deploy), e.g. https://colbits-api.onrender.com
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_APP_ENV
+        value: production

@@ -1,0 +1,92 @@
+{
+  "app": {
+    "name": "Colbits"
+  },
+  "nav": {
+    "label": "Navegación principal",
+    "section": "Menú",
+    "logout": "Cerrar sesión",
+    "open": "Abrir menú de navegación",
+    "close": "Cerrar menú de navegación"
+  },
+  "role": {
+    "ADMIN": "Administrador",
+    "OPERATOR": "Operador de red",
+    "VIEWER": "Consulta"
+  },
+  "button": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "back": "Volver",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "export": "Exportar",
+    "refresh": "Actualizar",
+    "loading": "Cargando..."
+  },
+  "status": {
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "empty": "Sin datos",
+    "noResults": "Sin resultados",
+    "notFound": "Página no encontrada",
+    "comingSoonTitle": "Próximamente",
+    "comingSoon": "Esta sección está en construcción."
+  },
+  "pagination": {
+    "page": "Página",
+    "of": "de",
+    "rowsPerPage": "Filas por página"
+  },
+  "date": {
+    "today": "Hoy",
+    "yesterday": "Ayer",
+    "lastWeek": "Última semana",
+    "lastMonth": "Último mes",
+    "custom": "Personalizado"
+  },
+  "validation": {
+    "required": "Este campo es requerido",
+    "invalidEmail": "Correo electrónico inválido",
+    "minLength": "Mínimo {{min}} caracteres",
+    "maxLength": "Máximo {{max}} caracteres"
+  },
+  "section": {
+    "dashboard": {
+      "nav": "Monitoreo en vivo",
+      "title": "Monitoreo de red en vivo",
+      "subtitle": "Supervisión georreferenciada de la red en tiempo real"
+    },
+    "analysis": {
+      "nav": "Análisis histórico",
+      "title": "Análisis histórico",
+      "subtitle": "Métricas agregadas y tendencias de fallas"
+    },
+    "reports": {
+      "nav": "Reportes",
+      "title": "Reportes",
+      "subtitle": "Exportación de datos con trazabilidad"
+    },
+    "users": {
+      "nav": "Gestión de usuarios",
+      "title": "Gestión de usuarios",
+      "subtitle": "Usuarios de consulta y su alcance en la red"
+    }
+  },
+  "freshness": {
+    "lastUpdate": "Última actualización: {{time}}",
+    "live": "Datos en vivo",
+    "stale": "Datos desactualizados",
+    "refresh": "Actualizar datos"
+  },
+  "language": {
+    "label": "Idioma",
+    "es-CO": "Español",
+    "en": "English"
+  }
+}

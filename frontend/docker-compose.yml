@@ -1,0 +1,25 @@
+# Local development: `docker compose up` → http://localhost:47173
+# Source code is mounted, so saving a file reloads the browser (HMR).
+services:
+  frontend:
+    build: .
+    image: colbits-frontend-dev
+    container_name: colbits-frontend
+    ports:
+      - '47173:47173'
+    environment:
+      # Values come from your .env if it exists, otherwise these defaults are used.
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+      VITE_APP_ENV: ${VITE_APP_ENV:-development}
+      VITE_ENABLE_MSW: ${VITE_ENABLE_MSW:-true}
+      VITE_DEV_MOCK_SESSION: ${VITE_DEV_MOCK_SESSION:-true}
+      # File events do not cross the Windows/macOS → Docker boundary; poll instead.
+      CHOKIDAR_USEPOLLING: 'true'
+      CHOKIDAR_INTERVAL: '300'
+    volumes:
+      - ./:/app
+      # Keep the container's Linux node_modules; never mix them with the host's.
+      - node_modules:/app/node_modules
+
+volumes:
+  node_modules:

@@ -1,0 +1,143 @@
+{
+  "layer": {
+    "FUSES": "Fusibles · Falcon",
+    "TRANSFORMERS": "Transformadores · SMAC"
+  },
+  "toolbar": {
+    "label": "Capas y filtros del mapa",
+    "layers": "Capas del mapa",
+    "filters": "Filtros de ubicación",
+    "locationFilters": "Ubicación",
+    "locationFiltersSelected": "Ubicación ({{count}})",
+    "showLocationFilters": "Mostrar filtros de ubicación",
+    "hideLocationFilters": "Ocultar filtros de ubicación",
+    "zone": "Zona",
+    "substation": "Subestación",
+    "circuit": "Circuito",
+    "allZones": "Todas",
+    "allSubstations": "Todas",
+    "allCircuits": "Todos",
+    "search": "Buscar nodo",
+    "searchPlaceholder": "Buscar nodo o ID…"
+  },
+  "map": {
+    "label": "Mapa de la red",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noreferrer\">OpenStreetMap</a>",
+    "cluster": "{{count}} nodos agrupados",
+    "expandCluster": "Acercar para separar los nodos",
+    "node": "Nodo {{id}}",
+    "fuse": "fusible: {{state}}",
+    "transformer": "transformador: {{state}}",
+    "loading": "Cargando nodos",
+    "empty": "No hay nodos dentro de tu alcance.",
+    "error": "No se pudieron cargar los nodos.",
+    "retry": "Reintentar"
+  },
+  "fuseState": {
+    "CRITICAL": "Fusible abierto",
+    "WARNING": "Sin tensión",
+    "INACTIVE": "Inactivo > 9 h",
+    "NORMAL": "Normal",
+    "UNKNOWN": "Sin dato"
+  },
+  "transformerState": {
+    "CRITICAL": "2+ fases caídas",
+    "WARNING": "1 fase caída",
+    "INACTIVE": "Inactivo > 3 h",
+    "NORMAL": "Todas las fases OK",
+    "UNKNOWN": "Sin dato"
+  },
+  "legend": {
+    "title": "Leyenda",
+    "showDetails": "Mostrar información de la leyenda: {{details}}",
+    "hideDetails": "Ocultar información de la leyenda: {{details}}",
+    "FUSES": "Fusibles · Falcon",
+    "TRANSFORMERS": "Transformadores · SMAC"
+  },
+  "panel": {
+    "title": "Gestión de fallas",
+    "openMobile": "Fallas ({{count}})",
+    "closeMobile": "Cerrar panel de fallas",
+    "activeCount": "{{count}} activas",
+    "tabsLabel": "Tipo de alarmas",
+    "tab": {
+      "ACTIVE": "Activas",
+      "RESOLVED": "Resueltas",
+      "INACTIVE": "Dispositivos inactivos"
+    },
+    "counters": {
+      "label": "Resumen de nodos con alarma",
+      "fuseAlarm": "Nodos con alarma de fusible (Falcon)",
+      "voltageAlarm": "Nodos con alarma de tensión (Falcon)",
+      "phaseOutOfRange": "Nodos con fase fuera de rango (SMAC)",
+      "phaseDropped": "Nodos con fase caída (SMAC)"
+    },
+    "list": {
+      "ACTIVE": "Fallas activas",
+      "RESOLVED": "Fallas resueltas"
+    },
+    "olderAlarms": "Alarmas anteriores en Análisis histórico ›",
+    "show": "Mostrar",
+    "window": {
+      "LAST_HOUR": "Última hora",
+      "LAST_DAY": "Último día"
+    },
+    "alertType": "Tipo de alerta",
+    "allTypes": "Todos los tipos",
+    "classification": "Clasificación",
+    "allClassifications": "Todas",
+    "minDuration": "Duración mínima ≥ {{minutes}} min",
+    "minDurationHint": "Filtro de duración mínima: se ocultan las fallas más cortas que el umbral.",
+    "minDurationInfo": "Qué hace el filtro de duración mínima",
+    "sortNote": "Ordenadas por clientes afectados y luego por la más antigua",
+    "empty": "No hay fallas que coincidan con los filtros.",
+    "error": "No se pudieron cargar las fallas.",
+    "retry": "Reintentar",
+    "loading": "Cargando fallas",
+    "inactiveSoon": "La vista de dispositivos inactivos llegará en una próxima historia."
+  },
+  "alertType": {
+    "FUSE_OPENING": "Apertura de fusible",
+    "NO_VOLTAGE": "Sin tensión",
+    "PHASE_LOSS": "Pérdida de fase",
+    "OVERLOAD_UNBALANCE": "Sobrecarga y desbalance"
+  },
+  "classification": {
+    "MONOPHASIC": "Monofásica",
+    "BIPHASIC": "Bifásica",
+    "TRIPHASIC": "Trifásica"
+  },
+  "status": {
+    "OPEN": "Abierta",
+    "RESOLVED": "Resuelta"
+  },
+  "fault": {
+    "branch": "Ramal",
+    "phases": "Fases",
+    "started": "Inicio",
+    "duration": "Duración",
+    "branchValue": "Ramal {{branch}}",
+    "customersOut": "clientes sin servicio",
+    "customersAffected": "clientes afectados",
+    "load": "Carga {{load}} % · Desb. V {{unbalance}} %",
+    "phase": "Fase {{phase}}: {{state}}",
+    "phaseState": {
+      "CRITICAL": "caída",
+      "WARNING": "fuera de rango",
+      "OK": "normal"
+    },
+    "location": "{{substation}} › {{circuit}}",
+    "cardLabel": "{{type}} · {{nodeId}}",
+    "phaseLetter": {
+      "R": "R",
+      "S": "S",
+      "T": "T"
+    }
+  },
+  "device": {
+    "FALCON": "FALCON",
+    "SMAC": "SMAC"
+  }
+}

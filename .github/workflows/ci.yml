@@ -1,51 +1,71 @@
 name: CI
 
+# Runs on every push and on every pull request to main / develop (course requirement).
+# Each app is checked only when its folder changes; `ci-ok` sums them up and is the single
+# required check in branch protection, so a backend-only PR is not blocked by the frontend job.
 on:
   push:
-    branches: [main, develop]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'tsconfig*.json'
-      - 'vite.config.*'
-      - '.eslintrc*'
-      - 'eslint.config.*'
-      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main, develop]
-    paths:
-      - 'src/**'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'tsconfig*.json'
-      - 'vite.config.*'
-      - '.eslintrc*'
-      - 'eslint.config.*'
-      - '.github/workflows/ci.yml'
+
+# paths-filter reads the list of changed files of the PR from the GitHub API.
+permissions:
+  contents: read
+  pull-requests: read
+
+# A newer push to the same branch cancels the run that is still in progress.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Type-check · Lint · Test
+  changes:
+    name: Detect changes
     runs-on: ubuntu-latest
-
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      repo: ${{ steps.filter.outputs.repo }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            repo:
+              - '.github/**'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+  frontend:
+    name: Frontend · Type-check · Lint · Test · Build
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          HUSKY: 0
 
       - name: Type check
         run: pnpm typecheck
@@ -55,3 +75,81 @@ jobs:
 
       - name: Tests with coverage
         run: pnpm test:coverage
+
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_API_BASE_URL: http://localhost:8080
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  backend:
+    name: Backend · Lint · Build · Test
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Tests with coverage
+        run: npm run test:cov
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/
+          if-no-files-found: ignore
+          retention-days: 30
+
+  repo-scripts:
+    name: Repo scripts · Test
+    needs: changes
+    if: needs.changes.outputs.repo == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Test PR-standards rules
+        run: node --test .github/scripts/pr-standards.test.js
+
+  ci-ok:
+    name: ci-ok
+    needs: [changes, frontend, backend, repo-scripts]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All checks passed (skipped jobs count as passed)
+        run: |
+          echo "frontend=${{ needs.frontend.result }} backend=${{ needs.backend.result }} repo=${{ needs.repo-scripts.result }}"
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            exit 1
+          fi
