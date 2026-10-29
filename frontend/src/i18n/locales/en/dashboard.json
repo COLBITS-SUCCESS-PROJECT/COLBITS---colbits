@@ -139,5 +139,54 @@
   "device": {
     "FALCON": "FALCON",
     "SMAC": "SMAC"
+  },
+  "nodeDetail": {
+    "label": "Node {{id}} detail",
+    "openNode": "Show detail of node {{id}}",
+    "location": "Circuit {{circuit}} · Substation {{substation}}",
+    "close": "Close node detail",
+    "liveStatus": "Live status",
+    "fuseSets": "Fuse groups · Falcon",
+    "fuseSetsSummary": "{{sets}} groups · {{fuses}} fuses",
+    "fuseSetBranch": "Fuse group · Branch {{branch}}",
+    "fuseSetSingle": "Fuse group",
+    "clients_one": "{{count}} customer",
+    "clients_other": "{{count}} customers",
+    "clientsUnknown": "Customers not recorded",
+    "noFuses": "This group has no fuses recorded.",
+    "column": {
+      "device": "Fuse · Device",
+      "state": "State",
+      "voltage": "Voltage",
+      "supercap": "Supercap",
+      "solar": "Solar",
+      "lastRecord": "Last record"
+    },
+    "fuseState": {
+      "OPEN": "Open",
+      "CLOSED": "Closed",
+      "UNKNOWN": "No data"
+    },
+    "voltage": {
+      "present": "Present",
+      "absent": "Absent"
+    },
+    "inactive": "Inactive",
+    "noValue": "No data",
+    "transformer": {
+      "title": "Transformer · SMAC",
+      "device": "Device",
+      "status": "Status",
+      "reporting": "Reporting",
+      "inactive": "Inactive > 3 h",
+      "voltages": "Voltage A / B / C",
+      "battery": "Battery",
+      "lastRecord": "Last record"
+    },
+    "loading": "Loading the node detail",
+    "error": "The node detail could not be loaded.",
+    "retry": "Retry",
+    "notFound": "This node is not available.",
+    "volts": "{{value}} V"
   }
 }
