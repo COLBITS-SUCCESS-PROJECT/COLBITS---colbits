@@ -111,7 +111,8 @@ export function FuseSetCard({ set }: FuseSetCardProps) {
                     </span>
                   </th>
                   <td className={cn(CELL, 'font-semibold', STATE_CLASS[fuse.state])}>
-                    <span className="flex items-center gap-1">
+                    {/* The inactive badge goes under the state, so the row stays narrow. */}
+                    <span className="flex flex-col items-start gap-0.5">
                       {t(`nodeDetail.fuseState.${fuse.state}`)}
                       {fuse.isInactive && (
                         <Badge label={t('nodeDetail.inactive')} tone="neutral" isOutlined />
