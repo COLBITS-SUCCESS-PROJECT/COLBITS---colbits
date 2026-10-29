@@ -20,7 +20,9 @@ import {
 import { AuthGuard } from '../auth/auth.guard';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { ScopeService } from '../scope/scope.service';
+import { NodeDetailResponseDto } from './dto/node-detail.dto';
 import { NodeFuseSetsResponseDto, NodesResponseDto } from './dto/nodes.dto';
+import { NodeDetailService } from './node-detail.service';
 import { NodesService } from './nodes.service';
 
 @Controller('nodes')
@@ -29,6 +31,7 @@ export class NodesController {
   constructor(
     private readonly nodesService: NodesService,
     private readonly scopeService: ScopeService,
+    private readonly nodeDetailService: NodeDetailService,
   ) {}
 
   @Get()
@@ -69,17 +72,51 @@ export class NodesController {
   })
   async findFuseSets(@Param('name') name: string, @Req() request: Request) {
     const userId = userIdOf(request);
-    const nodeName = typeof name === 'string' ? name.trim() : '';
-
-    // Node names are short identifiers; anything else cannot exist.
-    if (nodeName.length === 0 || nodeName.length > 64) {
-      throw new NotFoundException('Node not found');
-    }
-
+    const nodeName = nodeNameOf(name);
     const scope = await this.scopeService.resolve(userId);
 
     return this.nodesService.fuseSetsOf(nodeName, scope);
   }
+
+  @Get(':name/detail')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Node detail for the map: circuit, substation, fuses and transformers (F-27, F-29).',
+  })
+  @ApiParam({
+    name: 'name',
+    example: '0000100002',
+    description: 'Node identifier.',
+  })
+  @ApiOkResponse({ type: NodeDetailResponseDto })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, or expired.',
+  })
+  @ApiNotFoundResponse({
+    type: ErrorResponseDto,
+    description: 'Node was not found in the authenticated user scope.',
+  })
+  async findDetail(@Param('name') name: string, @Req() request: Request) {
+    const userId = userIdOf(request);
+    const nodeName = nodeNameOf(name);
+    const scope = await this.scopeService.resolve(userId);
+
+    return this.nodeDetailService.detailOf(nodeName, scope);
+  }
+}
+
+/** Trimmed node name, or 404: node names are short identifiers, anything else cannot exist. */
+function nodeNameOf(name: unknown): string {
+  const nodeName = typeof name === 'string' ? name.trim() : '';
+
+  if (nodeName.length === 0 || nodeName.length > 64) {
+    throw new NotFoundException('Node not found');
+  }
+
+  return nodeName;
 }
 
 /** User id from the verified token, or 401 (the guard already checked the signature). */
