@@ -22,13 +22,22 @@ function toState(state: NodeStateDto | null | undefined): NetworkState | null {
   return state === undefined ? 'UNKNOWN' : state
 }
 
+/**
+ * Until the backend sends transformer_state (US7), `smac_inactive: null` already says the node has
+ * no transformer, so it is not drawn on the transformer layer (SCRUM-106 AC2).
+ */
+function toTransformerState(dto: NodeDto): NetworkState | null {
+  if (dto.transformer_state === undefined && dto.smac_inactive === null) return null
+  return toState(dto.transformer_state)
+}
+
 export function toNetworkNode(dto: NodeDto): NetworkNode {
   return {
     id: dto.name,
     // Safe: toNetworkNodes only maps nodes that passed hasValidCoordinates.
     coordinates: { latitude: dto.latitude as number, longitude: dto.longitude as number },
     fuseState: toState(dto.fuse_state),
-    transformerState: toState(dto.transformer_state),
+    transformerState: toTransformerState(dto),
   }
 }
 

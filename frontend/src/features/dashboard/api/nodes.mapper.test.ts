@@ -43,6 +43,37 @@ describe('toNetworkNode', () => {
   })
 })
 
+describe('toNetworkNode · transformer layer before US7 (SCRUM-106 AC2)', () => {
+  it('leaves out of the transformer layer a node the backend reports without transformer', () => {
+    const node = toNetworkNode({ ...BACKEND_NODE, fuse_state: 'NORMAL', smac_inactive: null })
+
+    expect(node.transformerState).toBeNull()
+  })
+
+  it.each([true, false])(
+    'keeps a node with a transformer (smac_inactive = %s) as UNKNOWN until its colour is sent',
+    (smacInactive) => {
+      const node = toNetworkNode({
+        ...BACKEND_NODE,
+        fuse_state: 'NORMAL',
+        smac_inactive: smacInactive,
+      })
+
+      expect(node.transformerState).toBe('UNKNOWN')
+    }
+  )
+
+  it('uses transformer_state over smac_inactive once the backend sends it', () => {
+    const node = toNetworkNode({
+      ...BACKEND_NODE,
+      transformer_state: 'WARNING',
+      smac_inactive: null,
+    })
+
+    expect(node.transformerState).toBe('WARNING')
+  })
+})
+
 describe('hasValidCoordinates', () => {
   it('accepts coordinates on the limits of the globe', () => {
     expect(hasValidCoordinates({ ...BACKEND_NODE, latitude: -90, longitude: 180 })).toBe(true)

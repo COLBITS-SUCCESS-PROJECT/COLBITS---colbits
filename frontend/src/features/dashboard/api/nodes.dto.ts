@@ -14,6 +14,8 @@ export interface NodeDto {
    */
   fuse_state?: NodeStateDto | null
   transformer_state?: NodeStateDto | null
+  /** Sent since US5 (SCRUM-80): true = a SMAC is inactive · null = the node has no transformer. */
+  smac_inactive?: boolean | null
 }
 
 /** GET /nodes — only the nodes within the authenticated user's scope (F-10). */
