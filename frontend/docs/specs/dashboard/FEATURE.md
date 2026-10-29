@@ -19,7 +19,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - Map legend ✅
 - Active faults panel: counters, *Active* / *Resolved* tabs, time window, alert type, classification, minimum-duration filter ✅
 - *Inactive devices* tab 🔲 (placeholder)
-- Node detail panel: live status, time series (Falcon / SMAC), alarm history 🔲
+- Node detail panel: live status (F-27, F-29) ✅ · time series and alarm history 🔲 (node view, F-28)
 - Top bar with last-refresh timestamp and *Live* / *Stale* state ✅ (shared, in `AppShell`)
 - Stale-data banner, alarm selection → map focus 🔲
 - Responsive layout: mobile navigation drawer, collapsible location filters and map legend, and fault panel bottom sheet below desktop width ✅
@@ -39,7 +39,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | [SCRUM-63](./SCRUM-63.md) | [F-13] Group overlapping node markers into one cluster (US4) | Paola | IN_REVIEW |
 | [SCRUM-65](./SCRUM-65.md) | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18) | Sofia | DONE |
 | [SCRUM-106](./SCRUM-106.md) | US8 · Layer toggles and dual-state nodes (F-14, F-24) | Sofia | IN_REVIEW |
-| [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M9): backend `GET /nodes/:name/detail` done, panel next | Sofia | IN_PROGRESS |
+| [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M6): `GET /nodes/:name/detail` + panel over the map (F-27, F-29) | Sofia | IN_REVIEW |
 | — | Inactive devices tab (M12, M14) | TBD | PLANNED |
 | [SCRUM-110](./SCRUM-110.md) | US12 · Live node state updates: the map refreshes every 15 s (F-25, F-26, F-30, NF-01) | Paola | IN_REVIEW |
 
@@ -81,8 +81,8 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | `TopBar`, `NavSidebar` | Organism | design-system (via `AppShell`) |
 | `Select`, `SearchField`, `Tabs`, `LegendItem`, `CounterCard`, `DataField`, `RefreshTimestamp` | Molecule | design-system |
 | `ToggleChip`, `Badge`, `StatusDot`, `Toggle`, `Tooltip`, `Icon`, `Button`, `Skeleton` | Atom | design-system |
-| `MapMarker`, `PhaseChips`, `FaultListItem` | Molecule | `src/features/dashboard/components/` |
-| `MapToolbar`, `MapCanvas`, `MapLegend`, `FaultPanel` (+ `FaultFilters`, `FaultList`) | Organism | `src/features/dashboard/components/` |
+| `MapMarker`, `PhaseChips`, `FaultListItem`, `FuseSetCard`, `TransformerCard`, `FaultPanelToggle` | Molecule | `src/features/dashboard/components/` |
+| `MapToolbar`, `MapCanvas`, `MapLegend`, `FaultPanel` (+ `FaultFilters`, `FaultList`), `NodeDetailPanel` | Organism | `src/features/dashboard/components/` |
 
 Other code:
 - `model/` — types, constants, `faultRules.ts` (phase classification, filters, sort: customers affected → oldest first), `scopeOptions.ts`, **`liveMonitoring.mock.ts` (PROVISIONAL sample data from the Figma)**

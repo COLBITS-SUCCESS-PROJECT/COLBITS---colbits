@@ -139,5 +139,54 @@
   "device": {
     "FALCON": "FALCON",
     "SMAC": "SMAC"
+  },
+  "nodeDetail": {
+    "label": "Detalle del nodo {{id}}",
+    "openNode": "Ver detalle del nodo {{id}}",
+    "location": "Circuito {{circuit}} · Subestación {{substation}}",
+    "close": "Cerrar detalle del nodo",
+    "liveStatus": "Estado actual",
+    "fuseSets": "Conjuntos de fusibles · Falcon",
+    "fuseSetsSummary": "{{sets}} conj. · {{fuses}} fusibles",
+    "fuseSetBranch": "Conjunto · Rama {{branch}}",
+    "fuseSetSingle": "Conjunto de fusibles",
+    "clients_one": "{{count}} cliente",
+    "clients_other": "{{count}} clientes",
+    "clientsUnknown": "Clientes sin registrar",
+    "noFuses": "Este conjunto no tiene fusibles registrados.",
+    "column": {
+      "device": "Fusible · Dispositivo",
+      "state": "Estado",
+      "voltage": "Tensión",
+      "supercap": "Supercap",
+      "solar": "Solar",
+      "lastRecord": "Último registro"
+    },
+    "fuseState": {
+      "OPEN": "Abierto",
+      "CLOSED": "Cerrado",
+      "UNKNOWN": "Sin dato"
+    },
+    "voltage": {
+      "present": "Presente",
+      "absent": "Ausente"
+    },
+    "inactive": "Inactivo",
+    "noValue": "Sin dato",
+    "transformer": {
+      "title": "Transformador · SMAC",
+      "device": "Dispositivo",
+      "status": "Estado",
+      "reporting": "Reportando",
+      "inactive": "Inactivo > 3 h",
+      "voltages": "Voltaje A / B / C",
+      "battery": "Batería",
+      "lastRecord": "Último registro"
+    },
+    "loading": "Cargando el detalle del nodo",
+    "error": "No se pudo cargar el detalle del nodo.",
+    "retry": "Reintentar",
+    "notFound": "Este nodo no está disponible.",
+    "volts": "{{value}} V"
   }
 }

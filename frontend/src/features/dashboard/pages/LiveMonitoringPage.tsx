@@ -1,13 +1,14 @@
-/** LiveMonitoringPage — map toolbar + map with legend + fault panel (Figma: Monitor / Fuses layer, M1). */
+/** LiveMonitoringPage — map toolbar + map with legend + fault panel + node detail (Figma: M1–M6). */
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Icon } from '@/design-system/atoms'
 import { useNow } from '@/hooks/useNow'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { MapCanvas } from '../components/MapCanvas/MapCanvas'
 import { MapLegend } from '../components/MapLegend/MapLegend'
 import { MapToolbar } from '../components/MapToolbar/MapToolbar'
 import { FaultPanel } from '../components/FaultPanel/FaultPanel'
+import { FaultPanelToggle } from '../components/FaultPanel/FaultPanelToggle'
+import { NodeDetailPanel } from '../components/NodeDetailPanel/NodeDetailPanel'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
@@ -17,6 +18,8 @@ import { deriveScopeOptions } from '../model/scopeOptions'
 export function LiveMonitoringPage() {
   const { t } = useTranslation('dashboard')
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const closeNodeDetail = useCallback(() => setSelectedNodeId(null), [])
   const isDesktopViewport = useMediaQuery('(min-width: 1280px)')
   const closeMobilePanel = useCallback(() => setMobilePanelOpen(false), [])
   const query = useLiveMonitoringQuery()
@@ -53,19 +56,16 @@ export function LiveMonitoringPage() {
           isLoading={nodesQuery.isPending}
           isError={nodesQuery.isError}
           onRetry={() => void nodesQuery.refetch()}
+          onSelectNode={setSelectedNodeId}
         >
           <MapLegend layers={filters.layers} />
-          <button
-            type="button"
-            aria-controls="fault-panel"
-            aria-expanded={mobilePanelOpen}
-            onClick={() => setMobilePanelOpen(true)}
-            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-action-secondary px-4 text-sm font-semibold text-text-inverse shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus xl:hidden"
-          >
-            <Icon name="alert" size="sm" />
-            {t('panel.openMobile', { count: activeFaults.length })}
-          </button>
+          <FaultPanelToggle
+            activeCount={activeFaults.length}
+            isOpen={mobilePanelOpen}
+            onOpen={() => setMobilePanelOpen(true)}
+          />
         </MapCanvas>
+        {selectedNodeId && <NodeDetailPanel nodeId={selectedNodeId} onClose={closeNodeDetail} />}
         {mobilePanelOpen && (
           <button
             type="button"

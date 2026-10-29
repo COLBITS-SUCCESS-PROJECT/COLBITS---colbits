@@ -27,6 +27,8 @@ export interface MapCanvasProps {
   isLoading: boolean
   isError: boolean
   onRetry: () => void
+  /** Opens the node detail (F-27). Without it, node markers are not interactive. */
+  onSelectNode?: (nodeId: string) => void
   /** Overlay at the bottom-left corner (the legend). */
   children?: ReactNode
 }
@@ -43,6 +45,7 @@ export function MapCanvas({
   isLoading,
   isError,
   onRetry,
+  onSelectNode,
   children,
 }: MapCanvasProps) {
   const { t } = useTranslation('dashboard')
@@ -122,8 +125,21 @@ export function MapCanvas({
                 key={item.marker.node.id}
                 position={item.marker.position}
                 icon={createMarkerIcon(item.marker.variant, describeNode(item.marker.node))}
-                interactive={false}
-                keyboard={false}
+                interactive={onSelectNode !== undefined}
+                keyboard={onSelectNode !== undefined}
+                title={
+                  onSelectNode ? t('nodeDetail.openNode', { id: item.marker.node.id }) : undefined
+                }
+                eventHandlers={
+                  onSelectNode && {
+                    click: () => onSelectNode(item.marker.node.id),
+                    keypress: (event: LeafletKeyboardEvent) => {
+                      if (ACTIVATION_KEYS.includes(event.originalEvent.key)) {
+                        onSelectNode(item.marker.node.id)
+                      }
+                    },
+                  }
+                }
               />
             ) : (
               <Marker
