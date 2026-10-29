@@ -80,12 +80,18 @@ const CODE_MATCHERS: readonly { type: AlertType; matcher: RegExp }[] =
 
 /**
  * Alert type of an `alarms.event_code`, or UNRECOGNIZED when it matches no Annex §4.2 pattern
- * (including anything that is not a text). Only surrounding whitespace is removed; the text is not
- * case-folded, because that can turn non-ASCII letters into ASCII ones (`ı`, `ſ` become `I`, `S`).
+ * (including anything that is not a text).
+ *
+ * The code is matched exactly: no trimming and no case-folding (which can turn non-ASCII letters
+ * into ASCII ones: `ı`, `ſ` become `I`, `S`). Both `trim()` and PostgreSQL's `btrim` strip different
+ * characters, so any normalization would make this function and the SQL `~` with the same patterns
+ * disagree. With none, they agree on every input: `$` matches only at the very end of the text in
+ * JavaScript (no `m` flag) and in PostgreSQL, so a trailing newline does not match either. That is
+ * verified against a real database in test/faults.e2e-spec.ts. A code with surrounding whitespace
+ * is therefore UNRECOGNIZED: surfaced, not silently accepted.
  */
 export function classifyEventCode(code: string): EventCodeClass {
   if (typeof code !== 'string') return UNRECOGNIZED;
-  const normalized = code.trim();
-  const found = CODE_MATCHERS.find(({ matcher }) => matcher.test(normalized));
+  const found = CODE_MATCHERS.find(({ matcher }) => matcher.test(code));
   return found ? found.type : UNRECOGNIZED;
 }

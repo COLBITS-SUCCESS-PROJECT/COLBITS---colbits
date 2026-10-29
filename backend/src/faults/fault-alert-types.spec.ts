@@ -106,10 +106,68 @@ describe('classifyEventCode (US10 · F-47, Technical Annex v1.1 §4.2)', () => {
     expect(classifyEventCode(code)).toBe(expected);
   });
 
-  it('ignores surrounding whitespace and accepts the channel letter in either case', () => {
-    expect(classifyEventCode(' 131420 ')).toBe('FUSE_OPENING');
-    expect(classifyEventCode('\t131421\n')).toBe('NO_VOLTAGE');
+  it('accepts the channel letter in either case', () => {
     expect(classifyEventCode('051421c')).toBe('PHASE_LOSS');
+    expect(classifyEventCode('051420b')).toBe('PHASE_OUT_OF_RANGE');
+  });
+
+  describe('exact matching: no normalization, so SQL `~` and this function agree', () => {
+    const DOCUMENTED = ['131420', '131421', '131401', '051420A', '051421C'];
+    const AROUND = [
+      ['trailing LF', '', '\n'],
+      ['trailing CRLF', '', '\r\n'],
+      ['trailing CR', '', '\r'],
+      ['trailing line separator U+2028', '', ' '],
+      ['trailing paragraph separator U+2029', '', ' '],
+      ['trailing next-line U+0085', '', '\u0085'],
+      ['trailing vertical tab', '', '\v'],
+      ['trailing form feed', '', '\f'],
+      ['trailing tab', '', '\t'],
+      ['trailing space', '', ' '],
+      ['trailing no-break space', '', ' '],
+      ['trailing zero-width space', '', '​'],
+      ['leading LF', '\n', ''],
+      ['leading space', ' ', ''],
+      ['leading tab', '\t', ''],
+      ['both sides', ' ', ' '],
+    ] as const;
+
+    it.each(
+      DOCUMENTED.flatMap((code) =>
+        AROUND.map(([label, before, after]) => [
+          `${code} with ${label}`,
+          `${before}${code}${after}`,
+        ]),
+      ),
+    )('returns UNRECOGNIZED for %s', (_label, code) => {
+      expect(classifyEventCode(code)).toBe(UNRECOGNIZED);
+    });
+
+    it('returns UNRECOGNIZED for a newline inside the code or a second code after a newline', () => {
+      expect(classifyEventCode('1314\n20')).toBe(UNRECOGNIZED);
+      expect(classifyEventCode('131420\n131420')).toBe(UNRECOGNIZED);
+    });
+
+    it('does not match a trailing line terminator at the regular-expression level either', () => {
+      // `$` matches only at the very end in JavaScript without the `m` flag (unlike Python or
+      // PCRE), and in PostgreSQL; the e2e test checks the PostgreSQL side against a real database.
+      for (const type of ALERT_TYPES) {
+        const pattern = ALERT_TYPE_DEFINITIONS[type].eventCodePattern;
+        if (pattern === null) continue;
+        const matcher = new RegExp(pattern);
+        const sample = {
+          FUSE_OPENING: '131420',
+          NO_VOLTAGE: '131421',
+          FREE_FALL: '131401',
+          PHASE_OUT_OF_RANGE: '051420A',
+          PHASE_LOSS: '051421A',
+        }[type as string] as string;
+        expect(matcher.test(sample)).toBe(true);
+        for (const end of ['\n', '\r\n', '\r', ' ', ' ']) {
+          expect(matcher.test(`${sample}${end}`)).toBe(false);
+        }
+      }
+    });
   });
 
   it.each([
