@@ -127,6 +127,7 @@ interface NodeDetailResponse {
 |---|---|---|---|---|
 | Q1 | Can a node have more than one transformer? | Backend | No | The schema allows it (`trafos.node_id`), so `transformers` is a list; with one SMAC it has one item |
 | Q2 | Transformer "current state" before US7? | Monica (US7) | No | `inactive` + voltages for now; `transformer_state` is added when US7 exists |
+| Q3 | How many fuse sets can a node have at most? | Paola (PO) | No | OPEN — the requirements (F-91: "more than one branch") and the schema set no limit; the panel scrolls vertically, tested with 5 sets |
 
 ## 8. Acceptance test results
 
@@ -149,6 +150,7 @@ interface NodeDetailResponse {
 | 2026-10-29 | AC6 | FAIL → PASS | Automated | Opening with Enter moved the focus to the close button, and the same Enter closed the panel. The focus now goes to the panel itself (`tabIndex={-1}`), which screen readers also announce |
 | 2026-10-29 | AC6 | PASS | Manual, real API + map in Docker as `client@colbits.com` (AI-assisted run on Sofia's machine) | Click on node 0000100002 opens it; a focused marker opens with Enter; Escape closes it |
 | 2026-10-29 | AC7, AC8 | PASS | Manual against the database | Node 0000100002: circuit CTO 1, substation S/E NORTE 1, 8 clients, 3 fuses (device, state, voltage, supercap, solar, time) and the transformer (SMAC 0501000002, battery 62 %, voltages 220.2 / 219 / 0, inactive > 3 h) **equal to the database**; no load, charts or history |
+| 2026-10-29 | AC12 (many sets) | FAIL → PASS | Manual, 4 extra sets added temporarily to node 0000100002 (5 sets, 15 fuses), removed afterwards | The panel scrolls vertically to the last set and the transformer at 1440 px and 375 px; the page never moves. An inactive fuse's badge next to its state widened the table: it now goes under the state, and no table needs horizontal scroll at 1440 px |
 | 2026-10-29 | AC12 | FAIL → PASS | Manual at 375, 768, 1038 and 1440 px | With six columns the fuse table needed horizontal scroll in the 420 px panel. The last record moved under the device and the headers may wrap: no scroll at 768 px and above; at 375 px only the table scrolls inside its card; never the page |
 
 ## 9. Implementation notes
