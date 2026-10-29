@@ -74,7 +74,11 @@ export class NodesService {
     private readonly nodesRepository: Repository<Node>,
     private readonly configService: ConfigService,
   ) {}
-
+  /**
+   * US12 · SCRUM-181 (F-25) & SCRUM-182 (F-26):
+   * Recomputes node fuse_state and smac_inactive dynamically on every poll
+   * against the latest stored telemetry timestamps and elapsed SQL now() intervals.
+   */
   async findAll(scope: ScopeContext) {
     const rowsQuery = this.nodesRepository
       .createQueryBuilder('node')
@@ -162,7 +166,7 @@ export class NodesService {
     );
   }
 
-  /** US5 · F-37: whether each node has an inactive SMAC (nodes without transformers are absent). */
+  /**  whether each node has an inactive SMAC (nodes without transformers are absent). */
   private async smacInactivityFor(
     nodeNames: string[],
   ): Promise<Map<string, boolean>> {
@@ -176,7 +180,7 @@ export class NodesService {
     return new Map(rows.map((row) => [row.node_id, row.any_inactive]));
   }
 
-  /** NF: threshold configurable without code changes (same variable as DeviceService). */
+  /** threshold configurable without code changes (same variable as DeviceService). */
   private falconInactivityHours(): number {
     return this.hoursFromConfig(
       'FALCON_INACTIVITY_HOURS',
@@ -184,7 +188,7 @@ export class NodesService {
     );
   }
 
-  /** NF-07: SMAC threshold, same rules as the Falcon one. */
+  /** SMAC threshold, same rules as the Falcon one. */
   private smacInactivityHours(): number {
     return this.hoursFromConfig(
       'SMAC_INACTIVITY_HOURS',
