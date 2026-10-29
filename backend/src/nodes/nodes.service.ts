@@ -1,11 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Node } from './node.entity';
 import { ScopeContext } from '../scope/scope.types';
 import { applyNodeScope } from '../scope/scope-query.helper';
-import { NodeViewDto } from './dto/nodes.dto';
+import {
+  FuseSetViewDto,
+  NodeFuseSetsResponseDto,
+  NodeViewDto,
+} from './dto/nodes.dto';
 import {
   DEFAULT_FALCON_INACTIVITY_HOURS,
   FALCON_FUSE_OPEN,
@@ -49,6 +53,20 @@ const FUSE_SUMMARY_SQL = `
   GROUP BY fs.node_id
 `;
 
+interface FuseSetRow {
+  id: number;
+  set_id: string | null;
+  client_count: number | null;
+}
+
+/** US11 · F-29: the fuse sets of one node with their number of clients (Colbits' fuses_sets.client_count). */
+export const NODE_FUSE_SETS_SQL = `
+  SELECT fs.id, fs.set_id, fs.client_count
+  FROM public.fuses_sets fs
+  WHERE fs.node_id = $1
+  ORDER BY fs.set_id ASC NULLS FIRST, fs.id ASC
+`;
+
 @Injectable()
 export class NodesService {
   constructor(
@@ -85,6 +103,39 @@ export class NodesService {
     }));
 
     return { count, nodes };
+  }
+
+  /**
+   * US11 · F-29: fuse sets of a node with their clients, for the node detail.
+   * A node that does not exist and a node outside the user's scope give the same 404,
+   * so the endpoint never reveals which nodes exist (F-10).
+   */
+  async fuseSetsOf(
+    nodeName: string,
+    scope: ScopeContext,
+  ): Promise<NodeFuseSetsResponseDto> {
+    const nodeQuery = this.nodesRepository
+      .createQueryBuilder('node')
+      .where('node.name = :nodeName', { nodeName });
+
+    applyNodeScope(nodeQuery, 'node.name', scope);
+
+    if ((await nodeQuery.getCount()) === 0) {
+      throw new NotFoundException('Node not found');
+    }
+
+    const rows: FuseSetRow[] = await this.nodesRepository.query(
+      NODE_FUSE_SETS_SQL,
+      [nodeName],
+    );
+
+    const fuseSets: FuseSetViewDto[] = rows.map((row) => ({
+      id: Number(row.id),
+      set_id: row.set_id,
+      client_count: row.client_count === null ? null : Number(row.client_count),
+    }));
+
+    return { node: nodeName, fuse_sets: fuseSets };
   }
 
   /** US6 · F-15 to F-18: fuse-layer state of each node (nodes without fuses are absent). */
