@@ -1,14 +1,16 @@
 # Deploy to Render (public link)
 
-The whole stack runs on [Render](https://render.com) free plan, from [`render.yaml`](../render.yaml):
+The whole stack runs on [Render](https://render.com) free plan, from [`render.yaml`](../render.yaml), in two environments that share one database server:
 
-| Render service | What | URL (example) |
-|---|---|---|
-| `colbits-db` | PostgreSQL 15 | internal only |
-| `colbits-api` | NestJS backend | `https://colbits-api.onrender.com` |
-| `colbits-web` | React frontend (the link to share) | `https://colbits-web.onrender.com` |
+| Environment | Branch | Frontend (link to share) | Backend | Database |
+|---|---|---|---|---|
+| **Production**: course deliveries (Alpha, Beta, Final) | `main` | `https://colbits-web.onrender.com` | `https://colbits-api.onrender.com` | `colbits` |
+| **Staging**: the team tries its changes | `develop` | `https://colbits-web-dev.onrender.com` | `https://colbits-api-dev.onrender.com` | `colbits_dev` |
 
-Every push to `develop` redeploys the backend and the frontend automatically.
+- **Production** only changes with a release (`develop → main`, see `CONTRIBUTING.md`), so a delivery stays exactly as it was until it is presented.
+- **Staging** redeploys with every merge into `develop`. It has its own database, so it never touches production data.
+- The free plan allows one database server: staging's database lives inside it and is created automatically on its first start.
+- The Blueprint reads `render.yaml` from `main`, so a change to `render.yaml` (for example, a new service) only takes effect after the next release.
 
 ## The database prepares itself
 Before the API starts, [`backend/scripts/prepare-db.mjs`](../backend/scripts/prepare-db.mjs) runs:
@@ -24,10 +26,11 @@ The free backend sleeps after 15 minutes without visits and starts again on the 
 
 ## Create the services (once)
 1. Sign in to Render with the GitHub account that has access to `COLBITS-SUCCESS-PROJECT/COLBITS---colbits`.
-2. **New → Blueprint**, pick the repository and the `develop` branch. Render reads `render.yaml`.
-3. Render asks for two values. The URLs are `https://<service-name>.onrender.com`; if a name is taken, Render adds a suffix, so check the real URL on each service page and correct the value afterwards if needed:
+2. **New → Blueprint**, pick the repository and the `main` branch. Render reads `render.yaml`.
+3. Render asks for four values (two per environment). The URLs are `https://<service-name>.onrender.com`; if a name is taken, Render adds a suffix, so check the real URL on each service page and correct the value afterwards if needed:
    - `CORS_ORIGIN` (backend) = the frontend URL, e.g. `https://colbits-web.onrender.com`
    - `VITE_API_BASE_URL` (frontend) = the backend URL, e.g. `https://colbits-api.onrender.com`
+   - Staging: the same two with the `-dev` URLs (`colbits-api-dev`, `colbits-web-dev`)
 4. **Apply.** The first deploy takes about 5–10 minutes.
 
 If you change `VITE_API_BASE_URL` later, run **Manual Deploy** on `colbits-web`: Vite writes it into the build.
@@ -38,4 +41,4 @@ If you change `VITE_API_BASE_URL` later, run **Manual Deploy** on `colbits-web`:
 3. If something looks wrong, the `colbits-api` **Logs** show the `[prepare-db]` lines of the last start.
 
 ## Run the preparation locally
-Same script against any database: `cd backend && node scripts/prepare-db.mjs` with `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` and `DB_NAME` set (`npm ci --prefix ../generator` first). `PREPARE_DB=false` skips it.
+Same script against any database (with `MAINTENANCE_DB_NAME` set to an existing database, it also creates `DB_NAME` when missing): `cd backend && node scripts/prepare-db.mjs` with `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` and `DB_NAME` set (`npm ci --prefix ../generator` first). `PREPARE_DB=false` skips it.

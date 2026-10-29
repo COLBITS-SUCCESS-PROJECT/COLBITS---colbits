@@ -14,8 +14,11 @@ export const TIME_WINDOWS = {
 } as const
 export type TimeWindow = keyof typeof TIME_WINDOWS
 
-/** PROVISIONAL polling interval until the real-time strategy is decided (AGENT.md §20, OQ-03). */
-export const LIVE_REFETCH_INTERVAL_MS = 60_000
+/**
+ * How often the map asks the API for the node states (US12, F-30). Polling was chosen over
+ * WebSocket (OQ-03, docs/decisions/live-updates.md): every 15 s keeps a change within NF-01's 20 s.
+ */
+export const LIVE_REFETCH_INTERVAL_MS = 15_000
 
 export const MAP_LAYERS: MapLayer[] = ['FUSES', 'TRANSFORMERS']
 export const ALERT_TYPES: AlertType[] = [

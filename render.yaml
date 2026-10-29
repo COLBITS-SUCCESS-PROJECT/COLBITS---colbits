@@ -1,8 +1,9 @@
 # Render Blueprint: the whole COLBITS stack with a public link (Render → New → Blueprint).
-# Step-by-step guide and how to load the data: docs/deploy-render.md
-#   colbits-db   PostgreSQL 15
-#   colbits-api  NestJS backend   → https://colbits-api.onrender.com (or similar)
-#   colbits-web  React frontend   → https://colbits-web.onrender.com (or similar)
+# Step-by-step guide: docs/deploy-render.md
+# Two environments on one database server:
+#   Production (deliveries, branch main):  colbits-api + colbits-web, database `colbits`
+#   Staging    (team tests, branch develop): colbits-api-dev + colbits-web-dev, database `colbits_dev`
+#   colbits-db  PostgreSQL 15 (free plan: one server; staging gets its own database inside it)
 
 databases:
   - name: colbits-db
@@ -15,6 +16,7 @@ services:
   - type: web
     name: colbits-api
     runtime: node
+    branch: main
     plan: free
     rootDir: backend
     # The generator is installed too: scripts/prepare-db.mjs uses it to load fresh data.
@@ -55,6 +57,7 @@ services:
   - type: web
     name: colbits-web
     runtime: static
+    branch: main
     rootDir: frontend
     buildCommand: pnpm install --frozen-lockfile && pnpm build
     staticPublishPath: dist
@@ -65,6 +68,65 @@ services:
         destination: /index.html
     envVars:
       # The backend URL (Render asks for it on the first deploy), e.g. https://colbits-api.onrender.com
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_APP_ENV
+        value: production
+
+  # ── Staging: deploys every merge into develop, for the team to try changes ──
+  - type: web
+    name: colbits-api-dev
+    runtime: node
+    branch: develop
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci && npm run build && npm ci --prefix ../generator
+    startCommand: node scripts/prepare-db.mjs && npm run start:prod
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      - key: DB_HOST
+        fromDatabase: { name: colbits-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: colbits-db, property: port }
+      - key: DB_USER
+        fromDatabase: { name: colbits-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: colbits-db, property: password }
+      # Its own database on the same server, so staging never touches production data.
+      # prepare-db.mjs creates it the first time, connecting through the production database.
+      - key: DB_NAME
+        value: colbits_dev
+      - key: MAINTENANCE_DB_NAME
+        fromDatabase: { name: colbits-db, property: database }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: FALCON_INACTIVITY_HOURS
+        value: '9'
+      - key: SMAC_INACTIVITY_HOURS
+        value: '3'
+      - key: DATA_REFRESH_HOURS
+        value: '1'
+      # The staging frontend URL, e.g. https://colbits-web-dev.onrender.com
+      - key: CORS_ORIGIN
+        sync: false
+
+  - type: web
+    name: colbits-web-dev
+    runtime: static
+    branch: develop
+    rootDir: frontend
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # The staging backend URL, e.g. https://colbits-api-dev.onrender.com
       - key: VITE_API_BASE_URL
         sync: false
       - key: VITE_APP_ENV

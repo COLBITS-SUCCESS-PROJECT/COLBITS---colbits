@@ -4,7 +4,8 @@
  *     files Docker runs locally on an empty volume.
  *  2. Telemetry older than DATA_REFRESH_HOURS (default 1) → runs the generator ending "now", so the
  *     map never shows every node as inactive just because the sample data is old.
- * Usage: `node scripts/prepare-db.mjs` (reads DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME).
+ * Usage: `node scripts/prepare-db.mjs` (reads DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME;
+ * with MAINTENANCE_DB_NAME it also creates DB_NAME when it does not exist).
  * Set PREPARE_DB=false to skip it.
  */
 import { execFileSync } from 'node:child_process';
@@ -21,10 +22,32 @@ const DEFAULT_REFRESH_HOURS = 1;
 
 const env = process.env;
 
-function databaseUrl() {
+function databaseUrl(name = env.DB_NAME ?? 'colbits') {
   const user = encodeURIComponent(env.DB_USER ?? 'postgres');
   const password = encodeURIComponent(env.DB_PASSWORD ?? '');
-  return `postgres://${user}:${password}@${env.DB_HOST ?? 'localhost'}:${env.DB_PORT ?? 5432}/${env.DB_NAME ?? 'colbits'}`;
+  return `postgres://${user}:${password}@${env.DB_HOST ?? 'localhost'}:${env.DB_PORT ?? 5432}/${name}`;
+}
+
+/**
+ * Creates DB_NAME when it does not exist yet (staging shares the production server, see render.yaml).
+ * Connects to MAINTENANCE_DB_NAME, a database that already exists on the server.
+ */
+async function ensureDatabase() {
+  const name = env.DB_NAME ?? 'colbits';
+  const maintenance = env.MAINTENANCE_DB_NAME;
+  if (!maintenance || maintenance === name) return;
+
+  const admin = new pg.Client({ connectionString: databaseUrl(maintenance) });
+  await admin.connect();
+  try {
+    const { rowCount } = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [name]);
+    if (rowCount === 0) {
+      console.log(`[prepare-db] creating database ${name}`);
+      await admin.query(`CREATE DATABASE "${name.replaceAll('"', '""')}"`);
+    }
+  } finally {
+    await admin.end();
+  }
 }
 
 async function hasTables(client) {
@@ -71,6 +94,7 @@ function runGenerator(url) {
 async function main() {
   if (env.PREPARE_DB === 'false') return;
 
+  await ensureDatabase();
   const url = databaseUrl();
   const client = new pg.Client({ connectionString: url });
   await client.connect();
