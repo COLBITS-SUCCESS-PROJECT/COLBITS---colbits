@@ -21,6 +21,12 @@ import {
   DEFAULT_SMAC_INACTIVITY_HOURS,
   SMAC_INACTIVITY_SQL,
 } from './smac-state';
+import {
+  PHASE_DROP_EVENT_PATTERN,
+  TRANSFORMER_SUMMARY_SQL,
+  TransformerSummary,
+  deriveTransformerState,
+} from './transformer-state';
 
 interface FuseSummaryRow {
   node_id: string;
@@ -33,6 +39,13 @@ interface FuseSummaryRow {
 interface SmacInactivityRow {
   node_id: string;
   any_inactive: boolean;
+}
+
+interface TransformerSummaryRow {
+  node_id: string;
+  custom_id: string;
+  inactive: boolean;
+  down_channels: string[] | null;
 }
 
 /**
@@ -97,6 +110,7 @@ export class NodesService {
     const nodeNames = rows.map((node) => node.name);
     const fuseStates = await this.fuseStatesFor(nodeNames);
     const smacInactivity = await this.smacInactivityFor(nodeNames);
+    const transformerStates = await this.transformerStatesFor(nodeNames);
 
     const nodes: NodeViewDto[] = rows.map((node) => ({
       name: node.name,
@@ -104,6 +118,7 @@ export class NodesService {
       longitude: node.longitude,
       fuse_state: fuseStates.get(node.name) ?? null,
       smac_inactive: smacInactivity.get(node.name) ?? null,
+      transformer_state: transformerStates.get(node.name) ?? null,
     }));
 
     return { count, nodes };
@@ -178,6 +193,36 @@ export class NodesService {
     );
 
     return new Map(rows.map((row) => [row.node_id, row.any_inactive]));
+  }
+
+  /** US7 · F-19 to F-23: transformer-layer state of each node (nodes without transformers are absent). */
+  private async transformerStatesFor(
+    nodeNames: string[],
+  ): Promise<Map<string, NodeState | null>> {
+    if (nodeNames.length === 0) return new Map();
+
+    const rows: TransformerSummaryRow[] = await this.nodesRepository.query(
+      TRANSFORMER_SUMMARY_SQL,
+      [nodeNames, this.smacInactivityHours(), PHASE_DROP_EVENT_PATTERN],
+    );
+
+    const byNode = new Map<string, TransformerSummary[]>();
+    for (const row of rows) {
+      const list = byNode.get(row.node_id) ?? [];
+      list.push({
+        customId: row.custom_id,
+        inactive: row.inactive,
+        downChannels: row.down_channels ?? [],
+      });
+      byNode.set(row.node_id, list);
+    }
+
+    return new Map(
+      [...byNode].map(([node, transformers]) => [
+        node,
+        deriveTransformerState(transformers),
+      ]),
+    );
   }
 
   /** threshold configurable without code changes (same variable as DeviceService). */
