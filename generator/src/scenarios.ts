@@ -52,6 +52,27 @@ export type EffectKind =
 /** Active on [from, to). `value` is precomputed so the telemetry stream stays seed-stable. */
 export type Effect = { kind: EffectKind; from: number; to: number; phase?: number; value?: number };
 
+/**
+ * F-95: backend inactivity verdict. `borderline` = the result depends on the device's exact report times,
+ * which are only known to within one reporting interval (see expectInactivity).
+ */
+export type InactivityVerdict = 'inactive' | 'active' | 'borderline';
+
+/** F-95: expected result of an `inactivity` scenario, as the backend's rule (RF-ING-01) would see it. */
+export type InactivityExpectation = {
+  device: 'falcon' | 'smac';
+  /** Threshold used for the verdicts (FALCON_INACTIVITY_HOURS / SMAC_INACTIVITY_HOURS). */
+  thresholdHours: number;
+  /** Current state at the end of the generated range. The backend itself evaluates against now(). */
+  atEnd: InactivityVerdict;
+  /** Resumed gaps only: whether the device was inactive during the gap (history, not on the map). Null if still silent. */
+  duringGap: InactivityVerdict | null;
+  /** When the device reports again; null when it is still silent at the end of the range. */
+  resumesAt: string | null;
+  /** Still-silent devices only: the backend flags the device inactive at some instant in [after, before) (RF-MAP-07). */
+  turnsInactive: { after: string; before: string } | null;
+};
+
 export type ResolvedScenario = {
   type: ScenarioType;
   node: string;
@@ -60,6 +81,8 @@ export type ResolvedScenario = {
   until: string | null;
   /** What the platform should show for this scenario (used by testers and the CLI summary). */
   expect: string;
+  /** Only on `inactivity` scenarios (F-95). */
+  inactivity?: InactivityExpectation;
 };
 
 export type ScenarioPlan = {
@@ -76,6 +99,8 @@ const FW = '14';
 const SMAC_PHASES = ['A', 'B', 'C'] as const;
 const MINUTE = 60_000;
 const HOUR = 3_600_000;
+/** One SMAC reading reaches its three tables up to 4 s + 4 s apart (smacSeries in telemetry.ts). */
+const SMAC_UPLINK_SPREAD_MS = 8_000;
 
 /** Default start, in hours before the end of the range. Inactivity starts 10 h before so both thresholds (9 h, 3 h) are passed. */
 const DEFAULT_OFFSET_HOURS: Record<ScenarioType, number> = {
@@ -105,6 +130,8 @@ export function demoScenarios(windowMinutes: number): ScenarioSpec[] {
     { type: 'inactivity', device: 'smac' },
     { type: 'free-fall' },
     { type: 'solar-alarm' },
+    // F-95 (RF-GEN-06): resumed data gap. Silent from 10 h before the end for 9.5 h (> 9 h), back 30 min before the end.
+    { type: 'inactivity', device: 'falcon', durationMinutes: 570 },
   ];
 }
 
@@ -303,9 +330,10 @@ function applyScenario(ctx: Ctx, spec: ScenarioSpec): void {
   const hasFuses = (n: string): boolean => (ctx.setsByNode.get(n)?.length ?? 0) > 0;
   const hasTrafo = (n: string): boolean => ctx.trafoByNode.has(n);
   const stillOpen = spec.durationMinutes === undefined;
-  const push = (node: string, devices: string[], expect: string, until: number): void => {
+  const push = (node: string, devices: string[], expect: string, until: number, inactivity?: InactivityExpectation): void => {
     ctx.plan.scenarios.push({
       type: spec.type, node, devices, at: iso(at), until: Number.isFinite(until) ? iso(until) : null, expect,
+      ...(inactivity === undefined ? {} : { inactivity }),
     });
   };
   const win = ctx.config.groupingWindowMinutes;
@@ -394,14 +422,8 @@ function applyScenario(ctx: Ctx, spec: ScenarioSpec): void {
       const node = pickNode(ctx, spec, smac ? hasTrafo : hasFuses, smac ? 'transformer' : 'fuse set');
       const target = smac ? ctx.trafoByNode.get(node) as Trafo : fusesOf(ctx, fuseSetOf(ctx, node, spec.set))[0] as Fuse;
       addEffect(ctx, target.currentHwId, { kind: 'silent', from: at, to: to(at) });
-      const hours = (ctx.config.end.getTime() - at) / HOUR;
-      const limit = smac ? 3 : 9;
-      const expect = !stillOpen
-        ? 'data gap, device reports again afterwards'
-        : hours > limit
-          ? `no records for the last ${hours.toFixed(1)} h (> ${limit} h): ${smac ? 'smac_inactive = true' : 'node INACTIVE (gray)'}`
-          : `no records for the last ${hours.toFixed(1)} h (not yet over the ${limit} h threshold)`;
-      push(node, [target.customId], expect, to(at));
+      const { inactivity, expect } = expectInactivity(ctx.config, smac ? 'smac' : 'falcon', at, to(at));
+      push(node, [target.customId], expect, to(at), inactivity);
       return;
     }
     case 'free-fall': {
@@ -421,6 +443,114 @@ function applyScenario(ctx: Ctx, spec: ScenarioSpec): void {
       return;
     }
   }
+}
+
+/** Hours with at most two decimals, e.g. "10" or "9.25". */
+const hoursText = (ms: number): string => String(Math.round((ms / HOUR) * 100) / 100);
+
+/** Expected result of an inactivity scenario, with the text the CLI prints. */
+type InactivityResult = { inactivity: InactivityExpectation; expect: string };
+
+/** One silenced device and how precisely the backend can see its silence (see expectInactivity). */
+type SilenceContext = {
+  device: 'falcon' | 'smac';
+  thresholdHours: number;
+  /** Threshold, reporting interval and SMAC table spread, in ms. */
+  limit: number;
+  step: number;
+  spread: number;
+  /** Start of the silence and of the generated range. */
+  at: number;
+  start: number;
+  /** False within the first interval of the range: the device may not have reported yet (no record = inactive). */
+  reportedBefore: boolean;
+};
+
+/** What the platform shows for a device that is inactive at the end of the range. */
+const INACTIVE_SHOWN: Record<SilenceContext['device'], string> = {
+  falcon: 'node INACTIVE (gray) on the fuse layer unless one of its fuses is open or without voltage',
+  smac: 'smac_inactive = true (no transformer-layer color yet)',
+};
+
+/** Verdict for a silence s, which the backend sees as (s - spread, s + interval]. */
+function inactivityVerdict(silence: number, c: SilenceContext): InactivityVerdict {
+  if (silence - c.spread >= c.limit) return 'inactive';
+  if (silence + c.step <= c.limit && c.reportedBefore) return 'active';
+  return 'borderline';
+}
+
+const silenceSpan = (silence: number, c: SilenceContext): string =>
+  `${hoursText(Math.max(0, silence - c.spread))}–${hoursText(silence + c.step)} h`;
+
+/**
+ * F-95 (RF-GEN-06): expected result of a device silenced on [at, to), under the backend's rule (RF-ING-01:
+ * inactive when its last record is strictly older than the threshold, or when it has none).
+ * Each device reports on its own seeded offset, so its last record before the gap is only known to lie in
+ * [at - interval, at), plus up to 8 s for a SMAC whose last reading reaches its three tables after `at`.
+ * A silence s therefore looks like (s - spread, s + interval] to the backend; when the threshold falls in that
+ * range the verdict is `borderline` rather than a guess. A gap that reaches the end of the range is still ongoing.
+ */
+export function expectInactivity(
+  config: GeneratorConfig, device: 'falcon' | 'smac', at: number, to: number,
+): InactivityResult {
+  const start = config.start.getTime();
+  const end = config.end.getTime();
+  const step = config.intervalMinutes * MINUTE;
+  const thresholdHours = device === 'smac' ? config.smacInactivityHours : config.falconInactivityHours;
+  const c: SilenceContext = {
+    device, thresholdHours, limit: thresholdHours * HOUR, step,
+    spread: device === 'smac' ? SMAC_UPLINK_SPREAD_MS : 0,
+    at, start, reportedBefore: at - start >= step,
+  };
+  return to >= end ? ongoingSilence(c, end) : resumedGap(c, to);
+}
+
+/** Still silent at `end`: the current state, and the window in which the backend flips the device to inactive. */
+function ongoingSilence(c: SilenceContext, end: number): InactivityResult {
+  const silence = end - c.at;
+  const atEnd = inactivityVerdict(silence, c);
+  const turnsInactive = {
+    after: iso(c.reportedBefore ? c.at - c.step + c.limit : c.start),
+    before: iso(c.at + c.spread + c.limit),
+  };
+  const when = `turns inactive between ${turnsInactive.after} and ${turnsInactive.before} without new data`;
+  const threshold = `${c.thresholdHours} h`;
+  let expect: string;
+  if (atEnd === 'inactive') {
+    expect = `no records for more than ${hoursText(silence - c.spread)} h at the end of the range (> ${threshold}): ${INACTIVE_SHOWN[c.device]}`;
+  } else if (atEnd === 'active') {
+    expect = `no records for at most ${hoursText(silence + c.step)} h at the end of the range (not over ${threshold}): still active, ${when}`;
+  } else {
+    expect = `no records for ${silenceSpan(silence, c)} at the end of the range, around the ${threshold} threshold: borderline (depends on the report times), ${when}`;
+  }
+  const inactivity: InactivityExpectation = {
+    device: c.device, thresholdHours: c.thresholdHours, atEnd, duringGap: null, resumesAt: null, turnsInactive,
+  };
+  return { inactivity, expect };
+}
+
+/** Reports again at `to`: whether it was inactive during the gap (history) and its state at the end of the range. */
+function resumedGap(c: SilenceContext, to: number): InactivityResult {
+  const duration = to - c.at;
+  const duringGap = inactivityVerdict(duration, c);
+  // Once it reports again, the device's last record at the end of the range is at most one interval old.
+  const atEnd: InactivityVerdict = c.step <= c.limit ? 'active' : 'borderline';
+  const threshold = `${c.thresholdHours} h`;
+  let history: string;
+  if (duringGap === 'inactive') {
+    history = `data gap of more than ${hoursText(duration - c.spread)} h (> ${threshold}): inactive during the gap (history only)`;
+  } else if (duringGap === 'active') {
+    history = `data gap of at most ${hoursText(duration + c.step)} h (not over ${threshold}): never inactive`;
+  } else {
+    history = `data gap of ${silenceSpan(duration, c)}, around the ${threshold} threshold: borderline during the gap (history only)`;
+  }
+  const current = atEnd === 'active'
+    ? 'active again at the end of the range'
+    : `borderline at the end of the range (the interval is longer than ${threshold})`;
+  const inactivity: InactivityExpectation = {
+    device: c.device, thresholdHours: c.thresholdHours, atEnd, duringGap, resumesAt: iso(to), turnsInactive: null,
+  };
+  return { inactivity, expect: `${history}; reports again at ${iso(to)}, ${current}` };
 }
 
 /** Effects of one device that are active at instant t. */
