@@ -376,7 +376,7 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
     });
 
     it('returns the documented envelope and only open fuse-opening faults', () => {
-      expect(Object.keys(body).sort()).toEqual([
+      expect(Object.keys(body).sort((a, b) => a.localeCompare(b))).toEqual([
         'count',
         'faults',
         'generated_at',

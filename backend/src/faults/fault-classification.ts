@@ -26,10 +26,17 @@ export const PHASE_ALPHABETS: readonly (readonly string[])[] = [
  */
 export function canonicalPhase(raw: string): string | null {
   if (typeof raw !== 'string') return null;
-  const phase = raw.trim().toUpperCase().replace(/\d+$/, '');
+  const phase = withoutTrailingDigits(raw.trim().toUpperCase());
   return PHASE_ALPHABETS.some((alphabet) => alphabet.includes(phase))
     ? phase
     : null;
+}
+
+/** Removes the run of ASCII digits (0-9) at the end, in one backwards pass. */
+function withoutTrailingDigits(text: string): string {
+  let end = text.length;
+  while (end > 0 && text[end - 1] >= '0' && text[end - 1] <= '9') end--;
+  return text.slice(0, end);
 }
 
 /**
