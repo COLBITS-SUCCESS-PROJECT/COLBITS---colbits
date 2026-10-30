@@ -1,14 +1,19 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { AppModule } from '../src/app.module';
 import { NodesService } from '../src/nodes/nodes.service';
+import {
+  IsolatedApp,
+  createSmacNodes,
+  removeSmacNodes,
+  startIsolatedApp,
+  stopIsolatedApp,
+} from './support/isolated-e2e';
 
 // US7 · F-19 to F-23 against a real database: the transformer-layer state of GET /nodes comes from
 // the SMAC phase-drop events in `alarms` (05xx21y, SET / CLEAR) and the SMAC inactivity rule.
 // Uses the isolated database of the F-10 tests and removes every row it creates.
 
-const TEST_DB = 'colbits_f10_test';
+const LABEL = 'US7';
 const CIRCUIT_ID = 1;
 
 type Event = {
@@ -111,53 +116,33 @@ const hwIdOf = (node: string) => `05E${node.slice(-7)}`;
 const HW_IDS = NODES.map(hwIdOf);
 const trafoOf = (f: Fixture) => `${f.node}-T1-${f.phases}`;
 
-async function assertTestDatabase(dataSource: DataSource): Promise<void> {
-  const result: Array<{ database_name: string }> = await dataSource.query(
-    'SELECT current_database() AS database_name',
-  );
-  if (result[0]?.database_name !== TEST_DB) {
-    throw new Error(`US7 E2E tests must use the isolated ${TEST_DB} database`);
-  }
-}
-
-async function removeFixtures(dataSource: DataSource): Promise<void> {
+async function remove(dataSource: DataSource): Promise<void> {
   await dataSource.query('DELETE FROM alarms WHERE hw_id = ANY($1)', [HW_IDS]);
-  for (const table of ['smac_vc_values', 'last_smac_vc_values']) {
-    await dataSource.query(`DELETE FROM ${table} WHERE hw_id = ANY($1)`, [
-      HW_IDS,
-    ]);
-  }
-  await dataSource.query('DELETE FROM trafos WHERE node_id = ANY($1)', [NODES]);
-  await dataSource.query('DELETE FROM devices WHERE hw_id = ANY($1)', [HW_IDS]);
-  await dataSource.query('DELETE FROM nodes WHERE name = ANY($1)', [NODES]);
+  await removeSmacNodes(dataSource, NODES, HW_IDS);
 }
 
-async function createFixtures(dataSource: DataSource): Promise<void> {
+async function create(dataSource: DataSource): Promise<void> {
+  await createSmacNodes(
+    dataSource,
+    FIXTURES.map((f) => ({
+      node: f.node,
+      transformers: [
+        {
+          customId: trafoOf(f),
+          hwId: hwIdOf(f.node),
+          readings: [{ table: 'vc', hoursAgo: f.hoursSinceReading }],
+        },
+      ],
+    })),
+    CIRCUIT_ID,
+  );
   for (const f of FIXTURES) {
-    const hwId = hwIdOf(f.node);
-    await dataSource.query(
-      'INSERT INTO nodes (name, circuit_id, latitude, longitude) VALUES ($1, $2, 3.5, -75.5)',
-      [f.node, CIRCUIT_ID],
-    );
-    await dataSource.query(
-      "INSERT INTO devices (hw_id, device_type) VALUES ($1, 'smac')",
-      [hwId],
-    );
-    await dataSource.query(
-      'INSERT INTO trafos (custom_id, node_id, rated_kva, current_hw_id) VALUES ($1, $2, 75, $3)',
-      [trafoOf(f), f.node, hwId],
-    );
-    // Colbits' trigger fills last_smac_vc_values from the history table.
-    await dataSource.query(
-      `INSERT INTO smac_vc_values (hw_id, custom_id, recorded_at) VALUES ($1, $2, now() - $3 * interval '1 hour')`,
-      [hwId, trafoOf(f), f.hoursSinceReading],
-    );
     for (const e of f.events) {
       await dataSource.query(
         `INSERT INTO alarms (hw_id, custom_id, event_code, event_type, alarm, value, recorded_at)
          VALUES ($1, $2, $3, $4, 'e2e', NULL, now() - $5 * interval '1 minute')`,
         [
-          hwId,
+          hwIdOf(f.node),
           e.withoutCustomId ? null : trafoOf(f),
           `0514${e.code ?? '21'}${e.channel}`,
           e.type,
@@ -169,38 +154,15 @@ async function createFixtures(dataSource: DataSource): Promise<void> {
 }
 
 describe('US7 transformer-layer state (e2e)', () => {
+  let started: IsolatedApp | undefined;
   let app: INestApplication;
-  let dataSource: DataSource;
 
   beforeAll(async () => {
-    if (process.env.DB_NAME !== TEST_DB) {
-      throw new Error(`US7 E2E tests require DB_NAME=${TEST_DB}`);
-    }
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    app = moduleFixture.createNestApplication();
-    await app.init();
-    dataSource = app.get(DataSource);
-    try {
-      await assertTestDatabase(dataSource);
-      await removeFixtures(dataSource);
-      await createFixtures(dataSource);
-    } catch (error) {
-      await app.close();
-      throw error;
-    }
+    started = await startIsolatedApp(LABEL, { remove, create });
+    app = started.app;
   });
 
-  afterAll(async () => {
-    if (!app) return;
-    try {
-      await assertTestDatabase(dataSource);
-      await removeFixtures(dataSource);
-    } finally {
-      await app.close();
-    }
-  });
+  afterAll(() => stopIsolatedApp(started, LABEL, remove));
 
   const stateOf = async (node: string) => {
     const { nodes } = await app
