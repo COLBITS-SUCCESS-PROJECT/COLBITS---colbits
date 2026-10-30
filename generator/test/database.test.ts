@@ -6,8 +6,8 @@ import pg from 'pg';
 import { parseArgs } from '../src/config.ts';
 import { applySchema, resetData, writeDataset } from '../src/db.ts';
 import { buildNetwork } from '../src/network.ts';
-import { planScenarios } from '../src/scenarios.ts';
-import { falconRows, pickSilentDevices } from '../src/telemetry.ts';
+import { planScenarios, type ResolvedScenario } from '../src/scenarios.ts';
+import { falconRows, pickSilentDevices, smacRows } from '../src/telemetry.ts';
 
 const url = process.env['TEST_DATABASE_URL'];
 
@@ -70,7 +70,7 @@ describe('database load', { skip: url ? false : 'set TEST_DATABASE_URL to run' }
 // US9: the demo scenarios, loaded through Colbits' triggers, give the node colours the backend computes.
 describe('database load with scenarios (F-93, F-94)', { skip: url ? false : 'set TEST_DATABASE_URL to run' }, () => {
   const client = new pg.Client({ connectionString: url });
-  const { config } = parseArgs(['--start', '2026-09-01T00:00:00Z', '--end', '2026-09-03T12:00:00Z', '--scenarios', 'demo']);
+  const { config } = parseArgs(['--start', '2026-09-01T00:00:00Z', '--end', '2026-09-03T12:00:00Z', '--scenarios', 'demo'], {});
   const network = buildNetwork(config);
   const plan = planScenarios(network, config, new Set());
 
@@ -122,5 +122,109 @@ describe('database load with scenarios (F-93, F-94)', { skip: url ? false : 'set
       WHERE v.recorded_at IS NULL OR v.recorded_at < $1::timestamptz - interval '3 hours'`, [config.end.toISOString()]);
     const silenced = plan.scenarios.find((s) => s.type === 'inactivity' && /-T1-/.test(s.devices[0] as string));
     assert.deepEqual(r.rows.map((x: { custom_id: string }) => x.custom_id), silenced?.devices);
+  });
+});
+
+// F-95 (SCRUM-171): the demo's data gaps reach the latest-value tables through Colbits' triggers.
+// These checks compare stored rows with the rows the generator produced. Whether a node turns gray is decided by
+// the backend against now(); that is verified through the API, so the backend's queries are not repeated here.
+describe('database load with F-95 data gaps', { skip: url ? false : 'set TEST_DATABASE_URL to run' }, () => {
+  const client = new pg.Client({ connectionString: url });
+  const { config } = parseArgs(['--start', '2026-09-01T00:00:00Z', '--end', '2026-09-03T12:00:00Z', '--scenarios', 'demo'], {});
+  const network = buildNetwork(config);
+  const plan = planScenarios(network, config, new Set());
+  const falcon = [...falconRows(network, config, new Set(), plan)];
+  const smac = [...smacRows(network, config, new Set(), plan)];
+  const gaps = plan.scenarios.filter((s) => s.type === 'inactivity');
+  const ms = (t: string | Date): number => new Date(t).getTime();
+  const newest = (times: string[]): number => Math.max(...times.map(ms));
+
+  function gap(device: 'falcon' | 'smac', resumed: boolean): { s: ResolvedScenario; id: string } {
+    const s = gaps.find((x) => x.inactivity?.device === device && (x.inactivity.resumesAt !== null) === resumed);
+    assert.ok(s, `the demo set has a ${resumed ? 'resumed' : 'ongoing'} ${device} gap`);
+    return { s, id: s.devices[0] as string };
+  }
+
+  /** Newest row of a device in a history table, and the row its latest-value table holds. */
+  async function stored(table: string, customId: string): Promise<{ history: number; latest: number }> {
+    const r = await client.query(`
+      SELECT (SELECT max(recorded_at) FROM public.${table} WHERE custom_id = $1) AS history,
+             (SELECT recorded_at FROM public.last_${table} WHERE custom_id = $1) AS latest`, [customId]);
+    assert.ok(r.rows[0].history && r.rows[0].latest, `${table} has rows for ${customId}`);
+    return { history: ms(r.rows[0].history), latest: ms(r.rows[0].latest) };
+  }
+
+  before(async () => {
+    await client.connect();
+    await applySchema(client);
+    await resetData(client);
+    await writeDataset(client, network, config);
+  });
+  after(async () => {
+    await client.end();
+  });
+
+  it('an ongoing Falcon gap leaves the last report before the gap in last_falcon_values', async () => {
+    const { s, id } = gap('falcon', false);
+    const generated = newest(falcon.filter((x) => x[1] === id).map((x) => x[3]));
+    const { history, latest } = await stored('falcon_values', id);
+    assert.equal(history, generated);
+    assert.equal(latest, generated);
+    assert.ok(generated < ms(s.at), 'nothing is stored after the gap starts');
+    assert.ok(ms(s.at) - generated <= config.intervalMinutes * 60_000, 'the stored row is the last report before the gap');
+  });
+
+  it('an ongoing SMAC gap leaves the last reading before the gap in all three last_smac tables', async () => {
+    const { s, id } = gap('smac', false);
+    const rows = smac.filter((x) => x.vc[1] === id);
+    for (const part of ['vc', 'pw', 'pf'] as const) {
+      const generated = newest(rows.map((x) => x[part][2]));
+      const { history, latest } = await stored(`smac_${part}_values`, id);
+      assert.equal(history, generated, part);
+      assert.equal(latest, generated, part);
+    }
+    assert.ok(newest(rows.map((x) => x.vc[2])) < ms(s.at), 'no reading is stored after the gap starts');
+  });
+
+  it('a resumed Falcon gap has no rows inside it, a report when it ends and a recent latest value', async () => {
+    const { s, id } = gap('falcon', true);
+    const at = ms(s.at);
+    const to = ms(s.inactivity?.resumesAt as string);
+    const r = await client.query(`SELECT recorded_at FROM public.falcon_values WHERE custom_id = $1 ORDER BY recorded_at`, [id]);
+    const times = r.rows.map((x: { recorded_at: Date }) => ms(x.recorded_at));
+    const generated = falcon.filter((x) => x[1] === id).map((x) => ms(x[3])).sort((a, b) => a - b);
+    assert.deepEqual(times, generated, 'every generated row is stored, and nothing else');
+    assert.equal(times.filter((t) => t >= at && t < to).length, 0, 'no rows inside the gap');
+    assert.ok(times.includes(to), 'the device reports again exactly when the gap ends');
+    const lastBefore = Math.max(...times.filter((t) => t < at));
+    assert.ok(to - lastBefore > config.falconInactivityHours * 3_600_000, 'the stored gap is longer than the Falcon threshold');
+    const { latest } = await stored('falcon_values', id);
+    assert.equal(latest, times.at(-1), 'last_falcon_values holds the newest report');
+    assert.ok(latest > to && config.end.getTime() - latest <= config.intervalMinutes * 60_000, 'it reports up to the end of the range');
+  });
+
+  it("the latest-value triggers keep every device's newest row", async () => {
+    for (const table of ['falcon_values', 'smac_vc_values', 'smac_pw_values', 'smac_pf_values']) {
+      const r = await client.query(`
+        SELECT count(*)::int AS devices, count(*) FILTER (WHERE l.recorded_at = x.m)::int AS newest,
+               (SELECT count(*)::int FROM public.last_${table}) AS latest_rows
+        FROM (SELECT hw_id, max(recorded_at) AS m FROM public.${table} GROUP BY hw_id) x
+        LEFT JOIN public.last_${table} l ON l.hw_id = x.hw_id`);
+      const { devices, newest: matching, latest_rows: latestRows } = r.rows[0];
+      assert.ok(devices > 0, table);
+      assert.equal(matching, devices, `${table}: the latest row of each device`);
+      assert.equal(latestRows, devices, `${table}: one latest row per device`);
+    }
+  });
+
+  it('a data gap creates no alarm event', async () => {
+    assert.equal(gaps.length, 3, 'two ongoing gaps and one resumed gap');
+    const ids = gaps.map((s) => s.devices[0] as string);
+    const hwIds = [...network.fuses, ...network.trafos].filter((d) => ids.includes(d.customId)).map((d) => d.currentHwId);
+    assert.equal(hwIds.length, 3);
+    const r = await client.query(`SELECT count(*)::int AS n FROM public.alarms WHERE custom_id = ANY($1) OR hw_id = ANY($2)`, [ids, hwIds]);
+    assert.equal(r.rows[0].n, 0);
+    const total = await client.query(`SELECT count(*)::int AS n FROM public.alarms`);
+    assert.equal(total.rows[0].n, plan.alarms.length, 'the other scenarios still store their alarm events');
   });
 });

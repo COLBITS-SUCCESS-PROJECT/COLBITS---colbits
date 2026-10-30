@@ -12,7 +12,7 @@ import { falconRows, smacRows, type FalconRow, type SmacRows } from '../src/tele
 
 const END = '2026-09-03T12:00:00Z';
 const configWith = (scenarios: ScenarioSpec[], extra: string[] = []): GeneratorConfig => ({
-  ...parseArgs(['--start', '2026-09-01T00:00:00Z', '--end', END, ...extra]).config,
+  ...parseArgs(['--start', '2026-09-01T00:00:00Z', '--end', END, ...extra], {}).config,
   scenarios,
 });
 

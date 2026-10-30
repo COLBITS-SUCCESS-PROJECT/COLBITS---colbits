@@ -25,6 +25,12 @@ export type GeneratorConfig = {
   scenarios: ScenarioSpec[];
   /** Fault grouping window in minutes (RF-ALR-04, initial value 5); used by the demo set and the expected results. */
   groupingWindowMinutes: number;
+  /**
+   * Backend inactivity thresholds in hours (RF-ING-01, NF-07), read from the same variables as the backend.
+   * F-95: they only change the expected results; the generated data never depends on them.
+   */
+  falconInactivityHours: number;
+  smacInactivityHours: number;
 };
 
 export const DEFAULTS = {
@@ -40,6 +46,8 @@ export const DEFAULTS = {
   days: 7,
   silentDevices: 0,
   groupingWindowMinutes: 5,
+  falconInactivityHours: 9,
+  smacInactivityHours: 3,
 } as const;
 
 const HELP = `COLBITS synthetic data generator
@@ -87,6 +95,12 @@ export type CliOptions = {
   dryRun: boolean;
   help: boolean;
 };
+
+/** Same rule as the backend's hoursFromConfig: a finite number of hours above 0, otherwise the default. */
+function thresholdHours(raw: string | undefined, fallback: number): number {
+  const configured = Number(raw);
+  return Number.isFinite(configured) && configured > 0 ? configured : fallback;
+}
 
 function startOfTodayUtc(): Date {
   const now = new Date();
@@ -149,6 +163,8 @@ export function parseArgs(argv: readonly string[], env: Record<string, string | 
     silentDevices: num('--silent-devices', DEFAULTS.silentDevices),
     scenarios: [],
     groupingWindowMinutes: num('--grouping-window', DEFAULTS.groupingWindowMinutes),
+    falconInactivityHours: thresholdHours(env['FALCON_INACTIVITY_HOURS'], DEFAULTS.falconInactivityHours),
+    smacInactivityHours: thresholdHours(env['SMAC_INACTIVITY_HOURS'], DEFAULTS.smacInactivityHours),
   };
   if (!(config.groupingWindowMinutes > 0)) throw new Error('grouping-window must be > 0 minutes');
   const scenarioSource = flags.get('--scenarios');
