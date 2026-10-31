@@ -1,11 +1,15 @@
-/** Tests for useLiveMonitoringQuery — success, error and data-freshness reporting. */
+/** Tests for useLiveMonitoringQuery — real fault service (MSW), error and data-freshness reporting. */
 import type { ReactNode } from 'react'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { server } from '@/mocks/server'
+import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
+import { useAuthStore, type AuthUser } from '@/stores/auth.store'
 import { useDataFreshnessStore } from '@/stores/dataFreshness.store'
-import { buildLiveMonitoringMock } from '../model/liveMonitoring.mock'
 import { useLiveMonitoringQuery } from './useLiveMonitoringQuery'
+
+const USER: AuthUser = { id: 'u1', name: 'Test', email: 't@colbits.test', role: 'VIEWER' }
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -13,15 +17,25 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('useLiveMonitoringQuery', () => {
-  beforeEach(() => useDataFreshnessStore.getState().reset())
+  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+  beforeEach(() => {
+    useDataFreshnessStore.getState().reset()
+    useAuthStore.getState().setSession(USER, MOCK_TOKENS.NORTH)
+  })
+  afterEach(() => server.resetHandlers())
+  afterAll(() => server.close())
 
-  it('returns the live data and records when it arrived', async () => {
+  it('returns the open faults of the fault service and records when they arrived', async () => {
     // Arrange & Act
     const { result } = renderHook(() => useLiveMonitoringQuery(), { wrapper })
 
     // Assert
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data?.faults.length).toBeGreaterThan(0)
+    expect(result.current.data?.faults.map((fault) => fault.nodeId)).toEqual([
+      'ND04821A07',
+      'ND04821A07',
+    ]) // the third mock fault is outside the north user's scope (F-10)
+    expect(result.current.data?.counters).toBeNull() // no counters endpoint yet (US15)
     expect(useDataFreshnessStore.getState().lastSyncedAt).toBe(result.current.dataUpdatedAt)
   })
 
@@ -35,7 +49,7 @@ describe('useLiveMonitoringQuery', () => {
   })
 
   it('handles a network without faults', async () => {
-    const empty = async () => ({ ...buildLiveMonitoringMock(Date.now()), faults: [] })
+    const empty = async () => ({ faults: [], counters: null })
 
     const { result } = renderHook(() => useLiveMonitoringQuery(empty), { wrapper })
 

@@ -1,9 +1,13 @@
 /**
- * PROVISIONAL — sample data of the fault panel, copied from the Figma screen "Monitor / Fuses layer" (M1), until the backend API
- * exists (AGENT.md §20, OQ-02). Delete when useLiveMonitoringQuery calls the real endpoint.
+ * Sample fault-panel data for component and rule tests, copied from the Figma screen "Monitor / Fuses layer" (M1):
+ * every alert type, resolved faults and node counters, which the API does not report yet (US15, US16).
+ * The page itself reads GET /faults (useLiveMonitoringQuery; mock service: faults.fixtures.ts).
  */
-import { MS_PER_MINUTE } from './liveMonitoring.constants'
-import type { FaultAlert, LiveMonitoringData } from './liveMonitoring.types'
+import { MS_PER_MINUTE } from '@/features/dashboard/model/liveMonitoring.constants'
+import type {
+  FaultAlert,
+  LiveMonitoringData,
+} from '@/features/dashboard/model/liveMonitoring.types'
 
 type FaultSeed = Omit<FaultAlert, 'startedAt' | 'zone'>
 
@@ -19,6 +23,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     circuit: 'CR-12',
     branch: 'B',
     phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'OK' },
+    classification: 'BIPHASIC',
     durationMinutes: 52,
     customersAffected: 318,
     transformerLoad: null,
@@ -34,6 +39,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     circuit: 'CR-07',
     branch: 'A',
     phases: { R: 'OK', S: 'OK', T: 'CRITICAL' },
+    classification: 'MONOPHASIC',
     durationMinutes: 123,
     customersAffected: 142,
     transformerLoad: null,
@@ -49,6 +55,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     circuit: 'CR-21',
     branch: 'C',
     phases: { R: 'OK', S: 'WARNING', T: 'OK' },
+    classification: 'MONOPHASIC',
     durationMinutes: 40,
     customersAffected: 142,
     transformerLoad: null,
@@ -64,6 +71,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     circuit: 'CR-03',
     branch: null,
     phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'CRITICAL' },
+    classification: 'TRIPHASIC',
     durationMinutes: 98,
     customersAffected: 96,
     transformerLoad: null,
@@ -79,6 +87,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     circuit: 'CR-03',
     branch: null,
     phases: { R: 'OK', S: 'OK', T: 'WARNING' },
+    classification: 'MONOPHASIC',
     durationMinutes: 175,
     customersAffected: 64,
     transformerLoad: null,
@@ -94,6 +103,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     circuit: 'CR-12',
     branch: null,
     phases: null,
+    classification: null,
     durationMinutes: 250,
     customersAffected: 0,
     transformerLoad: { loadPct: 118, voltageUnbalancePct: 3.4 },
@@ -109,6 +119,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     circuit: 'CR-07',
     branch: 'A',
     phases: { R: 'CRITICAL', S: 'OK', T: 'OK' },
+    classification: 'MONOPHASIC',
     durationMinutes: 35,
     customersAffected: 87,
     transformerLoad: null,
@@ -124,6 +135,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     circuit: 'CR-21',
     branch: null,
     phases: { R: 'OK', S: 'WARNING', T: 'OK' },
+    classification: 'MONOPHASIC',
     durationMinutes: 3,
     customersAffected: 12,
     transformerLoad: null,

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import '@/i18n'
-import { buildLiveMonitoringMock } from '../../model/liveMonitoring.mock'
+import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
 import type { FaultAlert } from '../../model/liveMonitoring.types'
 import { FaultListItem } from './FaultListItem'
 
@@ -51,5 +51,26 @@ describe('FaultListItem', () => {
     render(<FaultListItem fault={fault('f-7')} />)
 
     expect(screen.getByText('Resuelta')).toHaveAttribute('data-tone', 'success')
+  })
+
+  it('shows only the circuit when the service does not send the substation (GET /faults)', () => {
+    render(<FaultListItem fault={{ ...fault('f-1'), zone: null, substation: null }} />)
+
+    expect(screen.getByText('CR-12')).toBeInTheDocument()
+    expect(screen.queryByText(/›/)).not.toBeInTheDocument()
+  })
+
+  it('says the client count is missing instead of showing 0 (F-55)', () => {
+    render(<FaultListItem fault={{ ...fault('f-1'), customersAffected: null }} />)
+
+    expect(screen.getByText('Sin dato de clientes')).toBeInTheDocument()
+    expect(screen.queryByText('clientes sin servicio')).not.toBeInTheDocument()
+  })
+
+  it('shows the classification alone when the phases cannot be drawn as R · S · T', () => {
+    render(<FaultListItem fault={{ ...fault('f-1'), phases: null, classification: 'BIPHASIC' }} />)
+
+    expect(screen.getByText('Bifásica')).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: /^Fase/ })).not.toBeInTheDocument()
   })
 })

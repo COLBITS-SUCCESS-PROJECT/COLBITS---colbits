@@ -1,4 +1,4 @@
-/** Pure business rules of the fault panel: phase classification, filtering and sorting (Figma: Fault Panel). */
+/** Pure business rules of the fault panel: filtering and sorting (Figma: Fault Panel). */
 import {
   ALL,
   MIN_FAULT_DURATION_MINUTES,
@@ -6,20 +6,7 @@ import {
   TIME_WINDOWS,
   type TimeWindow,
 } from './liveMonitoring.constants'
-import type { FaultAlert, MapLayer, PhaseClassification, PhaseStates } from './liveMonitoring.types'
-
-const CLASSIFICATION_BY_COUNT: Record<number, PhaseClassification> = {
-  1: 'MONOPHASIC',
-  2: 'BIPHASIC',
-  3: 'TRIPHASIC',
-}
-
-/** Number of affected phases → Monophasic / Biphasic / Triphasic; null when no phase is affected. */
-export function classifyPhases(phases: PhaseStates | null): PhaseClassification | null {
-  if (!phases) return null
-  const affected = Object.values(phases).filter((state) => state !== 'OK').length
-  return CLASSIFICATION_BY_COUNT[affected] ?? null
-}
+import type { FaultAlert, MapLayer } from './liveMonitoring.types'
 
 export interface FaultFilters {
   layers: MapLayer[]
@@ -35,9 +22,14 @@ export interface FaultFilters {
 
 const LAYER_DEVICE = { FUSES: 'FALCON', TRANSFORMERS: 'SMAC' } as const
 
+/** "Last hour / last day" only limits resolved faults: an active fault stays listed however old it is (F-62). */
+function isInsideTimeWindow(fault: FaultAlert, timeWindow: TimeWindow, now: number): boolean {
+  if (fault.status === 'OPEN') return true
+  return fault.startedAt.getTime() >= now - TIME_WINDOWS[timeWindow] * MS_PER_MINUTE
+}
+
 export function matchesFilters(fault: FaultAlert, filters: FaultFilters, now: number): boolean {
   const query = filters.search.trim().toLowerCase()
-  const windowStart = now - TIME_WINDOWS[filters.timeWindow] * MS_PER_MINUTE
   return (
     filters.layers.some((layer) => LAYER_DEVICE[layer] === fault.device) &&
     (filters.zone === ALL || fault.zone === filters.zone) &&
@@ -45,15 +37,18 @@ export function matchesFilters(fault: FaultAlert, filters: FaultFilters, now: nu
     (filters.circuit === ALL || fault.circuit === filters.circuit) &&
     (query === '' || fault.nodeId.toLowerCase().includes(query)) &&
     (filters.alertType === ALL || fault.type === filters.alertType) &&
-    (filters.classification === ALL || classifyPhases(fault.phases) === filters.classification) &&
-    fault.startedAt.getTime() >= windowStart &&
+    (filters.classification === ALL || fault.classification === filters.classification) &&
+    isInsideTimeWindow(fault, filters.timeWindow, now) &&
     (!filters.onlyLongFaults || fault.durationMinutes >= MIN_FAULT_DURATION_MINUTES)
   )
 }
 
-/** "Sorted by customers affected, then oldest first". */
+/** "Sorted by customers affected, then oldest first". An unknown client count sorts as 0. */
 export function compareFaults(a: FaultAlert, b: FaultAlert): number {
-  return b.customersAffected - a.customersAffected || a.startedAt.getTime() - b.startedAt.getTime()
+  return (
+    (b.customersAffected ?? 0) - (a.customersAffected ?? 0) ||
+    a.startedAt.getTime() - b.startedAt.getTime()
+  )
 }
 
 export function selectFaults(

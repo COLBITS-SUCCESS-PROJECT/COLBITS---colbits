@@ -1,8 +1,7 @@
 /** PhaseChips molecule — canonical R · S · T phase squares plus classification (Figma: Fault List Item → Phases). */
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/utils/cn'
-import { classifyPhases } from '../../model/faultRules'
-import type { PhaseState, PhaseStates } from '../../model/liveMonitoring.types'
+import type { PhaseClassification, PhaseState, PhaseStates } from '../../model/liveMonitoring.types'
 
 const PHASE_ORDER: (keyof PhaseStates)[] = ['R', 'S', 'T']
 
@@ -14,11 +13,12 @@ const CHIP_CLASS: Record<PhaseState, string> = {
 
 export interface PhaseChipsProps {
   phases: PhaseStates
+  /** As computed by the backend (F-49); not shown when null. */
+  classification: PhaseClassification | null
 }
 
-export function PhaseChips({ phases }: PhaseChipsProps) {
+export function PhaseChips({ phases, classification }: PhaseChipsProps) {
   const { t } = useTranslation('dashboard')
-  const classification = classifyPhases(phases)
 
   return (
     <span className="flex items-center gap-0.75">

@@ -7,7 +7,9 @@ export interface ScopeOptions {
   circuits: string[]
 }
 
-const uniqueSorted = (values: string[]) => [...new Set(values)].sort()
+/** Unique, sorted values; a missing value (null) is not an option. */
+const uniqueSorted = (values: (string | null)[]) =>
+  [...new Set(values.filter((value): value is string => value !== null))].sort()
 
 export function deriveScopeOptions(faults: FaultAlert[]): ScopeOptions {
   return {
