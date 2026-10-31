@@ -60,7 +60,8 @@
     "title": "Fault management",
     "openMobile": "Faults ({{count}})",
     "closeMobile": "Close fault panel",
-    "activeCount": "{{count}} active",
+    "activeCount_one": "{{count}} active",
+    "activeCount_other": "{{count}} active",
     "tabsLabel": "Alarm type",
     "tab": {
       "ACTIVE": "Active",
@@ -96,7 +97,8 @@
     "error": "Faults could not be loaded.",
     "retry": "Retry",
     "loading": "Loading faults",
-    "inactiveSoon": "The inactive devices view will come in a later story."
+    "inactiveSoon": "The inactive devices view will come in a later story.",
+    "resolvedSoon": "The resolved faults list will come in a later story."
   },
   "alertType": {
     "FUSE_OPENING": "Fuse opening",
@@ -121,6 +123,7 @@
     "branchValue": "Branch {{branch}}",
     "customersOut": "customers without service",
     "customersAffected": "customers affected",
+    "customersUnknown": "No client data",
     "load": "Load {{load}} % · V unb. {{unbalance}} %",
     "phase": "Phase {{phase}}: {{state}}",
     "phaseState": {

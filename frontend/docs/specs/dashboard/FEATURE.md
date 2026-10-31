@@ -42,6 +42,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M6): `GET /nodes/:name/detail` + panel over the map (F-27, F-29) | Sofia | IN_REVIEW |
 | — | Inactive devices tab (M12, M14) | TBD | PLANNED |
 | [SCRUM-110](./SCRUM-110.md) | US12 · Live node state updates: the map refreshes every 15 s (F-25, F-26, F-30, NF-01) | Paola | IN_REVIEW |
+| [SCRUM-108](./SCRUM-108.md) | US10 · Active fault list from `GET /faults`: each fault with its classification and affected clients (F-51, F-55) | Paola | IN_REVIEW |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
@@ -85,13 +86,16 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | `MapToolbar`, `MapCanvas`, `MapLegend`, `FaultPanel` (+ `FaultFilters`, `FaultList`), `NodeDetailPanel` | Organism | `src/features/dashboard/components/` |
 
 Other code:
-- `model/` — types, constants, `faultRules.ts` (phase classification, filters, sort: customers affected → oldest first), `scopeOptions.ts`, **`liveMonitoring.mock.ts` (PROVISIONAL sample data from the Figma)**
-- `hooks/` — `useLiveMonitoringQuery` (TanStack Query, polling every 15 s, marks data freshness), `useLiveMonitoringFilters` (UI state)
-- `api/` — node service: `nodes.dto.ts` (PROVISIONAL), `nodes.mapper.ts`, `nodes.api.ts`; hook `useNodesQuery`
+- `model/` — types, constants, `faultRules.ts` (filters, sort: customers affected → oldest first), `scopeOptions.ts`
+- `hooks/` — `useLiveMonitoringQuery` (TanStack Query on `GET /faults`, polling every 15 s, marks data freshness), `useLiveMonitoringFilters` (UI state)
+- `api/` — node service: `nodes.dto.ts` (PROVISIONAL), `nodes.mapper.ts`, `nodes.api.ts`; hook `useNodesQuery`. Fault service: `faults.dto.ts`, `faults.mapper.ts`, `faults.api.ts` (SCRUM-108)
+- Sample fault-panel data for component tests (every alert type, resolved faults, counters): `src/mocks/data/liveMonitoring.fixtures.ts`
 - Map: Leaflet + OpenStreetMap inside `MapCanvas` only (ADR-0006). Sample nodes in Cali come from the MSW mock (`src/mocks/`)
 
-## 7. API contract (PROVISIONAL)
-Not defined yet — pending backend OpenAPI (OQ-02). The page reads `LiveMonitoringData` (`model/liveMonitoring.types.ts`); when the endpoint exists, add `api/` (dto + mapper) and pass the real `queryFn` in `useLiveMonitoringQuery`. Nothing else changes.
+## 7. API contract
+- **Map:** `GET /nodes` (SCRUM-77, SCRUM-65) and `GET /nodes/:name/detail` (SCRUM-109).
+- **Fault panel, active tab:** `GET /faults` — open fuse-opening faults in the user's scope (US10, [SCRUM-108](./SCRUM-108.md)). The page reads `LiveMonitoringData` (`model/liveMonitoring.types.ts`) through `faults.mapper.ts`.
+- **Not available yet:** node counters (US15) and resolved faults (US16). Until then the counters are hidden and the Resolved tab says the list is coming (PO decision, 2026-10-31).
 
 ## 8. Open questions and decisions
 

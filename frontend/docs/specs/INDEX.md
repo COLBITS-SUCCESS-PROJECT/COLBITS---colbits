@@ -32,6 +32,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | SCRUM-109 | `dashboard` | US11 · Node detail with fuse sets (F-27, F-29) | [SCRUM-109.md](./dashboard/SCRUM-109.md) | IN_REVIEW | Sofia |
 | SCRUM-63 | `dashboard` | [F-13] Group overlapping node markers into one cluster (US4) | [SCRUM-63.md](./dashboard/SCRUM-63.md) | IN_REVIEW | Paola |
 | SCRUM-110 | `dashboard` | US12 · Live node state updates: the map refreshes every 15 s (F-30, NF-01) | [SCRUM-110.md](./dashboard/SCRUM-110.md) | IN_REVIEW | Paola |
+| SCRUM-108 | `dashboard` | US10 · Active fault list from `GET /faults` (F-51, F-55) | [SCRUM-108.md](./dashboard/SCRUM-108.md) | IN_REVIEW | Paola |
 
 ## Shared foundation (no feature spec)
 Design system and app shell work, tracked in Jira under SCRUM-128.

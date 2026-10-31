@@ -19,7 +19,9 @@ export interface FaultPanelProps {
   tab: FaultTab
   onTabChange: (tab: FaultTab) => void
   activeFaults: FaultAlert[]
-  resolvedFaults: FaultAlert[]
+  /** null until the backend reports resolved faults (US16): the tab says they are coming. */
+  resolvedFaults: FaultAlert[] | null
+  /** null hides the node counters (no data yet, or loading). */
   counters: FaultCounters | null
   filters: Filters
   onFiltersChange: (patch: Partial<Filters>) => void
@@ -48,6 +50,9 @@ export function FaultPanel(props: FaultPanelProps) {
   const { t } = useTranslation('dashboard')
   const panelRef = useRef<HTMLElement>(null)
   const listState = { isLoading: props.isLoading, isError: props.isError, onRetry: props.onRetry }
+  // Tabs whose data the backend does not report yet show a placeholder instead of a list.
+  const listFaults = tab === 'ACTIVE' ? activeFaults : tab === 'RESOLVED' ? resolvedFaults : null
+  const comingSoonKey = tab === 'INACTIVE' ? 'panel.inactiveSoon' : 'panel.resolvedSoon'
 
   useEffect(() => {
     if (!isMobileOpen || !onClose) return
@@ -131,8 +136,8 @@ export function FaultPanel(props: FaultPanelProps) {
         aria-labelledby={getTabId(ID_PREFIX, tab)}
         className="flex flex-col gap-3"
       >
-        {tab === 'INACTIVE' ? (
-          <p className="p-6 text-center text-sm text-text-subtle">{t('panel.inactiveSoon')}</p>
+        {listFaults === null ? (
+          <p className="p-6 text-center text-sm text-text-subtle">{t(comingSoonKey)}</p>
         ) : (
           <>
             {counters && (
@@ -172,7 +177,7 @@ export function FaultPanel(props: FaultPanelProps) {
               </Link>
             </div>
             <FaultFilters filters={filters} onChange={onFiltersChange} />
-            <FaultList faults={tab === 'ACTIVE' ? activeFaults : resolvedFaults} {...listState} />
+            <FaultList faults={listFaults} {...listState} />
           </>
         )}
       </div>
