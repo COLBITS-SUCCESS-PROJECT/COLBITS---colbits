@@ -57,14 +57,19 @@ export interface FaultAlert {
   status: FaultStatus
   /** 10-character node ID, e.g. ND04821A07. */
   nodeId: string
-  zone: string
-  substation: string
+  /** null when the service does not send it (GET /faults sends only the circuit). */
+  zone: string | null
+  substation: string | null
   circuit: string
   branch: string | null
+  /** R · S · T states; null when they do not apply or cannot be drawn as R · S · T. */
   phases: PhaseStates | null
+  /** As computed by the backend (F-49); null when the phases could not be classified. */
+  classification: PhaseClassification | null
   startedAt: Date
   durationMinutes: number
-  customersAffected: number
+  /** Clients of the affected fuse set (F-55); null when the number is not recorded. */
+  customersAffected: number | null
   transformerLoad: TransformerLoad | null
 }
 
@@ -78,5 +83,6 @@ export interface FaultCounters {
 /** Fault panel data. Map nodes come from the node service (`useNodesQuery`). */
 export interface LiveMonitoringData {
   faults: FaultAlert[]
-  counters: FaultCounters
+  /** null until the backend reports the node counters (US15). */
+  counters: FaultCounters | null
 }

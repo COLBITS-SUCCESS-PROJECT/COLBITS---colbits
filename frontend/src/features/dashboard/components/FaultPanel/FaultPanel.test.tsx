@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 import '@/i18n'
 import { DEFAULT_FILTERS } from '../../hooks/useLiveMonitoringFilters'
 import { selectFaults, type FaultFilters } from '../../model/faultRules'
-import { buildLiveMonitoringMock } from '../../model/liveMonitoring.mock'
+import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
 import { FaultPanel, type FaultPanelProps } from './FaultPanel'
 
 const NOW = Date.now()
@@ -73,6 +73,16 @@ describe('FaultPanel', () => {
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
 
+  it('shows a placeholder on the resolved tab while there are no resolved faults to show', () => {
+    renderPanel({ tab: 'RESOLVED', resolvedFaults: null })
+
+    expect(screen.getByText(/fallas resueltas llegará/)).toBeInTheDocument()
+    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('region', { name: 'Resumen de nodos con alarma' })
+    ).not.toBeInTheDocument()
+  })
+
   it('reports every filter change', async () => {
     const props = renderPanel()
 
@@ -116,6 +126,12 @@ describe('FaultPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('No se pudieron cargar las fallas.')
     await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(props.onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses the singular for a single active fault', () => {
+    renderPanel({ activeFaults: selectFaults(data.faults, ALL_LAYERS, 'OPEN', NOW).slice(0, 1) })
+
+    expect(screen.getByText('1 activa')).toBeInTheDocument()
   })
 
   it('shows the empty state when no fault matches', () => {

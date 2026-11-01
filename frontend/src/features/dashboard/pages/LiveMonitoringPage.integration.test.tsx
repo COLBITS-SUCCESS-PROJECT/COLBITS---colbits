@@ -48,14 +48,15 @@ describe('LiveMonitoringPage', () => {
     expect(useDataFreshnessStore.getState().lastSyncedAt).not.toBeNull()
   })
 
-  it('adds transformer markers and SMAC faults when the transformer layer is turned on', async () => {
+  it('adds transformer markers when the transformer layer is turned on', async () => {
     renderPage()
     await screen.findByText('3 activas')
     await screen.findByRole('img', { name: /Nodo ND04821A07/ })
 
     await userEvent.click(screen.getByRole('button', { name: 'Transformadores · SMAC' }))
 
-    expect(screen.getByText('6 activas')).toBeInTheDocument()
+    // GET /faults lists fuse openings only for now, so the fault count does not change.
+    expect(screen.getByText('3 activas')).toBeInTheDocument()
     expect(
       screen.getByRole('img', { name: /Nodo ND06102B03, transformador: 2\+ fases caídas/ })
     ).toBeInTheDocument()

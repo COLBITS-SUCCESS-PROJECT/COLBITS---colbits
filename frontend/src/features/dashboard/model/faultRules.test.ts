@@ -1,16 +1,11 @@
 /** Unit tests for the fault panel business rules. */
 import { describe, it, expect } from 'vitest'
-import {
-  classifyPhases,
-  compareFaults,
-  matchesFilters,
-  selectFaults,
-  type FaultFilters,
-} from './faultRules'
-import { buildLiveMonitoringMock } from './liveMonitoring.mock'
-import { ALL } from './liveMonitoring.constants'
+import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
+import { compareFaults, matchesFilters, selectFaults, type FaultFilters } from './faultRules'
+import { ALL, MS_PER_MINUTE } from './liveMonitoring.constants'
 
 const NOW = new Date(2026, 9, 2, 6, 0).getTime()
+const TWO_HOURS_MS = 120 * MS_PER_MINUTE
 const { faults } = buildLiveMonitoringMock(NOW)
 const byId = (id: string) => faults.find((fault) => fault.id === id)! // fixture ids exist
 
@@ -25,21 +20,6 @@ const NO_FILTERS: FaultFilters = {
   timeWindow: 'LAST_DAY',
   onlyLongFaults: false,
 }
-
-describe('classifyPhases', () => {
-  it.each([
-    [{ R: 'CRITICAL', S: 'OK', T: 'OK' }, 'MONOPHASIC'],
-    [{ R: 'CRITICAL', S: 'WARNING', T: 'OK' }, 'BIPHASIC'],
-    [{ R: 'CRITICAL', S: 'CRITICAL', T: 'CRITICAL' }, 'TRIPHASIC'],
-  ] as const)('classifies %o as %s', (phases, expected) => {
-    expect(classifyPhases(phases)).toBe(expected)
-  })
-
-  it('returns null when phases do not apply or none is affected', () => {
-    expect(classifyPhases(null)).toBeNull()
-    expect(classifyPhases({ R: 'OK', S: 'OK', T: 'OK' })).toBeNull()
-  })
-})
 
 describe('matchesFilters', () => {
   it('keeps every fault when no filter is set', () => {
@@ -56,13 +36,30 @@ describe('matchesFilters', () => {
     expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'XX' }, NOW)).toBe(false)
     expect(matchesFilters(fuse, { ...NO_FILTERS, alertType: 'NO_VOLTAGE' }, NOW)).toBe(false)
     expect(matchesFilters(fuse, { ...NO_FILTERS, classification: 'BIPHASIC' }, NOW)).toBe(true)
+    expect(matchesFilters(fuse, { ...NO_FILTERS, classification: 'TRIPHASIC' }, NOW)).toBe(false)
     expect(matchesFilters(byId('f-8'), { ...NO_FILTERS, onlyLongFaults: true }, NOW)).toBe(false)
   })
 
-  it('keeps only faults that started inside the time window', () => {
+  it('uses the classification sent by the backend, so an unclassified fault matches no class', () => {
+    const unclassified = { ...byId('f-1'), classification: null }
+
+    expect(matchesFilters(unclassified, { ...NO_FILTERS, classification: 'BIPHASIC' }, NOW)).toBe(
+      false
+    )
+  })
+
+  it('keeps an active fault listed however long ago it started (F-62)', () => {
     const lastHour = { ...NO_FILTERS, timeWindow: 'LAST_HOUR' as const }
-    expect(matchesFilters(byId('f-1'), lastHour, NOW)).toBe(true) // 52 min
-    expect(matchesFilters(byId('f-2'), lastHour, NOW)).toBe(false) // 2 h 03 min
+    expect(matchesFilters(byId('f-1'), lastHour, NOW)).toBe(true) // open, 52 min
+    expect(matchesFilters(byId('f-2'), lastHour, NOW)).toBe(true) // open, 2 h 03 min
+  })
+
+  it('limits only the resolved faults to the selected time window (F-62)', () => {
+    const lastHour = { ...NO_FILTERS, timeWindow: 'LAST_HOUR' as const }
+    const oldResolved = { ...byId('f-7'), startedAt: new Date(NOW - TWO_HOURS_MS) }
+
+    expect(matchesFilters(byId('f-7'), lastHour, NOW)).toBe(true) // resolved, 35 min
+    expect(matchesFilters(oldResolved, lastHour, NOW)).toBe(false)
   })
 })
 
@@ -77,6 +74,12 @@ describe('selectFaults', () => {
 
   it('breaks ties by the oldest start', () => {
     expect(compareFaults(byId('f-2'), byId('f-3'))).toBeLessThan(0) // same customers, f-2 older
+  })
+
+  it('sorts a fault without a client count after the faults that affect clients', () => {
+    const unknown = { ...byId('f-1'), customersAffected: null }
+
+    expect(compareFaults(unknown, byId('f-5'))).toBeGreaterThan(0)
   })
 
   it('returns resolved faults separately', () => {

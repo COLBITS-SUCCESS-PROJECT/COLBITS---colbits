@@ -17,9 +17,40 @@ function statusTone(fault: FaultAlert): BadgeTone {
   return fault.severity === 'CRITICAL' ? 'danger' : 'warning'
 }
 
+function CustomersAffected({ count }: { count: number | null }) {
+  const { t } = useTranslation('dashboard')
+  if (count === null) {
+    return <p className="text-xs text-text-secondary">{t('fault.customersUnknown')}</p>
+  }
+  const hasCustomers = count > 0
+
+  return (
+    <p className="flex items-baseline gap-1 whitespace-nowrap">
+      <span
+        className={cn(
+          'font-bold',
+          hasCustomers ? 'text-base text-text-primary' : 'text-label text-text-muted'
+        )}
+      >
+        {count}
+      </span>
+      <span className={cn('text-xs', hasCustomers ? 'text-text-primary' : 'text-text-secondary')}>
+        {t(hasCustomers ? 'fault.customersOut' : 'fault.customersAffected')}
+      </span>
+    </p>
+  )
+}
+
 export function FaultListItem({ fault }: FaultListItemProps) {
   const { t, i18n } = useTranslation('dashboard')
-  const hasCustomers = fault.customersAffected > 0
+  const classification = fault.classification && t(`classification.${fault.classification}`)
+  // Phase squares with the classification; only the classification when the phases cannot be
+  // drawn as R · S · T (legacy I · C · D); a dash when there is neither.
+  const phases = fault.phases ? (
+    <PhaseChips phases={fault.phases} classification={fault.classification} />
+  ) : (
+    classification
+  )
 
   return (
     <article
@@ -50,7 +81,9 @@ export function FaultListItem({ fault }: FaultListItemProps) {
           {fault.nodeId}
         </span>
         <span className="truncate text-xs text-text-secondary">
-          {t('fault.location', { substation: fault.substation, circuit: fault.circuit })}
+          {fault.substation
+            ? t('fault.location', { substation: fault.substation, circuit: fault.circuit })
+            : fault.circuit}
         </span>
       </p>
 
@@ -59,10 +92,7 @@ export function FaultListItem({ fault }: FaultListItemProps) {
           label={t('fault.branch')}
           value={fault.branch && t('fault.branchValue', { branch: fault.branch })}
         />
-        <DataField
-          label={t('fault.phases')}
-          value={fault.phases && <PhaseChips phases={fault.phases} />}
-        />
+        <DataField label={t('fault.phases')} value={phases} />
         <DataField
           label={t('fault.started')}
           value={formatDateTime(fault.startedAt, i18n.language, 'short')}
@@ -74,21 +104,7 @@ export function FaultListItem({ fault }: FaultListItemProps) {
       </dl>
 
       <footer className="flex items-baseline justify-between gap-2 border-t border-dashed border-border-default pt-2">
-        <p className="flex items-baseline gap-1 whitespace-nowrap">
-          <span
-            className={cn(
-              'font-bold',
-              hasCustomers ? 'text-base text-text-primary' : 'text-label text-text-muted'
-            )}
-          >
-            {fault.customersAffected}
-          </span>
-          <span
-            className={cn('text-xs', hasCustomers ? 'text-text-primary' : 'text-text-secondary')}
-          >
-            {t(hasCustomers ? 'fault.customersOut' : 'fault.customersAffected')}
-          </span>
-        </p>
+        <CustomersAffected count={fault.customersAffected} />
         {fault.transformerLoad && (
           <span className="text-overline whitespace-nowrap text-text-secondary">
             {t('fault.load', {

@@ -32,10 +32,6 @@ export function LiveMonitoringPage() {
     () => selectFaults(faults, filters, 'OPEN', now),
     [faults, filters, now]
   )
-  const resolvedFaults = useMemo(
-    () => selectFaults(faults, filters, 'RESOLVED', now),
-    [faults, filters, now]
-  )
 
   useEffect(() => {
     if (isDesktopViewport) setMobilePanelOpen(false)
@@ -79,7 +75,8 @@ export function LiveMonitoringPage() {
           tab={tab}
           onTabChange={setTab}
           activeFaults={activeFaults}
-          resolvedFaults={resolvedFaults}
+          // GET /faults lists open faults only: resolved faults (US16) and counters (US15) come later.
+          resolvedFaults={null}
           counters={query.data?.counters ?? null}
           filters={filters}
           onFiltersChange={updateFilters}

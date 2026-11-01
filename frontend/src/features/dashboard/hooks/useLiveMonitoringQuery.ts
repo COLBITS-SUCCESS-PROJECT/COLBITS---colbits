@@ -2,24 +2,24 @@
 import { useEffect } from 'react'
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { useDataFreshnessStore } from '@/stores/dataFreshness.store'
+import { fetchActiveFaults } from '../api/faults.api'
 import { LIVE_REFETCH_INTERVAL_MS } from '../model/liveMonitoring.constants'
-import { buildLiveMonitoringMock } from '../model/liveMonitoring.mock'
 import type { LiveMonitoringData } from '../model/liveMonitoring.types'
 
 export const LIVE_MONITORING_QUERY_KEY = ['live-monitoring'] as const
 
-// TODO SCRUM-128: replace with `fetchLiveMonitoring()` from api/ once the backend endpoint exists (OQ-02).
-async function fetchLiveMonitoringMock(): Promise<LiveMonitoringData> {
-  return buildLiveMonitoringMock(Date.now())
+/** Open faults from GET /faults (US10). The node counters have no endpoint yet (US15). */
+async function fetchLiveMonitoring(signal?: AbortSignal): Promise<LiveMonitoringData> {
+  return { faults: await fetchActiveFaults(signal), counters: null }
 }
 
 export function useLiveMonitoringQuery(
-  queryFn: () => Promise<LiveMonitoringData> = fetchLiveMonitoringMock
+  queryFn: (signal?: AbortSignal) => Promise<LiveMonitoringData> = fetchLiveMonitoring
 ): UseQueryResult<LiveMonitoringData> {
   const markSynced = useDataFreshnessStore((state) => state.markSynced)
   const query = useQuery({
     queryKey: LIVE_MONITORING_QUERY_KEY,
-    queryFn,
+    queryFn: ({ signal }) => queryFn(signal),
     refetchInterval: LIVE_REFETCH_INTERVAL_MS,
     staleTime: 0,
   })

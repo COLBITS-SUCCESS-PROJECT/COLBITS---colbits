@@ -60,7 +60,8 @@
     "title": "Gestión de fallas",
     "openMobile": "Fallas ({{count}})",
     "closeMobile": "Cerrar panel de fallas",
-    "activeCount": "{{count}} activas",
+    "activeCount_one": "{{count}} activa",
+    "activeCount_other": "{{count}} activas",
     "tabsLabel": "Tipo de alarmas",
     "tab": {
       "ACTIVE": "Activas",
@@ -96,7 +97,8 @@
     "error": "No se pudieron cargar las fallas.",
     "retry": "Reintentar",
     "loading": "Cargando fallas",
-    "inactiveSoon": "La vista de dispositivos inactivos llegará en una próxima historia."
+    "inactiveSoon": "La vista de dispositivos inactivos llegará en una próxima historia.",
+    "resolvedSoon": "La lista de fallas resueltas llegará en una próxima historia."
   },
   "alertType": {
     "FUSE_OPENING": "Apertura de fusible",
@@ -121,6 +123,7 @@
     "branchValue": "Ramal {{branch}}",
     "customersOut": "clientes sin servicio",
     "customersAffected": "clientes afectados",
+    "customersUnknown": "Sin dato de clientes",
     "load": "Carga {{load}} % · Desb. V {{unbalance}} %",
     "phase": "Fase {{phase}}: {{state}}",
     "phaseState": {
