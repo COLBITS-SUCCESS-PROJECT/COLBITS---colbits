@@ -3,6 +3,7 @@ import { Repository } from 'typeorm';
 import { Node } from './node.entity';
 import { NodesService } from './nodes.service';
 import { SMAC_INACTIVITY_SQL } from './smac-state';
+import { TRANSFORMER_SUMMARY_SQL } from './transformer-state';
 
 function serviceWith(
   nodes: Partial<Node>[],
@@ -10,6 +11,7 @@ function serviceWith(
   falconHours?: string,
   smacRows: unknown[] = [],
   smacHours?: string,
+  transformerRows: unknown[] = [],
 ) {
   const builder = {
     select: jest.fn().mockReturnThis(),
@@ -20,9 +22,13 @@ function serviceWith(
   };
   const repository = {
     createQueryBuilder: jest.fn().mockReturnValue(builder),
-    query: jest.fn((sql: string) =>
-      Promise.resolve(sql === SMAC_INACTIVITY_SQL ? smacRows : summaries),
-    ),
+    query: jest.fn((sql: string) => {
+      if (sql === SMAC_INACTIVITY_SQL) return Promise.resolve(smacRows);
+      if (sql === TRANSFORMER_SUMMARY_SQL) {
+        return Promise.resolve(transformerRows);
+      }
+      return Promise.resolve(summaries);
+    }),
   };
   const env: Record<string, string | undefined> = {
     FALCON_INACTIVITY_HOURS: falconHours,
@@ -69,8 +75,18 @@ describe('NodesService.findAll (US4 + US6)', () => {
     expect(result).toEqual({
       count: 2,
       nodes: [
-        { ...N1, fuse_state: 'NORMAL', smac_inactive: null },
-        { ...N2, fuse_state: 'CRITICAL', smac_inactive: null },
+        {
+          ...N1,
+          fuse_state: 'NORMAL',
+          smac_inactive: null,
+          transformer_state: null,
+        },
+        {
+          ...N2,
+          fuse_state: 'CRITICAL',
+          smac_inactive: null,
+          transformer_state: null,
+        },
       ],
     });
   });
@@ -175,6 +191,58 @@ describe('NodesService.findAll · SMAC inactivity (US5 · F-37)', () => {
     expect(repository.query).toHaveBeenCalledWith(SMAC_INACTIVITY_SQL, [
       [N1.name],
       1,
+    ]);
+  });
+});
+
+describe('NodesService.findAll transformer_state (US7)', () => {
+  it('sends the transformer-layer state of each node, null without a transformer', async () => {
+    const { service, repository } = serviceWith(
+      [N1, N2],
+      [],
+      undefined,
+      [],
+      undefined,
+      [
+        {
+          node_id: N2.name,
+          custom_id: `${N2.name}-T1-2`,
+          inactive: false,
+          down_channels: ['A', 'B'],
+        },
+      ],
+    );
+
+    const result = await service.findAll({ kind: 'unrestricted' });
+
+    expect(result.nodes.map((n) => [n.name, n.transformer_state])).toEqual([
+      [N1.name, null],
+      [N2.name, 'CRITICAL'],
+    ]);
+    expect(repository.query).toHaveBeenCalledWith(TRANSFORMER_SUMMARY_SQL, [
+      [N1.name, N2.name],
+      3,
+      '^05[0-9]{2}21[0-9A-Za-z]$',
+    ]);
+  });
+
+  it('uses SMAC_INACTIVITY_HOURS for the gray state and treats a missing channel list as none down', async () => {
+    const { service, repository } = serviceWith([N1], [], undefined, [], '6', [
+      {
+        node_id: N1.name,
+        custom_id: `${N1.name}-T1-3`,
+        inactive: true,
+        down_channels: null,
+      },
+    ]);
+
+    const result = await service.findAll({ kind: 'unrestricted' });
+
+    expect(result.nodes[0].transformer_state).toBe('INACTIVE');
+    expect(repository.query).toHaveBeenCalledWith(TRANSFORMER_SUMMARY_SQL, [
+      [N1.name],
+      6,
+      expect.any(String),
     ]);
   });
 });

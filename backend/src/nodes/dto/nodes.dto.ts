@@ -39,6 +39,16 @@ export class NodeViewDto {
       'Whether any SMAC on the node is inactive; null when the node has no transformer.',
   })
   smac_inactive: boolean | null;
+
+  @ApiProperty({
+    type: String,
+    enum: [...NODE_STATES],
+    nullable: true,
+    example: 'WARNING',
+    description:
+      "Transformer-layer state (US7). CRITICAL = two or more phases down, WARNING = exactly one, INACTIVE = none down and the SMAC inactive, NORMAL otherwise. Phases are counted against the transformer's own phases. Null when the node has no transformer.",
+  })
+  transformer_state: NodeState | null;
 }
 
 export class NodesResponseDto {
