@@ -9,7 +9,9 @@ export interface ScopeOptions {
 
 /** Unique, sorted values; a missing value (null) is not an option. */
 const uniqueSorted = (values: (string | null)[]) =>
-  [...new Set(values.filter((value): value is string => value !== null))].sort()
+  [...new Set(values.filter((value): value is string => value !== null))].sort((a, b) =>
+    a.localeCompare(b)
+  )
 
 export function deriveScopeOptions(faults: FaultAlert[]): ScopeOptions {
   return {
