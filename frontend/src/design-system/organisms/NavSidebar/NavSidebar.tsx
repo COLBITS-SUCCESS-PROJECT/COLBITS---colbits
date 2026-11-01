@@ -33,6 +33,12 @@ export interface NavSidebarProps {
   isMobile?: boolean
   isMobileOpen?: boolean
   onClose?: () => void
+  /** Desktop only: icons-only rail. Ignored on mobile, where the sidebar is a drawer. */
+  isCollapsed?: boolean
+  /** Shown with `onToggleCollapse`: accessible names of the collapse / expand button. */
+  collapseLabel?: string
+  expandLabel?: string
+  onToggleCollapse?: () => void
 }
 
 export function NavSidebar({
@@ -47,8 +53,14 @@ export function NavSidebar({
   isMobile = false,
   isMobileOpen = true,
   onClose,
+  isCollapsed = false,
+  collapseLabel,
+  expandLabel,
+  onToggleCollapse,
 }: NavSidebarProps) {
   const asideRef = useRef<HTMLElement>(null)
+  const collapsed = isCollapsed && !isMobile
+  const toggleLabel = collapsed ? expandLabel : collapseLabel
 
   useEffect(() => {
     if (!isMobile || !isMobileOpen || !onClose) return
@@ -103,12 +115,28 @@ export function NavSidebar({
         inert={isMobile && !isMobileOpen}
         ref={asideRef}
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col gap-2 bg-nav-bg px-3 py-4 transition-transform duration-200 md:sticky md:top-0 md:z-auto md:w-60 md:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col gap-2 bg-nav-bg px-3 py-4 transition-[transform,width] duration-200 md:sticky md:top-0 md:z-auto md:translate-x-0',
+          collapsed ? 'md:w-20' : 'md:w-60',
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex items-center justify-between px-4 py-3">
-          <Logo label={logoLabel} />
+        <div
+          className={cn(
+            'flex items-center py-3',
+            collapsed ? 'justify-center px-0' : 'justify-between gap-2 px-4'
+          )}
+        >
+          {!collapsed && <Logo label={logoLabel} className="min-w-0" />}
+          {!isMobile && onToggleCollapse && toggleLabel && (
+            <IconButton
+              icon={collapsed ? 'sidebar-expand' : 'sidebar-collapse'}
+              label={toggleLabel}
+              title={toggleLabel}
+              aria-expanded={!collapsed}
+              onClick={onToggleCollapse}
+              className="border-transparent bg-transparent text-nav-text hover:bg-nav-item-active/50 hover:text-nav-text-active focus-visible:outline-nav-text-active"
+            />
+          )}
           {closeLabel && onClose && (
             <IconButton
               icon="close"
@@ -120,14 +148,25 @@ export function NavSidebar({
         </div>
 
         <nav aria-label={navLabel} onClick={onClose} className="mt-6 flex flex-col gap-2">
-          <p className="text-overline leading-tight font-semibold text-nav-section uppercase">
+          <p
+            className={cn(
+              'text-overline leading-tight font-semibold text-nav-section uppercase',
+              collapsed && 'sr-only'
+            )}
+          >
             {sectionLabel}
           </p>
           {items.length > 0 && (
             <ul className="flex flex-col gap-2">
               {items.map((item) => (
                 <li key={item.to}>
-                  <NavItem to={item.to} label={item.label} icon={item.icon} end={item.end} />
+                  <NavItem
+                    to={item.to}
+                    label={item.label}
+                    icon={item.icon}
+                    end={item.end}
+                    isCollapsed={collapsed}
+                  />
                 </li>
               ))}
             </ul>
@@ -137,6 +176,7 @@ export function NavSidebar({
         {user && (
           <UserSummary
             className="mt-auto"
+            isCollapsed={collapsed}
             name={user.name}
             roleLabel={user.roleLabel}
             avatarUrl={user.avatarUrl}

@@ -8,6 +8,7 @@ import { LanguageSwitch } from '@/design-system/molecules'
 import { NavSidebar, TopBar } from '@/design-system/organisms'
 import { useAuthStore, type UserRole } from '@/stores/auth.store'
 import { isStale, useDataFreshnessStore } from '@/stores/dataFreshness.store'
+import { useUiPreferencesStore } from '@/stores/uiPreferences.store'
 import { useNow } from '@/hooks/useNow'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useLanguage } from '@/hooks/useLanguage'
@@ -50,6 +51,8 @@ export function AppShell() {
     if (!isMobileViewport) setIsMobileNavOpen(false)
   }, [isMobileViewport])
   const language = useLanguage()
+  const sidebarCollapsed = useUiPreferencesStore((state) => state.sidebarCollapsed)
+  const setSidebarCollapsed = useUiPreferencesStore((state) => state.setSidebarCollapsed)
 
   const visibleSections = SECTIONS.filter(
     (entry) => !entry.roles || (user !== null && entry.roles.includes(user.role))
@@ -78,6 +81,10 @@ export function AppShell() {
         isMobile={isMobileViewport}
         isMobileOpen={!isMobileViewport || isMobileNavOpen}
         onClose={closeMobileNav}
+        isCollapsed={sidebarCollapsed}
+        collapseLabel={t('nav.collapse')}
+        expandLabel={t('nav.expand')}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar

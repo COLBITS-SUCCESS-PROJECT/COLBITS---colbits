@@ -9,6 +9,7 @@ import { server } from '@/mocks/server'
 import { isTokenRevoked, resetRevokedTokens } from '@/mocks/data/revokedTokens'
 import { useAuthStore } from '@/stores/auth.store'
 import { STALE_AFTER_MS, useDataFreshnessStore } from '@/stores/dataFreshness.store'
+import { useUiPreferencesStore } from '@/stores/uiPreferences.store'
 import { ROUTES } from '@/app/router/routes'
 import { AppShell } from './AppShell'
 
@@ -44,6 +45,7 @@ describe('AppShell', () => {
     useAuthStore.getState().clearAuth()
     useDataFreshnessStore.getState().reset()
     resetRevokedTokens()
+    useUiPreferencesStore.getState().setSidebarCollapsed(false)
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -86,6 +88,17 @@ describe('AppShell', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Abrir menú de navegación' }))
 
     expect(screen.getByRole('dialog', { name: 'Navegación principal' })).toBeInTheDocument()
+  })
+
+  it('collapses and expands the sidebar, and remembers the choice (SCRUM-215)', async () => {
+    renderShellAt(ROUTES.dashboard)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Contraer menú' }))
+
+    expect(useUiPreferencesStore.getState().sidebarCollapsed).toBe(true)
+    expect(screen.getByRole('link', { name: 'Monitoreo en vivo' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Expandir menú' }))
+    expect(useUiPreferencesStore.getState().sidebarCollapsed).toBe(false)
   })
 
   it('updates the page and the top bar title when a sidebar link is clicked', async () => {
