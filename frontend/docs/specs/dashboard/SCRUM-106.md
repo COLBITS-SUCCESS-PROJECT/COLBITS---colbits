@@ -74,7 +74,7 @@ No new endpoint. `GET /nodes` (US4, US6, US5):
 | ID | Question | Owner | Blocking | Answer |
 |---|---|---|---|---|
 | Q1 | Should the user be able to hide both layers (empty map)? | Paola (PO) | No | OPEN — kept as in the base screen: one layer always visible |
-| Q2 | When does the backend send `transformer_state`? | Monica (US7) | AC4 manual only | OPEN — AC4 is verified with the mock until then |
+| Q2 | When does the backend send `transformer_state`? | Monica (US7) | AC4 manual only | CLOSED — sent since PR #60 (SCRUM-105, merged 2026-10-31) |
 
 ## 8. Acceptance test results
 
@@ -84,7 +84,7 @@ No new endpoint. `GET /nodes` (US4, US6, US5):
 | 2026-10-29 | AC1 | PASS | Manual, real API + map in Docker, generator with `--scenarios demo` (AI-assisted run on Sofia's machine) | Fuses only: 50 nodes · both layers: 50 · transformers only: 15 |
 | 2026-10-29 | AC2 | FAIL → PASS | Manual, real API + map | Before: the transformer layer drew all 50 nodes as *Sin dato*, including the 35 without a transformer. Fixed in `nodes.mapper.ts` with `smac_inactive: null`; after: 15 nodes, exactly the ones with a transformer |
 | 2026-10-29 | AC3 | PASS | Manual, real API + map | `aria-pressed` follows each button; the legend shows only *Transformadores · SMAC* when it is the only layer; the only visible layer cannot be turned off |
-| — | AC4 | PENDING (manual) | — | Automated test passes with the mock. The real-data check waits for `transformer_state` from the backend (US7, Q2) |
+| 2026-10-31 | AC4 | PASS | Manual, real data (Docker, generator `--scenarios demo`, backend with PR #60) | One fuse of node `0000100002` set to `Abierto` by hand, transformer NORMAL: with both layers on, the marker is dual (`data-kind="both"`) and its accessible name gives both states. Database restored afterwards |
 | 2026-10-29 | Responsive (AC1, AC3) | PASS | Manual, real API, both layers on, at 375 px (mobile), 768 px (tablet) and 1440 px (desktop) | No horizontal page scroll; both layer buttons fully inside the screen; legend shows both groups at every width |
 
 ## 9. Implementation notes
