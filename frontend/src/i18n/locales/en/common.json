@@ -7,7 +7,9 @@
     "section": "Menu",
     "logout": "Log out",
     "open": "Open navigation menu",
-    "close": "Close navigation menu"
+    "close": "Close navigation menu",
+    "collapse": "Collapse menu",
+    "expand": "Expand menu"
   },
   "role": {
     "ADMIN": "Administrator",

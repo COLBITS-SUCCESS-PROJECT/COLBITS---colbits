@@ -22,6 +22,8 @@ import {
   Menu,
   MessageCircle,
   Minus,
+  PanelLeftClose,
+  PanelLeftOpen,
   PenLine,
   Plus,
   Power,
@@ -78,6 +80,9 @@ export const ICON_REGISTRY = {
   loader: LoaderCircle,
   minus: Minus,
   'chevron-right': ChevronRight,
+  // Not in Figma — collapsible sidebar (SCRUM-215)
+  'sidebar-collapse': PanelLeftClose,
+  'sidebar-expand': PanelLeftOpen,
 } as const satisfies Record<string, LucideIcon>
 
 export type IconName = keyof typeof ICON_REGISTRY

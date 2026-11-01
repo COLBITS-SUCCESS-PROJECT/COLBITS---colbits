@@ -99,4 +99,46 @@ describe('NavSidebar', () => {
     await userEvent.keyboard('{Escape}')
     expect(onClose).toHaveBeenCalledTimes(2)
   })
+
+  describe('collapsible (SCRUM-215)', () => {
+    const collapseProps = { collapseLabel: 'Contraer menú', expandLabel: 'Expandir menú' }
+
+    it('calls onToggleCollapse from the collapse button of the expanded sidebar', async () => {
+      const onToggleCollapse = vi.fn()
+      renderSidebar({ ...collapseProps, onToggleCollapse })
+
+      const toggle = screen.getByRole('button', { name: 'Contraer menú' })
+      expect(toggle).toHaveAttribute('aria-expanded', 'true')
+      await userEvent.click(toggle)
+
+      expect(onToggleCollapse).toHaveBeenCalledOnce()
+    })
+
+    it('keeps every link and the user reachable by name when collapsed, without the logo', () => {
+      renderSidebar({ ...collapseProps, onToggleCollapse: vi.fn(), isCollapsed: true })
+
+      expect(screen.getByRole('button', { name: 'Expandir menú' })).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      )
+      expect(screen.queryByRole('img', { name: 'Colbits' })).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Reportes' })).toHaveAttribute('title', 'Reportes')
+      expect(screen.getByText('Operador de red')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeInTheDocument()
+    })
+
+    it('ignores the collapsed state and hides the toggle on mobile', () => {
+      renderSidebar({
+        ...collapseProps,
+        onToggleCollapse: vi.fn(),
+        isCollapsed: true,
+        isMobile: true,
+        isMobileOpen: true,
+      })
+
+      expect(screen.getByRole('img', { name: 'Colbits' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Expandir menú' })).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Reportes' })).not.toHaveAttribute('title')
+    })
+  })
 })

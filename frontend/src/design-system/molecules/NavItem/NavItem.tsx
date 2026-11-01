@@ -9,16 +9,20 @@ export interface NavItemProps {
   icon: IconName
   /** Match the route exactly instead of also matching its sub-routes. */
   end?: boolean
+  /** Icon only (collapsed sidebar); the label stays as the accessible name and tooltip. */
+  isCollapsed?: boolean
 }
 
-export function NavItem({ to, label, icon, end = false }: NavItemProps) {
+export function NavItem({ to, label, icon, end = false, isCollapsed = false }: NavItemProps) {
   return (
     <NavLink
       to={to}
       end={end}
+      title={isCollapsed ? label : undefined}
       className={({ isActive }) =>
         cn(
-          'flex h-12 items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors',
+          'flex h-12 items-center gap-3 rounded-lg py-3 text-sm transition-colors',
+          isCollapsed ? 'justify-center px-0' : 'px-4',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nav-text-active',
           isActive
             ? 'bg-nav-item-active font-semibold text-nav-text-active'
@@ -27,7 +31,7 @@ export function NavItem({ to, label, icon, end = false }: NavItemProps) {
       }
     >
       <Icon name={icon} size="lg" />
-      <span className="truncate">{label}</span>
+      <span className={isCollapsed ? 'sr-only' : 'truncate'}>{label}</span>
     </NavLink>
   )
 }

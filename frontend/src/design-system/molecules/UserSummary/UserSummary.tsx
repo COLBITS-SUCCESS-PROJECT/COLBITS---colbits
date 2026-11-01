@@ -9,6 +9,8 @@ export interface UserSummaryProps {
   logoutLabel: string
   onLogout: () => void
   className?: string
+  /** Avatar and logout stacked, name and role only for screen readers (collapsed sidebar). */
+  isCollapsed?: boolean
 }
 
 export function UserSummary({
@@ -18,11 +20,18 @@ export function UserSummary({
   logoutLabel,
   onLogout,
   className,
+  isCollapsed = false,
 }: UserSummaryProps) {
   return (
-    <div className={cn('flex items-center gap-2.5 px-2 pt-3 pb-1', className)}>
+    <div
+      className={cn(
+        'flex items-center gap-2.5 pt-3 pb-1',
+        isCollapsed ? 'flex-col px-0' : 'px-2',
+        className
+      )}
+    >
       <Avatar name={name} imageUrl={avatarUrl} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+      <div className={isCollapsed ? 'sr-only' : 'flex min-w-0 flex-1 flex-col gap-0.5'}>
         <span className="truncate text-label font-semibold text-nav-text-active">{name}</span>
         <span className="truncate text-overline text-nav-text">{roleLabel}</span>
       </div>

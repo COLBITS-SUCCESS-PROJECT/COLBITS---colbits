@@ -65,6 +65,11 @@ export function MapCanvas({
     })
   }, [map, nodes])
 
+  // SCRUM-215: drop the "Leaflet" prefix link (easy to hit by accident). The OSM credit stays — ODbL requires it.
+  useEffect(() => {
+    map?.attributionControl?.setPrefix(false)
+  }, [map])
+
   useEffect(() => {
     if (!map || typeof ResizeObserver === 'undefined') return
 
