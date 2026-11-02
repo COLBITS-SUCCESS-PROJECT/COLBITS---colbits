@@ -7,7 +7,11 @@ export class InactivityResultDto {
   })
   deviceId: string;
 
-  @ApiProperty({ enum: ['Falcon', 'SMAC'], example: 'SMAC' })
+  @ApiProperty({
+    enum: ['Falcon', 'SMAC'],
+    example: 'SMAC',
+    description: 'Device type, as supplied in the type query parameter.',
+  })
   deviceType: 'Falcon' | 'SMAC';
 
   @ApiProperty({

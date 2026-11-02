@@ -37,11 +37,18 @@ export class NodesController {
   @Get()
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'List nodes visible to the authenticated user.' })
-  @ApiOkResponse({ type: NodesResponseDto })
+  @ApiOperation({
+    summary: 'List nodes visible to the authenticated user.',
+    description:
+      'Not paginated. A Colbits administrator sees every node; a consultation user, only those under their assigned nodes, circuits, substations or zones (F-10); an inactive account, none. The fuse and transformer states are recomputed from the latest telemetry on every call, so polling this endpoint keeps them current (F-25, F-26).',
+  })
+  @ApiOkResponse({
+    type: NodesResponseDto,
+    description: 'Nodes in scope, ordered by name.',
+  })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Bearer token is missing, invalid, or expired.',
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
   })
   async findAll(@Req() request: Request) {
     const scope = await this.scopeService.resolve(userIdOf(request));
@@ -55,16 +62,21 @@ export class NodesController {
   @ApiOperation({
     summary:
       'Fuse sets of a node with their number of clients (node detail, F-29).',
+    description:
+      'A node that does not exist and a node outside the user scope give the same 404, so the endpoint never reveals which nodes exist (F-10).',
   })
   @ApiParam({
     name: 'name',
     example: '0000100002',
     description: 'Node identifier.',
   })
-  @ApiOkResponse({ type: NodeFuseSetsResponseDto })
+  @ApiOkResponse({
+    type: NodeFuseSetsResponseDto,
+    description: 'Fuse sets of the node.',
+  })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Bearer token is missing, invalid, or expired.',
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
   })
   @ApiNotFoundResponse({
     type: ErrorResponseDto,
@@ -84,16 +96,21 @@ export class NodesController {
   @ApiOperation({
     summary:
       'Node detail for the map: circuit, substation, fuses and transformers (F-27, F-29).',
+    description:
+      'What the map shows when a node is selected, with the last Falcon and SMAC records. A node that does not exist and a node outside the user scope give the same 404 (F-10).',
   })
   @ApiParam({
     name: 'name',
     example: '0000100002',
     description: 'Node identifier.',
   })
-  @ApiOkResponse({ type: NodeDetailResponseDto })
+  @ApiOkResponse({
+    type: NodeDetailResponseDto,
+    description: 'Detail of the node.',
+  })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Bearer token is missing, invalid, or expired.',
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
   })
   @ApiNotFoundResponse({
     type: ErrorResponseDto,

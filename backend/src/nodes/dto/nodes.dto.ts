@@ -27,7 +27,7 @@ export class NodeViewDto {
     nullable: true,
     example: 'NORMAL',
     description:
-      'Fuse-layer state. Null when the node has no fuses. Precedence: CRITICAL, WARNING, INACTIVE, NORMAL.',
+      'Fuse-layer state. CRITICAL = a fuse is open, WARNING = a fuse without voltage, INACTIVE = a Falcon inactive, or whose last record does not state the fuse or the voltage, NORMAL otherwise. Precedence: CRITICAL, WARNING, INACTIVE, NORMAL. Null when the node has no fuses.',
   })
   fuse_state: NodeState | null;
 

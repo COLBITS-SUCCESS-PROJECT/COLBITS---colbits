@@ -131,6 +131,95 @@ export async function createSmacNodes(
   }
 }
 
+export interface FalconReading {
+  hoursAgo: number;
+  fuseState: string | null;
+  isVoltagePresent: boolean | null;
+}
+
+export interface FuseFixture {
+  customId: string;
+  phase: string;
+  hwId: string | null;
+  reading: FalconReading | null;
+}
+
+export interface FalconNodeFixture {
+  node: string;
+  /** Explicit id: the seed inserts its own ids without moving the sequence. */
+  fuseSetId: number;
+  fuses: FuseFixture[];
+}
+
+/**
+ * Nodes with one fuse set and Falcon readings. Readings go into falcon_values so Colbits' trigger
+ * fills last_falcon_values, exactly as in production.
+ */
+export async function createFalconNodes(
+  dataSource: DataSource,
+  nodes: FalconNodeFixture[],
+  circuitId: number,
+): Promise<void> {
+  for (const { node, fuseSetId, fuses } of nodes) {
+    await dataSource.query(
+      'INSERT INTO nodes (name, circuit_id, latitude, longitude) VALUES ($1, $2, 3.5, -75.5)',
+      [node, circuitId],
+    );
+    await dataSource.query(
+      'INSERT INTO fuses_sets (id, node_id) VALUES ($1, $2)',
+      [fuseSetId, node],
+    );
+    for (const fuse of fuses) {
+      if (fuse.hwId) {
+        await dataSource.query(
+          "INSERT INTO devices (hw_id, device_type) VALUES ($1, 'falcon')",
+          [fuse.hwId],
+        );
+      }
+      await dataSource.query(
+        'INSERT INTO fuses (custom_id, fuses_set_id, phase, current_hw_id) VALUES ($1, $2, $3, $4)',
+        [fuse.customId, fuseSetId, fuse.phase, fuse.hwId],
+      );
+      if (fuse.reading) {
+        await dataSource.query(
+          `INSERT INTO falcon_values (hw_id, custom_id, recorded_at, fuse_state, is_voltage_present)
+           VALUES ($1, $2, now() - $3 * interval '1 hour', $4, $5)`,
+          [
+            fuse.hwId,
+            fuse.customId,
+            fuse.reading.hoursAgo,
+            fuse.reading.fuseState,
+            fuse.reading.isVoltagePresent,
+          ],
+        );
+      }
+    }
+  }
+}
+
+/** Deletes everything createFalconNodes wrote for these nodes and devices. */
+export async function removeFalconNodes(
+  dataSource: DataSource,
+  nodes: string[],
+  hwIds: string[],
+): Promise<void> {
+  for (const table of ['falcon_values', 'last_falcon_values']) {
+    await dataSource.query(`DELETE FROM ${table} WHERE hw_id = ANY($1)`, [
+      hwIds,
+    ]);
+  }
+  await dataSource.query(
+    `DELETE FROM fuses WHERE fuses_set_id IN
+       (SELECT id FROM fuses_sets WHERE node_id = ANY($1))`,
+    [nodes],
+  );
+  await dataSource.query('DELETE FROM fuses_sets WHERE node_id = ANY($1)', [
+    nodes,
+  ]);
+  await dataSource.query('DELETE FROM devices WHERE hw_id = ANY($1)', [hwIds]);
+  await dataSource.query('DELETE FROM nodes WHERE name = ANY($1)', [nodes]);
+}
+
 /** Deletes everything createSmacNodes wrote for these nodes and devices. */
 export async function removeSmacNodes(
   dataSource: DataSource,

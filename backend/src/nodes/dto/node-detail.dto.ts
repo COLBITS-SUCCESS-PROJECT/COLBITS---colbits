@@ -46,7 +46,13 @@ export class FuseDetailDto {
   })
   fuse_state: string | null;
 
-  @ApiProperty({ type: Boolean, nullable: true, example: true })
+  @ApiProperty({
+    type: Boolean,
+    nullable: true,
+    example: true,
+    description:
+      'Whether the Falcon detects voltage on the fuse; null when it has no record.',
+  })
   is_voltage_present: boolean | null;
 
   @ApiProperty({
@@ -74,6 +80,7 @@ export class FuseDetailDto {
 
   @ApiProperty({
     type: String,
+    format: 'date-time',
     nullable: true,
     example: '2026-10-29T15:40:00.000Z',
     description: 'Time of the last Falcon record.',
@@ -106,13 +113,28 @@ export class FuseSetDetailDto {
 }
 
 export class VoltagesDto {
-  @ApiProperty({ type: Number, nullable: true, example: 127.1 })
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 127.1,
+    description: 'Last voltage reported by the SMAC on channel A.',
+  })
   va: number | null;
 
-  @ApiProperty({ type: Number, nullable: true, example: 126.8 })
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: 126.8,
+    description: 'Last voltage reported by the SMAC on channel B.',
+  })
   vb: number | null;
 
-  @ApiProperty({ type: Number, nullable: true, example: null })
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    example: null,
+    description: 'Last voltage reported by the SMAC on channel C.',
+  })
   vc: number | null;
 }
 
@@ -151,6 +173,7 @@ export class TransformerDetailDto {
 
   @ApiProperty({
     type: String,
+    format: 'date-time',
     nullable: true,
     example: '2026-10-29T15:38:00.000Z',
     description: 'Time of the last SMAC record (newest of its three tables).',
