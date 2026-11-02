@@ -13,12 +13,16 @@ export class AccessTokenPayloadDto {
   @ApiProperty({ example: 42, description: 'Authenticated user ID.' })
   sub: number;
 
-  @ApiProperty({ example: 'admin@colbits.com' })
+  @ApiProperty({
+    example: 'admin@colbits.com',
+    description: 'Authenticated account username.',
+  })
   username: string;
 
   @ApiProperty({
-    example: 'admin user',
-    description: 'Role assigned to the authenticated account.',
+    example: 'Colbits administrator',
+    description:
+      'Role assigned to the authenticated account: Colbits administrator or consultation user.',
   })
   role: string;
 
@@ -38,6 +42,7 @@ export class AccessTokenPayloadDto {
 export class ProfileResponseDto {
   @ApiProperty({
     example: 'Access granted! You are inside the protected route.',
+    description: 'Fixed confirmation text.',
   })
   message: string;
 
@@ -46,6 +51,9 @@ export class ProfileResponseDto {
 }
 
 export class LogoutResponseDto {
-  @ApiProperty({ example: 'Successfully logged out' })
+  @ApiProperty({
+    example: 'Successfully logged out',
+    description: 'Fixed confirmation text.',
+  })
   message: string;
 }

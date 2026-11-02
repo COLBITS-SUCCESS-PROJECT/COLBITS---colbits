@@ -36,10 +36,13 @@ export class FaultsController {
     description:
       'Fuse openings of the same fuse set whose opening instants are less than the grouping window apart (FAULT_GROUPING_WINDOW_MINUTES, 5 by default) form one fault, classified as single-, two- or three-phase by distinct canonical phases. A fault is open while any phase has not reported a close; only open faults are listed, oldest first. Openings and closes come from the alarms table: a fuse whose telemetry says open but whose alarms do not is not listed.',
   })
-  @ApiOkResponse({ type: ActiveFaultsResponseDto })
+  @ApiOkResponse({
+    type: ActiveFaultsResponseDto,
+    description: 'Open faults in scope; an empty list when there are none.',
+  })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Bearer token is missing, invalid, or expired.',
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
   })
   async findActive(@Req() request: Request) {
     const scope = await this.scopeService.resolve(userIdOf(request));

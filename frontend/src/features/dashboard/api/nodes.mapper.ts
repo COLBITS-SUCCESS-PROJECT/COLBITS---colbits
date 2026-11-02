@@ -17,14 +17,14 @@ export function hasValidCoordinates(dto: NodeDto): boolean {
   )
 }
 
-/** Field absent → the backend does not report the state yet (UNKNOWN); null → no such device. */
+/** Field absent → the backend does not report the state (UNKNOWN); null → no such device. */
 function toState(state: NodeStateDto | null | undefined): NetworkState | null {
   return state === undefined ? 'UNKNOWN' : state
 }
 
 /**
- * Until the backend sends transformer_state (US7), `smac_inactive: null` already says the node has
- * no transformer, so it is not drawn on the transformer layer (SCRUM-106 AC2).
+ * The backend sends transformer_state since US7. If it were absent, `smac_inactive: null` still says
+ * the node has no transformer, so it is not drawn on the transformer layer (SCRUM-106 AC2).
  */
 function toTransformerState(dto: NodeDto): NetworkState | null {
   if (dto.transformer_state === undefined && dto.smac_inactive === null) return null

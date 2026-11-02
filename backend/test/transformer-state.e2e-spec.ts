@@ -1,12 +1,8 @@
-import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { NodesService } from '../src/nodes/nodes.service';
 import {
-  IsolatedApp,
   createSmacNodes,
   removeSmacNodes,
-  startIsolatedApp,
-  stopIsolatedApp,
+  useIsolatedNodes,
 } from './support/isolated-e2e';
 
 // US7 · F-19 to F-23 against a real database: the transformer-layer state of GET /nodes comes from
@@ -154,22 +150,9 @@ async function create(dataSource: DataSource): Promise<void> {
 }
 
 describe('US7 transformer-layer state (e2e)', () => {
-  let started: IsolatedApp | undefined;
-  let app: INestApplication;
-
-  beforeAll(async () => {
-    started = await startIsolatedApp(LABEL, { remove, create });
-    app = started.app;
-  });
-
-  afterAll(() => stopIsolatedApp(started, LABEL, remove));
-
-  const stateOf = async (node: string) => {
-    const { nodes } = await app
-      .get(NodesService)
-      .findAll({ kind: 'unrestricted' });
-    return nodes.find((n) => n.name === node)?.transformer_state;
-  };
+  const readNodes = useIsolatedNodes(LABEL, { remove, create });
+  const stateOf = async (node: string) =>
+    (await readNodes()).find((n) => n.name === node)?.transformer_state;
 
   it.each(FIXTURES.map((f) => [f.node, f.expected] as const))(
     'node %s has transformer_state %s',

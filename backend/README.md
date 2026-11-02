@@ -47,6 +47,11 @@ entered as elapsed hours; the API converts it into the ISO `lastRecordTimestamp`
 Values greater than three hours for SMAC or nine hours for Falcon produce `isInactive: true` by
 default. Use the same query parameters in Swagger's **Try it out** form to test the thresholds.
 
+## Requirements
+
+Node 24.9 or newer, the version of the Dockerfile and CI: Jest cannot load NestJS on older ones.
+To run a script without installing it: `npx -y -p node@24 npm test`.
+
 ## Compile and run the project
 
 ```bash
@@ -72,6 +77,11 @@ $ npm run test:e2e
 # test coverage
 $ npm run test:cov
 ```
+
+`test:e2e` needs Docker. It starts its own throwaway PostgreSQL on port 55432
+(`docker-compose.e2e.yml`), creates the test databases and removes everything at the end, so it
+does not use the development database, and it sets the values it needs, so it works without
+`backend/.env`. If Docker is not in its default location, set `DOCKER_BIN` to its full path.
 
 ## Deployment
 

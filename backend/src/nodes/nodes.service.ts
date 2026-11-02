@@ -50,7 +50,8 @@ interface TransformerSummaryRow {
 
 /**
  * One row per node with fuses: aggregates the last record of every Falcon installed on it
- * (nodes → fuses_sets → fuses → last_falcon_values). A Falcon with no record counts as inactive.
+ * (nodes → fuses_sets → fuses → last_falcon_values). A Falcon with no record counts as inactive, and
+ * so does one whose last record does not state the fuse or the voltage: green has to be confirmed (F-18).
  */
 const FUSE_SUMMARY_SQL = `
   SELECT fs.node_id,
@@ -58,7 +59,9 @@ const FUSE_SUMMARY_SQL = `
          COALESCE(BOOL_OR(l.fuse_state = $2), false)                     AS any_open,
          COALESCE(BOOL_OR(l.is_voltage_present = false), false)          AS any_without_voltage,
          COALESCE(BOOL_OR(l.recorded_at IS NULL
-                  OR l.recorded_at < now() - $3 * interval '1 hour'), false) AS any_inactive
+                  OR l.recorded_at < now() - $3 * interval '1 hour'
+                  OR l.fuse_state IS NULL
+                  OR l.is_voltage_present IS NULL), false)               AS any_inactive
   FROM public.fuses_sets fs
   JOIN public.fuses f ON f.fuses_set_id = fs.id
   LEFT JOIN public.last_falcon_values l ON l.hw_id = f.current_hw_id

@@ -38,6 +38,8 @@ export class DeviceController {
   @ApiOperation({
     summary:
       'Evaluate device inactivity using the supplied hours since its last record.',
+    description:
+      'Compares lastTimestamp with the threshold of the device type (FALCON_INACTIVITY_HOURS, 9 by default; SMAC_INACTIVITY_HOURS, 3 by default). It does not read the telemetry: the database is only used to check that the device exists and is in scope. A device that does not exist and one outside the user scope give the same 404.',
   })
   @ApiQuery({
     name: 'deviceId',
@@ -45,9 +47,14 @@ export class DeviceController {
     type: String,
     example: '0501000001',
     description:
-      'Hardware identifier of a device that exists in the database and is visible in the authenticated user scope. As a example use 1301000001 for a Falcon device or 0501000001 for a SMAC device.',
+      'Hardware identifier of a device that exists in the database and is visible in the authenticated user scope. As an example, use 1301000001 for a Falcon device or 0501000001 for a SMAC device.',
   })
-  @ApiQuery({ name: 'type', enum: ['Falcon', 'SMAC'], required: true })
+  @ApiQuery({
+    name: 'type',
+    enum: ['Falcon', 'SMAC'],
+    required: true,
+    description: 'Device type; it selects the inactivity threshold.',
+  })
   @ApiQuery({
     name: 'lastTimestamp',
     required: true,
@@ -56,15 +63,18 @@ export class DeviceController {
     description:
       'Hours elapsed since the last record. The API derives lastRecordTimestamp from this value; inactivity is true only when the value is greater than the device threshold.',
   })
-  @ApiOkResponse({ type: InactivityResultDto })
+  @ApiOkResponse({
+    type: InactivityResultDto,
+    description: 'Inactivity evaluation of the device.',
+  })
   @ApiBadRequestResponse({
     type: ErrorResponseDto,
     description:
-      'deviceId is required, type must be Falcon or SMAC, and lastTimestamp must be a non-negative number of hours.',
+      'deviceId is required, type must be Falcon or SMAC, and lastTimestamp must be a non-negative number of hours inside the supported date range.',
   })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Bearer token is missing, invalid, or expired.',
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
   })
   @ApiNotFoundResponse({
     type: ErrorResponseDto,

@@ -30,6 +30,7 @@ export class FaultOpeningDto {
   phase: string;
 
   @ApiProperty({
+    format: 'date-time',
     example: '2026-10-29T15:05:00.000Z',
     description: 'Instant the fuse reported its opening.',
   })
@@ -37,6 +38,7 @@ export class FaultOpeningDto {
 
   @ApiProperty({
     type: String,
+    format: 'date-time',
     nullable: true,
     example: null,
     description: 'Instant the fuse reported its close; null while still open.',
@@ -118,6 +120,7 @@ export class ActiveFaultDto {
   client_count: number | null;
 
   @ApiProperty({
+    format: 'date-time',
     example: '2026-10-29T15:05:00.000Z',
     description: 'Instant of the first opening.',
   })
@@ -125,6 +128,7 @@ export class ActiveFaultDto {
 
   @ApiProperty({
     type: String,
+    format: 'date-time',
     nullable: true,
     example: null,
     description: 'Null while the fault is open (always, for now).',
@@ -157,6 +161,7 @@ export class ActiveFaultDto {
 
 export class ActiveFaultsResponseDto {
   @ApiProperty({
+    format: 'date-time',
     example: '2026-10-29T15:20:00.000Z',
     description: 'Instant the list was computed; open durations run up to it.',
   })
