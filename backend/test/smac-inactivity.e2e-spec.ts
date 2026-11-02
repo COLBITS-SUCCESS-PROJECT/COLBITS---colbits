@@ -1,13 +1,9 @@
-import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { NodesService } from '../src/nodes/nodes.service';
 import {
-  IsolatedApp,
   SmacReading,
   createSmacNodes,
   removeSmacNodes,
-  startIsolatedApp,
-  stopIsolatedApp,
+  useIsolatedNodes,
 } from './support/isolated-e2e';
 
 // US5 · F-37 against a real database: a SMAC is inactive when it has no record, or when its
@@ -86,32 +82,18 @@ const create = (dataSource: DataSource) =>
   );
 
 describe('F-37 SMAC inactivity (e2e)', () => {
-  let started: IsolatedApp | undefined;
-  let app: INestApplication;
-
-  beforeAll(async () => {
-    started = await startIsolatedApp(LABEL, { remove, create });
-    app = started.app;
-  });
-
-  afterAll(() => stopIsolatedApp(started, LABEL, remove));
+  const readNodes = useIsolatedNodes(LABEL, { remove, create });
+  const inactivityOf = async (node: string) =>
+    (await readNodes()).find((n) => n.name === node)?.smac_inactive;
 
   it.each(FIXTURES.map((f) => [f.node, f.expected] as const))(
     'node %s has smac_inactive = %p',
     async (node, expected) => {
-      const { nodes } = await app
-        .get(NodesService)
-        .findAll({ kind: 'unrestricted' });
-      expect(nodes.find((n) => n.name === node)?.smac_inactive).toBe(expected);
+      expect(await inactivityOf(node)).toBe(expected);
     },
   );
 
   it('gives null to nodes without a transformer', async () => {
-    const { nodes } = await app
-      .get(NodesService)
-      .findAll({ kind: 'unrestricted' });
-    expect(
-      nodes.find((n) => n.name === '0000100001')?.smac_inactive,
-    ).toBeNull();
+    expect(await inactivityOf('0000100001')).toBeNull();
   });
 });

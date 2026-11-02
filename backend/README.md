@@ -80,7 +80,8 @@ $ npm run test:cov
 
 `test:e2e` needs Docker. It starts its own throwaway PostgreSQL on port 55432
 (`docker-compose.e2e.yml`), creates the test databases and removes everything at the end, so it
-does not use the development database or `backend/.env`.
+does not use the development database, and it sets the values it needs, so it works without
+`backend/.env`. If Docker is not in its default location, set `DOCKER_BIN` to its full path.
 
 ## Deployment
 

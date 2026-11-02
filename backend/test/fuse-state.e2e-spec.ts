@@ -1,14 +1,10 @@
-import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { NodeState } from '../src/nodes/fuse-state';
-import { NodesService } from '../src/nodes/nodes.service';
 import {
   FalconReading,
-  IsolatedApp,
   createFalconNodes,
   removeFalconNodes,
-  startIsolatedApp,
-  stopIsolatedApp,
+  useIsolatedNodes,
 } from './support/isolated-e2e';
 
 // US6 · F-15 to F-18 and F-36 against a real database: the fuse-layer colour of a node, with its
@@ -108,32 +104,18 @@ const create = (dataSource: DataSource) =>
   );
 
 describe('F-15 to F-18 Fuse-layer state (e2e)', () => {
-  let started: IsolatedApp | undefined;
-  let app: INestApplication;
-
-  beforeAll(async () => {
-    started = await startIsolatedApp(LABEL, { remove, create });
-    app = started.app;
-  });
-
-  afterAll(() => stopIsolatedApp(started, LABEL, remove));
+  const readNodes = useIsolatedNodes(LABEL, { remove, create });
+  const stateOf = async (node: string) =>
+    (await readNodes()).find((n) => n.name === node)?.fuse_state;
 
   it.each(FIXTURES.map((f) => [f.node, f.expected] as const))(
     'node %s has fuse_state = %p',
     async (node, expected) => {
-      const { nodes } = await app
-        .get(NodesService)
-        .findAll({ kind: 'unrestricted' });
-      expect(nodes.find((n) => n.name === node)?.fuse_state).toBe(expected);
+      expect(await stateOf(node)).toBe(expected);
     },
   );
 
   it('gives null to a node whose fuse set has no fuses', async () => {
-    const { nodes } = await app
-      .get(NodesService)
-      .findAll({ kind: 'unrestricted' });
-    expect(
-      nodes.find((n) => n.name === NODE_WITHOUT_FUSES)?.fuse_state,
-    ).toBeNull();
+    expect(await stateOf(NODE_WITHOUT_FUSES)).toBeNull();
   });
 });

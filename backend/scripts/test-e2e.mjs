@@ -2,9 +2,11 @@
  * Runs the e2e tests against the throwaway PostgreSQL of docker-compose.e2e.yml and removes it.
  * The specs refuse any other database: most need colbits_f10_test and seed-scope needs
  * colbits_scope_seed_test, so there are two Jest runs, both with backend/database/01, 02 and 03.
- * The values below override backend/.env. Usage: `npm run test:e2e` (needs Docker).
+ * TEST_ENV holds everything the tests need, because CI has no backend/.env; it overrides that file
+ * where there is one. Usage: `npm run test:e2e` (needs Docker).
  */
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +16,12 @@ const BACKEND_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SQL_DIR = join(BACKEND_DIR, 'database');
 const SQL_FILES = ['01_create_tables.sql', '02_dummy_inserts.sql', '03_security_schema.sql'];
 const COMPOSE = ['compose', '-f', 'docker-compose.e2e.yml'];
+/** Absolute, so a directory in PATH cannot replace it. DOCKER_BIN covers other install locations. */
+const DOCKER =
+  process.env.DOCKER_BIN ??
+  (process.platform === 'win32'
+    ? String.raw`C:\Program Files\Docker\Docker\resources\bin\docker.exe`
+    : '/usr/bin/docker');
 const JEST = join(BACKEND_DIR, 'node_modules', 'jest', 'bin', 'jest.js');
 
 const ISOLATED_DB = 'colbits_f10_test';
@@ -25,6 +33,7 @@ const TEST_ENV = {
   DB_PORT: '55432',
   DB_USER: 'postgres',
   DB_PASSWORD: 'e2e-only',
+  JWT_SECRET: randomBytes(32).toString('hex'),
   FALCON_INACTIVITY_HOURS: '9',
   SMAC_INACTIVITY_HOURS: '3',
 };
@@ -41,7 +50,7 @@ function assertNodeVersion() {
 }
 
 function docker(...args) {
-  const { status, error } = spawnSync('docker', [...COMPOSE, ...args], {
+  const { status, error } = spawnSync(DOCKER, [...COMPOSE, ...args], {
     cwd: BACKEND_DIR,
     stdio: 'inherit',
   });

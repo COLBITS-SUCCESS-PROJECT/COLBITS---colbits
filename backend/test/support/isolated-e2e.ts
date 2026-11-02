@@ -2,6 +2,8 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../../src/app.module';
+import { NodeViewDto } from '../../src/nodes/dto/nodes.dto';
+import { NodesService } from '../../src/nodes/nodes.service';
 
 /**
  * Shared harness for the e2e tests that write fixtures: they only run against the isolated
@@ -72,6 +74,34 @@ export async function stopIsolatedApp(
   } finally {
     await started.app.close();
   }
+}
+
+/**
+ * Runs the isolated app for the current describe block. The returned function reads every node
+ * with its states, as an unrestricted user sees them in GET /nodes.
+ */
+export function useIsolatedNodes(
+  label: string,
+  fixtures: {
+    remove: (dataSource: DataSource) => Promise<void>;
+    create: (dataSource: DataSource) => Promise<void>;
+  },
+): () => Promise<NodeViewDto[]> {
+  let started: IsolatedApp | undefined;
+
+  beforeAll(async () => {
+    started = await startIsolatedApp(label, fixtures);
+  });
+
+  afterAll(() => stopIsolatedApp(started, label, fixtures.remove));
+
+  return async () => {
+    if (!started) throw new Error(`${label} app did not start`);
+    const { nodes } = await started.app
+      .get(NodesService)
+      .findAll({ kind: 'unrestricted' });
+    return nodes;
+  };
 }
 
 export const SMAC_TABLES = {
