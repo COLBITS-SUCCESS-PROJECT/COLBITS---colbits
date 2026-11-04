@@ -37,9 +37,9 @@ export class DeviceController {
   @Get('inactivity-status')
   @ApiOperation({
     summary:
-      'Evaluate device inactivity using the supplied hours since its last record.',
+      'Evaluate device inactivity from its latest stored database timestamp (US5: F-36, F-37, F-46, NF-07).',
     description:
-      'Compares lastTimestamp with the threshold of the device type (FALCON_INACTIVITY_HOURS, 9 by default; SMAC_INACTIVITY_HOURS, 3 by default). It does not read the telemetry: the database is only used to check that the device exists and is in scope. A device that does not exist and one outside the user scope give the same 404.',
+      'Reads the latest recorded_at timestamp from the database (last_falcon_values for Falcon; newest of last_smac_vc_values, last_smac_pw_values, and last_smac_pf_values for SMAC) and compares elapsed hours against the configured device threshold (FALCON_INACTIVITY_HOURS, 9 by default; SMAC_INACTIVITY_HOURS, 3 by default). A device with no telemetry records is treated as inactive. A device that does not exist and one outside the user scope give the same 404.',
   })
   @ApiQuery({
     name: 'deviceId',
@@ -53,15 +53,7 @@ export class DeviceController {
     name: 'type',
     enum: ['Falcon', 'SMAC'],
     required: true,
-    description: 'Device type; it selects the inactivity threshold.',
-  })
-  @ApiQuery({
-    name: 'lastTimestamp',
-    required: true,
-    type: Number,
-    example: 4,
-    description:
-      'Hours elapsed since the last record. The API derives lastRecordTimestamp from this value; inactivity is true only when the value is greater than the device threshold.',
+    description: 'Device type; it selects the table and inactivity threshold.',
   })
   @ApiOkResponse({
     type: InactivityResultDto,
@@ -69,8 +61,7 @@ export class DeviceController {
   })
   @ApiBadRequestResponse({
     type: ErrorResponseDto,
-    description:
-      'deviceId is required, type must be Falcon or SMAC, and lastTimestamp must be a non-negative number of hours inside the supported date range.',
+    description: 'deviceId is required and type must be Falcon or SMAC.',
   })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
@@ -83,7 +74,6 @@ export class DeviceController {
   async getInactivityStatus(
     @Query('deviceId') deviceId: string,
     @Query('type') type: string,
-    @Query('lastTimestamp') lastTimestamp: string,
     @Req() request: Request,
   ) {
     if (typeof deviceId !== 'string' || deviceId.trim().length === 0) {
@@ -92,21 +82,6 @@ export class DeviceController {
 
     if (type !== 'Falcon' && type !== 'SMAC') {
       throw new BadRequestException('type must be Falcon or SMAC');
-    }
-
-    if (
-      typeof lastTimestamp !== 'string' ||
-      lastTimestamp.trim().length === 0
-    ) {
-      throw new BadRequestException(
-        'lastTimestamp must be a non-negative number of hours',
-      );
-    }
-    const hoursSinceLastRecord = Number(lastTimestamp);
-    if (!Number.isFinite(hoursSinceLastRecord) || hoursSinceLastRecord < 0) {
-      throw new BadRequestException(
-        'lastTimestamp must be a non-negative number of hours',
-      );
     }
 
     const userId: unknown = (request as Request & { user?: { sub?: unknown } })
@@ -122,11 +97,6 @@ export class DeviceController {
 
     const scope = await this.scopeService.resolve(userId);
 
-    return this.deviceService.checkInactivity(
-      deviceId,
-      type,
-      hoursSinceLastRecord,
-      scope,
-    );
+    return this.deviceService.checkInactivity(deviceId.trim(), type, scope);
   }
 }

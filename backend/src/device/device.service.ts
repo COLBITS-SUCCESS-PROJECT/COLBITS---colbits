@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -12,15 +8,21 @@ import { ScopeContext } from '../scope/scope.types';
 import { InactivityResultDto } from './dto/inactivity-result.dto';
 
 const FALCON_RECORD_SQL = `
-  SELECT fs.node_id
+  SELECT fs.node_id, l.recorded_at
   FROM public.fuses f
   JOIN public.fuses_sets fs ON fs.id = f.fuses_set_id
+  LEFT JOIN public.last_falcon_values l ON l.hw_id = f.current_hw_id
   WHERE f.current_hw_id = $1
   LIMIT 1
 `;
 
 const SMAC_RECORD_SQL = `
-  SELECT t.node_id
+  SELECT t.node_id,
+         GREATEST(
+           (SELECT recorded_at FROM public.last_smac_vc_values WHERE hw_id = t.current_hw_id),
+           (SELECT recorded_at FROM public.last_smac_pw_values WHERE hw_id = t.current_hw_id),
+           (SELECT recorded_at FROM public.last_smac_pf_values WHERE hw_id = t.current_hw_id)
+         ) AS recorded_at
   FROM public.trafos t
   WHERE t.current_hw_id = $1
   LIMIT 1
@@ -37,23 +39,15 @@ export class DeviceService {
   async checkInactivity(
     deviceId: string,
     deviceType: 'Falcon' | 'SMAC',
-    hoursSinceLastRecord: number,
     scope: ScopeContext,
   ): Promise<InactivityResultDto> {
-    if (!Number.isFinite(hoursSinceLastRecord) || hoursSinceLastRecord < 0) {
-      throw new BadRequestException(
-        'lastTimestamp must be a non-negative number of hours',
-      );
-    }
-
     if (scope.kind === 'empty') {
       throw new NotFoundException('Device not found');
     }
 
     const sql = deviceType === 'Falcon' ? FALCON_RECORD_SQL : SMAC_RECORD_SQL;
-    const rows: { node_id: string }[] = await this.nodesRepository.query(sql, [
-      deviceId,
-    ]);
+    const rows: { node_id: string; recorded_at: Date | string | null }[] =
+      await this.nodesRepository.query(sql, [deviceId]);
 
     if (rows.length === 0) {
       throw new NotFoundException('Device not found');
@@ -77,24 +71,29 @@ export class DeviceService {
         ? this.hoursFromConfig('FALCON_INACTIVITY_HOURS', 9)
         : this.hoursFromConfig('SMAC_INACTIVITY_HOURS', 3);
 
-    const lastRecordTime = Date.now() - hoursSinceLastRecord * 60 * 60 * 1000;
-    const lastRecordTimestamp = new Date(lastRecordTime);
-    if (
-      !Number.isFinite(lastRecordTime) ||
-      Number.isNaN(lastRecordTimestamp.getTime())
-    ) {
-      throw new BadRequestException(
-        'lastTimestamp is outside the supported date range',
-      );
+    const rawTimestamp = row.recorded_at ?? null;
+    if (!rawTimestamp) {
+      return {
+        deviceId,
+        deviceType,
+        lastRecordTimestamp: null,
+        thresholdHours,
+        hoursSilent: null,
+        isInactive: true,
+      };
     }
+
+    const lastRecordTimestamp = new Date(rawTimestamp);
+    const diffHours =
+      (Date.now() - lastRecordTimestamp.getTime()) / (1000 * 60 * 60);
 
     return {
       deviceId,
       deviceType,
       lastRecordTimestamp,
       thresholdHours,
-      hoursSilent: parseFloat(hoursSinceLastRecord.toFixed(2)),
-      isInactive: hoursSinceLastRecord > thresholdHours,
+      hoursSilent: parseFloat(diffHours.toFixed(2)),
+      isInactive: diffHours > thresholdHours,
     };
   }
 

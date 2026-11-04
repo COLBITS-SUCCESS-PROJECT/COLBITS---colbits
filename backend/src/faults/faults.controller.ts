@@ -32,7 +32,7 @@ export class FaultsController {
   @ApiBearerAuth()
   @ApiOperation({
     summary:
-      'Active fuse-opening faults inside the authenticated user scope (US10: F-47, F-48, F-49).',
+      'Active fuse-opening faults inside the authenticated user scope (US10: F-47, F-48, F-49, F-50, NF-09).',
     description:
       'Fuse openings of the same fuse set whose opening instants are less than the grouping window apart (FAULT_GROUPING_WINDOW_MINUTES, 5 by default) form one fault, classified as single-, two- or three-phase by distinct canonical phases. A fault is open while any phase has not reported a close; only open faults are listed, oldest first. Openings and closes come from the alarms table: a fuse whose telemetry says open but whose alarms do not is not listed.',
   })
