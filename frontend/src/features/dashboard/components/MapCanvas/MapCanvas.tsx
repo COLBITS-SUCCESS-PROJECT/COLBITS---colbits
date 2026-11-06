@@ -10,8 +10,10 @@ import {
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
   MAP_FIT_PADDING_PX,
+  MAP_MAX_BOUNDS,
   MAP_MAX_NATIVE_ZOOM,
   MAP_MAX_ZOOM,
+  MAP_MIN_ZOOM,
 } from '../../model/liveMonitoring.constants'
 import type { MapLayer, NetworkNode, NetworkState } from '../../model/liveMonitoring.types'
 import { clusterMarkers, expansionZoom, type ClusterItem } from './clusterMarkers'
@@ -112,7 +114,10 @@ export function MapCanvas({
         ref={setMap}
         center={[MAP_DEFAULT_CENTER.latitude, MAP_DEFAULT_CENTER.longitude]}
         zoom={MAP_DEFAULT_ZOOM}
+        minZoom={MAP_MIN_ZOOM}
         maxZoom={MAP_MAX_ZOOM}
+        maxBounds={MAP_MAX_BOUNDS}
+        maxBoundsViscosity={1}
         zoomControl={false}
         className="absolute inset-0 isolate z-0"
       >
@@ -121,6 +126,7 @@ export function MapCanvas({
           attribution={t('map.attribution')}
           maxZoom={MAP_MAX_ZOOM}
           maxNativeZoom={MAP_MAX_NATIVE_ZOOM}
+          noWrap
         />
         <ScaleControl position="bottomright" imperial={false} />
         {state === null &&
