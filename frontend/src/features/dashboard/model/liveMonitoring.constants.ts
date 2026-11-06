@@ -36,6 +36,13 @@ export const ALL = 'ALL'
 export const MAP_DEFAULT_CENTER = { latitude: 3.4516, longitude: -76.532 } as const
 export const MAP_DEFAULT_ZOOM = 13
 export const MAP_MAX_ZOOM = 19
+/** Farthest zoom out: a whole country stays in view, so the world never repeats or shows gray bands. */
+export const MAP_MIN_ZOOM = 5
+/** Panning stops at the world's edges (latitudes beyond ±85° are not drawn by the tile server). */
+export const MAP_MAX_BOUNDS: [[number, number], [number, number]] = [
+  [-85, -180],
+  [85, 180],
+]
 /** Deepest zoom requested from the tile server. Beyond it the map enlarges these tiles, so it never goes blank. */
 export const MAP_MAX_NATIVE_ZOOM = 18
 /** Space kept around the markers when the map frames all nodes, in pixels. */
