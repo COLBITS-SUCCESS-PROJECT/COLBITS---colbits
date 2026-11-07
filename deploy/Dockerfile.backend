@@ -6,12 +6,15 @@ WORKDIR /app
 # Install dependencies first so this layer is cached until a lockfile changes.
 COPY backend/package*.json backend/
 COPY generator/package*.json generator/
-RUN cd backend && npm ci && cd ../generator && npm ci
+# --ignore-scripts: no package can run code while installing. bcrypt still works: it ships prebuilt binaries.
+RUN cd backend && npm ci --ignore-scripts && cd ../generator && npm ci --ignore-scripts
 
 COPY backend backend
 COPY generator generator
 RUN cd backend && npm run build
 
 WORKDIR /app/backend
+# Run as the image's unprivileged user, not root.
+USER node
 # Creates the tables on an empty database and refreshes old data, then starts the API.
 CMD ["sh", "-c", "node scripts/prepare-db.mjs && npm run start:prod"]

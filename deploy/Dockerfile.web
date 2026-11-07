@@ -10,8 +10,10 @@ ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_APP_ENV=production
 COPY frontend/ .
-RUN pnpm install --frozen-lockfile && pnpm build
+# --ignore-scripts: no package can run code while installing.
+RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm build
 
-FROM nginx:alpine
+# Unprivileged nginx: runs as user nginx, not root. Docker lets it listen on port 80, which Caddy expects.
+FROM nginxinc/nginx-unprivileged:alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
