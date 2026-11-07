@@ -2,7 +2,7 @@
 # Built from the repo root (see docker-compose.yml).
 FROM node:20-alpine AS build
 # Same pnpm as CI (.github/workflows/ci.yml).
-RUN npm install -g pnpm@9.15.9
+RUN npm install -g --ignore-scripts pnpm@9.15.9
 WORKDIR /app
 ENV HUSKY=0
 # Vite writes the API address into the build, so changing it needs a rebuild.
