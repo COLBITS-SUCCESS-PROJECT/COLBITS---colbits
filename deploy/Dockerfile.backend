@@ -1,0 +1,17 @@
+# Production image for the COLBITS backend on the VPS. Built from the repo root (see docker-compose.yml).
+# The generator is included: scripts/prepare-db.mjs uses it to load fresh test data on start.
+FROM node:24-slim
+WORKDIR /app
+
+# Install dependencies first so this layer is cached until a lockfile changes.
+COPY backend/package*.json backend/
+COPY generator/package*.json generator/
+RUN cd backend && npm ci && cd ../generator && npm ci
+
+COPY backend backend
+COPY generator generator
+RUN cd backend && npm run build
+
+WORKDIR /app/backend
+# Creates the tables on an empty database and refreshes old data, then starts the API.
+CMD ["sh", "-c", "node scripts/prepare-db.mjs && npm run start:prod"]

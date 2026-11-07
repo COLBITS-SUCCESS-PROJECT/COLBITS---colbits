@@ -1,0 +1,65 @@
+# COLBITS on Colbits' VPS (https://dev.colbits.com.co). Guide: docs/deploy-vps.md
+#   app1     frontend (nginx); Caddy forwards dev.colbits.com.co to app1:80 on the `proxy` network
+#   backend  NestJS API, reached by app1 under /api; not exposed to the Internet
+#   db       PostgreSQL 15, data kept in the db_data volume
+# Secrets come from deploy/.env (copy .env.example). Run from this folder: docker compose up -d --build
+services:
+  db:
+    image: postgres:15
+    container_name: colbits-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: colbits
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: colbits
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U colbits -d colbits']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backend
+    container_name: colbits-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: colbits
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: colbits
+      PORT: 3000
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 15m
+      CORS_ORIGIN: https://dev.colbits.com.co
+      FALCON_INACTIVITY_HOURS: 9
+      SMAC_INACTIVITY_HOURS: 3
+      # Test data older than this is regenerated, but only when the backend starts.
+      DATA_REFRESH_HOURS: 1
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app1:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        VITE_API_BASE_URL: https://dev.colbits.com.co/api
+    # Caddy looks for this exact name and port (app1:80).
+    container_name: app1
+    restart: unless-stopped
+    networks: [default, proxy]
+    depends_on: [backend]
+
+volumes:
+  db_data:
+
+networks:
+  # Created by Colbits; Caddy is attached to it.
+  proxy:
+    external: true
