@@ -9,7 +9,9 @@ import {
   FuseSetViewDto,
   NodeFuseSetsResponseDto,
   NodeViewDto,
+  ZoneRefDto,
 } from './dto/nodes.dto';
+import { CircuitRefDto, SubstationRefDto } from './dto/node-detail.dto';
 import {
   DEFAULT_FALCON_INACTIVITY_HOURS,
   FALCON_FUSE_OPEN,
@@ -69,6 +71,55 @@ const FUSE_SUMMARY_SQL = `
   GROUP BY fs.node_id
 `;
 
+interface NodeLocationRow {
+  node_id: string;
+  zone_id: number | string;
+  zone_name: string;
+  substation_id: number | string;
+  substation_code: string;
+  substation_name: string;
+  circuit_id: number | string;
+  circuit_name: string;
+  device_ids: string[] | null;
+}
+
+interface NodeLocation {
+  zone: ZoneRefDto;
+  substation: SubstationRefDto;
+  circuit: CircuitRefDto;
+  deviceIds: string[];
+}
+
+/**
+ * US14 · F-33, F-34: zone, substation and circuit of each node (nodes → circuits → substations →
+ * zones) and the devices installed on it now (current Falcon of each fuse, current SMAC of each
+ * transformer), so the map can filter by location and find a node by device identifier.
+ */
+export const NODE_LOCATIONS_SQL = `
+  SELECT n.name AS node_id,
+         z.id   AS zone_id,       z.name AS zone_name,
+         s.id   AS substation_id, s.code AS substation_code, s.name AS substation_name,
+         c.id   AS circuit_id,    c.name AS circuit_name,
+         ARRAY(
+           SELECT d.hw_id FROM (
+             SELECT f.current_hw_id AS hw_id
+             FROM public.fuses_sets fs
+             JOIN public.fuses f ON f.fuses_set_id = fs.id
+             WHERE fs.node_id = n.name AND f.current_hw_id IS NOT NULL
+             UNION
+             SELECT t.current_hw_id
+             FROM public.trafos t
+             WHERE t.node_id = n.name AND t.current_hw_id IS NOT NULL
+           ) d
+           ORDER BY d.hw_id
+         ) AS device_ids
+  FROM public.nodes n
+  JOIN public.circuits c    ON c.id = n.circuit_id
+  JOIN public.substations s ON s.id = c.substation_id
+  JOIN public.zones z       ON z.id = s.zone_id
+  WHERE n.name = ANY($1)
+`;
+
 interface FuseSetRow {
   id: number;
   set_id: string | null;
@@ -114,6 +165,7 @@ export class NodesService {
     const fuseStates = await this.fuseStatesFor(nodeNames);
     const smacInactivity = await this.smacInactivityFor(nodeNames);
     const transformerStates = await this.transformerStatesFor(nodeNames);
+    const locations = await this.locationsFor(nodeNames);
 
     const nodes: NodeViewDto[] = rows.map((node) => ({
       name: node.name,
@@ -122,6 +174,10 @@ export class NodesService {
       fuse_state: fuseStates.get(node.name) ?? null,
       smac_inactive: smacInactivity.get(node.name) ?? null,
       transformer_state: transformerStates.get(node.name) ?? null,
+      zone: locations.get(node.name)?.zone ?? null,
+      substation: locations.get(node.name)?.substation ?? null,
+      circuit: locations.get(node.name)?.circuit ?? null,
+      device_ids: locations.get(node.name)?.deviceIds ?? [],
     }));
 
     return { count, nodes };
@@ -224,6 +280,34 @@ export class NodesService {
       [...byNode].map(([node, transformers]) => [
         node,
         deriveTransformerState(transformers),
+      ]),
+    );
+  }
+
+  /** US14 · F-33, F-34: location and installed devices of each node. */
+  private async locationsFor(
+    nodeNames: string[],
+  ): Promise<Map<string, NodeLocation>> {
+    if (nodeNames.length === 0) return new Map();
+
+    const rows: NodeLocationRow[] = await this.nodesRepository.query(
+      NODE_LOCATIONS_SQL,
+      [nodeNames],
+    );
+
+    return new Map(
+      rows.map((row) => [
+        row.node_id,
+        {
+          zone: { id: Number(row.zone_id), name: row.zone_name },
+          substation: {
+            id: Number(row.substation_id),
+            code: row.substation_code,
+            name: row.substation_name,
+          },
+          circuit: { id: Number(row.circuit_id), name: row.circuit_name },
+          deviceIds: row.device_ids ?? [],
+        },
       ]),
     );
   }

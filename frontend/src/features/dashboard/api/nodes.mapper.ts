@@ -1,5 +1,5 @@
 /** Node DTO → domain model. The only place that knows the backend field names. */
-import type { NetworkNode, NetworkState } from '../model/liveMonitoring.types'
+import type { NetworkNode, NetworkState, NodeLocation } from '../model/liveMonitoring.types'
 import type { NodeDto, NodeStateDto, NodesResponseDto } from './nodes.dto'
 
 const LATITUDE_LIMIT = 90
@@ -31,6 +31,16 @@ function toTransformerState(dto: NodeDto): NetworkState | null {
   return toState(dto.transformer_state)
 }
 
+/** All three levels are needed to place a node in the hierarchy; otherwise it has no known location. */
+function toLocation(dto: NodeDto): NodeLocation | null {
+  if (!dto.zone || !dto.substation || !dto.circuit) return null
+  return {
+    zone: { id: String(dto.zone.id), name: dto.zone.name },
+    substation: { id: String(dto.substation.id), name: dto.substation.name },
+    circuit: { id: String(dto.circuit.id), name: dto.circuit.name },
+  }
+}
+
 export function toNetworkNode(dto: NodeDto): NetworkNode {
   return {
     id: dto.name,
@@ -38,6 +48,8 @@ export function toNetworkNode(dto: NodeDto): NetworkNode {
     coordinates: { latitude: dto.latitude as number, longitude: dto.longitude as number },
     fuseState: toState(dto.fuse_state),
     transformerState: toTransformerState(dto),
+    location: toLocation(dto),
+    deviceIds: dto.device_ids ?? [],
   }
 }
 

@@ -26,12 +26,16 @@ describe('matchesFilters', () => {
     expect(faults.every((fault) => matchesFilters(fault, NO_FILTERS, NOW))).toBe(true)
   })
 
-  it('filters by layer, substation, search, type, classification and minimum duration', () => {
+  it('follows the map location filter through the fault node (US14)', () => {
+    const fuse = byId('f-1')
+    expect(matchesFilters(fuse, NO_FILTERS, NOW, new Set([fuse.nodeId]))).toBe(true)
+    expect(matchesFilters(fuse, NO_FILTERS, NOW, new Set(['OTHER']))).toBe(false)
+    expect(matchesFilters(fuse, NO_FILTERS, NOW, new Set())).toBe(false)
+  })
+
+  it('filters by layer, search, type, classification and minimum duration', () => {
     const fuse = byId('f-1')
     expect(matchesFilters(fuse, { ...NO_FILTERS, layers: ['TRANSFORMERS'] }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, zone: 'Z-02' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, substation: 'SE-Sur' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, circuit: 'CR-07' }, NOW)).toBe(false)
     expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'nd0482' }, NOW)).toBe(true)
     expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'XX' }, NOW)).toBe(false)
     expect(matchesFilters(fuse, { ...NO_FILTERS, alertType: 'NO_VOLTAGE' }, NOW)).toBe(false)
