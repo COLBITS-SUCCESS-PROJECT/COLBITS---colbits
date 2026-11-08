@@ -180,6 +180,15 @@ describe('MapCanvas', () => {
     expect(screen.getByTestId('tile-layer')).toHaveAttribute('data-max-native-zoom', '18')
   })
 
+  it('stops zooming out at country level and keeps the view inside one world', () => {
+    renderMap()
+
+    const map = screen.getByTestId('leaflet-map')
+    expect(map).toHaveAttribute('data-min-zoom', '5')
+    expect(map).toHaveAttribute('data-max-bounds', '-85,-180,85,180')
+    expect(screen.getByTestId('tile-layer')).toHaveAttribute('data-no-wrap', 'true')
+  })
+
   it('zooms the map with the zoom buttons', async () => {
     renderMap()
 

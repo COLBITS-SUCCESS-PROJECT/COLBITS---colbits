@@ -82,6 +82,10 @@ npm run start:dev
 
 The stack is deployed from [`render.yaml`](./render.yaml). Setup, loading the data and free-plan limits: [docs/deploy-render.md](./docs/deploy-render.md).
 
+## Colbits server (VPS)
+
+`develop` also runs on Colbits' server at **https://dev.colbits.com.co**, from [`deploy/`](./deploy/). Connecting, updating and troubleshooting: [docs/deploy-vps.md](./docs/deploy-vps.md).
+
 ## Branches
 
 | Branch | Purpose | Who merges |

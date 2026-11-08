@@ -13,15 +13,30 @@ interface MapContainerProps {
   ref?: (map: MockMap | null) => void
   center: [number, number]
   zoom: number
+  minZoom?: number
+  maxBounds?: [[number, number], [number, number]]
 }
 
-export function MapContainer({ children, ref, center, zoom }: MapContainerProps) {
+export function MapContainer({
+  children,
+  ref,
+  center,
+  zoom,
+  minZoom,
+  maxBounds,
+}: MapContainerProps) {
   useEffect(() => {
     ref?.(mockMap)
   }, [ref])
 
   return (
-    <div data-testid="leaflet-map" data-center={center.join(',')} data-zoom={zoom}>
+    <div
+      data-testid="leaflet-map"
+      data-center={center.join(',')}
+      data-zoom={zoom}
+      data-min-zoom={minZoom}
+      data-max-bounds={maxBounds?.flat().join(',')}
+    >
       {children}
     </div>
   )
@@ -31,14 +46,16 @@ interface TileLayerProps {
   url: string
   attribution: string
   maxNativeZoom?: number
+  noWrap?: boolean
 }
 
-export function TileLayer({ url, attribution, maxNativeZoom }: TileLayerProps) {
+export function TileLayer({ url, attribution, maxNativeZoom, noWrap }: TileLayerProps) {
   return (
     <div
       data-testid="tile-layer"
       data-url={url}
       data-max-native-zoom={maxNativeZoom}
+      data-no-wrap={noWrap}
       dangerouslySetInnerHTML={{ __html: attribution }}
     />
   )
