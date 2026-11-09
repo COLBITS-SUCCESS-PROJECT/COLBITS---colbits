@@ -146,55 +146,38 @@ describe('toSourceAlarmDto', () => {
     });
   });
 
-  it('PHASE_LOSS: one entry per transformer channel, with no fuse set and no phases', () => {
-    expect(toSourceAlarmDto(smacRow({ event_code: '0514211' }), NOW)).toEqual({
-      fault: {
-        id: `PHASE_LOSS:0000100004-T1-3:A:${STARTED}`,
-        node: '0000100004',
-        circuit: { id: 3, name: 'CTO 3' },
-        fuses_set_id: null,
-        branch: null,
-        alert_type: 'PHASE_LOSS',
-        device: 'SMAC',
-        source_id: '0000100004-T1-3',
-        channel: 'A',
-        state: 'OPEN',
-        phases: null,
-        classification: null,
-        client_count: null,
-        started_at: STARTED,
-        ended_at: null,
-        duration_seconds: 900,
-        openings: [],
-        warnings: [],
-      },
-    });
-  });
-
-  it('PHASE_OUT_OF_RANGE: same format as PHASE_LOSS, its own type and id', () => {
-    expect(toSourceAlarmDto(smacRow({ event_code: '051420c' }), NOW)).toEqual({
-      fault: {
-        id: `PHASE_OUT_OF_RANGE:0000100004-T1-3:C:${STARTED}`,
-        node: '0000100004',
-        circuit: { id: 3, name: 'CTO 3' },
-        fuses_set_id: null,
-        branch: null,
-        alert_type: 'PHASE_OUT_OF_RANGE',
-        device: 'SMAC',
-        source_id: '0000100004-T1-3',
-        channel: 'C',
-        state: 'OPEN',
-        phases: null,
-        classification: null,
-        client_count: null,
-        started_at: STARTED,
-        ended_at: null,
-        duration_seconds: 900,
-        openings: [],
-        warnings: [],
-      },
-    });
-  });
+  it.each([
+    ['PHASE_LOSS', '0514211', 'A'],
+    ['PHASE_OUT_OF_RANGE', '051420c', 'C'],
+  ])(
+    '%s: one entry per transformer channel, with no fuse set and no phases',
+    (type, eventCode, channel) => {
+      expect(toSourceAlarmDto(smacRow({ event_code: eventCode }), NOW)).toEqual(
+        {
+          fault: {
+            id: `${type}:0000100004-T1-3:${channel}:${STARTED}`,
+            node: '0000100004',
+            circuit: { id: 3, name: 'CTO 3' },
+            fuses_set_id: null,
+            branch: null,
+            alert_type: type,
+            device: 'SMAC',
+            source_id: '0000100004-T1-3',
+            channel,
+            state: 'OPEN',
+            phases: null,
+            classification: null,
+            client_count: null,
+            started_at: STARTED,
+            ended_at: null,
+            duration_seconds: 900,
+            openings: [],
+            warnings: [],
+          },
+        },
+      );
+    },
+  );
 
   it('takes the type and device from the event code, not from the other columns', () => {
     const fault = faultOf(

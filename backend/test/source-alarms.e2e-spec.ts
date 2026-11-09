@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { channelOf } from '../src/faults/source-alarms';
@@ -20,7 +21,8 @@ import {
 // Uses the isolated database of the F-10 tests and removes every row it creates.
 
 const LABEL = 'SCRUM-225 source alarms';
-const PASSWORD = 'SourceAlarmsE2E2026!';
+// Generated per run for the throwaway users this spec creates, so no credential is in the code.
+const PASSWORD = randomBytes(18).toString('base64url');
 const USERS = {
   admin: 'source-alarms-e2e-admin@test.local',
   circuit1: 'source-alarms-e2e-circuit1@test.local',
