@@ -9,6 +9,7 @@ import { MapToolbar } from '../components/MapToolbar/MapToolbar'
 import { FaultPanel } from '../components/FaultPanel/FaultPanel'
 import { FaultPanelToggle } from '../components/FaultPanel/FaultPanelToggle'
 import { NodeDetailPanel } from '../components/NodeDetailPanel/NodeDetailPanel'
+import { useInactiveDevicesPanel } from '../hooks/useInactiveDevicesPanel'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
@@ -26,6 +27,7 @@ export function LiveMonitoringPage() {
   const nodesQuery = useNodesQuery()
   const { filters, updateFilters, toggleLayer, tab, setTab } = useLiveMonitoringFilters()
   const now = useNow()
+  const inactive = useInactiveDevicesPanel(now)
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
   const scope = useMemo(() => deriveScopeOptions(faults), [faults])
   const activeFaults = useMemo(
@@ -78,6 +80,7 @@ export function LiveMonitoringPage() {
           // GET /faults lists open faults only: resolved faults (US16) and counters (US15) come later.
           resolvedFaults={null}
           counters={query.data?.counters ?? null}
+          inactive={inactive}
           filters={filters}
           onFiltersChange={updateFilters}
           isLoading={query.isPending}

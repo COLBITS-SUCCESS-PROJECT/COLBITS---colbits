@@ -40,7 +40,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | [SCRUM-65](./SCRUM-65.md) | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18) | Sofia | DONE |
 | [SCRUM-106](./SCRUM-106.md) | US8 · Layer toggles and dual-state nodes (F-14, F-24) | Sofia | IN_REVIEW |
 | [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M6): `GET /nodes/:name/detail` + panel over the map (F-27, F-29) | Sofia | IN_REVIEW |
-| — | Inactive devices tab (M12, M14) | TBD | PLANNED |
+| [SCRUM-115](./SCRUM-115.md) | US17 · Inactive devices tab (M12, M14): list ordered by time without data — UI with sample data, no endpoint yet | Monica | IN_PROGRESS |
 | [SCRUM-110](./SCRUM-110.md) | US12 · Live node state updates: the map refreshes every 15 s (F-25, F-26, F-30, NF-01) | Paola | IN_REVIEW |
 | [SCRUM-108](./SCRUM-108.md) | US10 · Active fault list from `GET /faults`: each fault with its classification and affected clients (F-51, F-55) | Paola | IN_REVIEW |
 
