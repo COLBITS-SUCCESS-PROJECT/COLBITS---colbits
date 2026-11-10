@@ -77,7 +77,8 @@ export const SOURCE_ALARM_PATTERNS: readonly string[] = SOURCE_ALARM_TYPES.map(
 );
 
 /**
- * Active source alarms of the in-scope nodes, one row per source, in one statement.
+ * Event selection shared by the source-alarm queries: every SET and CLEAR of the in-scope sources,
+ * one row per event, tagged with its alarm key. It selects and normalizes; it decides nothing.
  *
  * - Sources: every fuse of an in-scope fuse set (NO_VOLTAGE) and every in-scope transformer
  *   (PHASE_LOSS, PHASE_OUT_OF_RANGE). Alarms are joined by `custom_id` only (mapping doc row 80):
@@ -85,15 +86,12 @@ export const SOURCE_ALARM_PATTERNS: readonly string[] = SOURCE_ALARM_TYPES.map(
  * - Key: type + source + channel. The SMAC channel is normalized as channelOf does (1/A, 2/B,
  *   3/C, any case). An unknown channel keeps its raw character as its own key, so it never merges
  *   with a known one; such a row is returned and then skipped and logged by the service.
- * - Active: the key has a SET later than its last CLEAR. At the same instant a CLEAR wins.
- * - started_at: the first SET after the last CLEAR, so repeated SETs never restart an alarm.
  * - event_type: SET, set, CLEAR and clear, the same values the fuse-opening query accepts.
  *
- * There is no time lookback: an alarm stays listed until its CLEAR arrives. Telemetry is not read.
- * Parameters: $1 node names in scope, $2-$4 the registry patterns (SOURCE_ALARM_PATTERNS).
+ * Written as a CTE named `events`, to be placed after WITH. Parameters: $1 node names in scope,
+ * $2-$4 the registry patterns (SOURCE_ALARM_PATTERNS).
  */
-export const ACTIVE_SOURCE_ALARMS_SQL = `
-  WITH events AS (
+export const SOURCE_ALARM_EVENTS_CTE = `events AS (
     SELECT 'NO_VOLTAGE'::text AS alert_type, f.custom_id AS source_id, ''::text AS channel_key,
            fs.node_id, fs.id AS fuses_set_id, fs.set_id AS branch, f.phase,
            a.event_code, (a.event_type IN ('SET', 'set')) AS is_set, a.recorded_at
@@ -119,7 +117,20 @@ export const ACTIVE_SOURCE_ALARMS_SQL = `
     WHERE t.node_id = ANY($1::text[])
       AND (a.event_code ~ $3::text OR a.event_code ~ $4::text)
       AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
-  ), marked AS (
+  )`;
+
+/**
+ * Active source alarms of the in-scope nodes, one row per source, in one statement, built on
+ * SOURCE_ALARM_EVENTS_CTE (sources, key and event types are described there).
+ *
+ * - Active: the key has a SET later than its last CLEAR. At the same instant a CLEAR wins.
+ * - started_at: the first SET after the last CLEAR, so repeated SETs never restart an alarm.
+ *
+ * There is no time lookback: an alarm stays listed until its CLEAR arrives. Telemetry is not read.
+ * Parameters: $1 node names in scope, $2-$4 the registry patterns (SOURCE_ALARM_PATTERNS).
+ */
+export const ACTIVE_SOURCE_ALARMS_SQL = `
+  WITH ${SOURCE_ALARM_EVENTS_CTE}, marked AS (
     SELECT e.*,
            max(e.recorded_at) FILTER (WHERE NOT e.is_set)
              OVER (PARTITION BY e.alert_type, e.source_id, e.channel_key) AS last_clear
