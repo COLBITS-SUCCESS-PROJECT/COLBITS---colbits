@@ -18,6 +18,16 @@ import { NodeState } from './fuse-state';
 export const PHASE_DROP_EVENT_PATTERN = ALERT_TYPE_DEFINITIONS.PHASE_LOSS
   .eventCodePattern as string;
 
+/**
+ * #CORRECTION TD-04 (2026-11-09): new configurable window, default 7 days; 0 switches to the latest-reading variant.
+ * TD-04 (provisional, docs/decisions/client-clarifications-2026-11.md): a phase exists when its
+ * voltage column was not NULL at least once in this many days up to the SMAC's latest reading.
+ * Overridable with SMAC_PHASE_WINDOW_DAYS; 0 means "the latest reading only" (the other variant).
+ */
+export const DEFAULT_SMAC_PHASE_WINDOW_DAYS = 7;
+
+export type Phase = 1 | 2 | 3;
+
 export interface TransformerSummary {
   /** trafos.custom_id, e.g. 0000226153-T1-3 (Annex §3.3: node + transformer id + phase count). */
   customId: string;
@@ -25,6 +35,13 @@ export interface TransformerSummary {
   inactive: boolean;
   /** Channel character (`y`) of every phase-drop event whose last event is a SET. */
   downChannels: readonly string[];
+  /**
+   * #CORRECTION CL-07/TD-04 (2026-11-09): new field; phases came only from the -2 / -3 suffix.
+   * Phases the transformer has, from its voltage columns (CL-07 / TD-04): any pair is possible
+   * (A-B, B-C, A-C). null when no reading in the window states any voltage; the phase count of the
+   * identifier is used then. Omitted = null.
+   */
+  existingPhases?: readonly Phase[] | null;
 }
 
 /**
@@ -49,21 +66,48 @@ export function phaseOfChannel(channel: string): 1 | 2 | 3 | null {
 }
 
 /**
+ * #CORRECTION CL-07/TD-04 (2026-11-09): a two-phase transformer was always taken as A-B; any pair is now possible.
+ * Phases the transformer has: from its voltage columns when known (CL-07 / TD-04), otherwise the
+ * first phases up to the identifier's phase count (A-B or A-B-C). null when neither is known.
+ */
+export function phasesOf(summary: TransformerSummary): readonly Phase[] | null {
+  if (summary.existingPhases && summary.existingPhases.length > 0) {
+    return summary.existingPhases;
+  }
+  const phaseCount = phaseCountOf(summary.customId);
+  if (phaseCount === null) return null;
+  return phaseCount === 2 ? [1, 2] : [1, 2, 3];
+}
+
+/**
+ * #CORRECTION TD-05 (2026-11-09): new, so the caller can log the ignored drops.
+ * Down channels on a phase the transformer does not have (TD-05): they never count as down and the
+ * caller logs them. A channel that is not a known phase is not listed here (see phasesDown).
+ */
+export function ignoredChannels(summary: TransformerSummary): string[] {
+  const phases = phasesOf(summary);
+  if (phases === null) return [];
+  return [...new Set(summary.downChannels)].filter((channel) => {
+    const phase = phaseOfChannel(channel);
+    return phase !== null && !phases.includes(phase);
+  });
+}
+
+/**
+ * #CORRECTION CL-07/TD-04 (2026-11-09): counts against phasesOf() instead of the identifier's phase count.
  * Phases down on one transformer, counted against the phases it really has (F-23 / RF-MAP-05):
- * an event on phase C of a two-phase transformer is ignored. A channel that is not a known phase
- * is still counted (it is an Annex phase-drop event), but never above the phase count.
+ * an event on a phase the transformer does not have is ignored (TD-05). A channel that is not a
+ * known phase is still counted (it is an Annex phase-drop event), but never above the phase count.
  */
 export function phasesDown(summary: TransformerSummary): number {
-  const phaseCount = phaseCountOf(summary.customId);
+  const phases = phasesOf(summary);
+  const ignored = new Set(ignoredChannels(summary));
   const channels = new Set(
-    summary.downChannels.filter((channel) => {
-      const phase = phaseOfChannel(channel);
-      return phase === null || phaseCount === null || phase <= phaseCount;
-    }),
+    summary.downChannels.filter((channel) => !ignored.has(channel)),
   );
-  return phaseCount === null
+  return phases === null
     ? channels.size
-    : Math.min(channels.size, phaseCount);
+    : Math.min(channels.size, phases.length);
 }
 
 function stateOf(summary: TransformerSummary): NodeState {
@@ -102,12 +146,32 @@ export function deriveTransformerState(
  * and the channels whose last phase-drop event is a SET. Events are matched by the stable
  * transformer identifier (custom_id), or by the device when the event has no custom_id.
  * At the same instant a CLEAR wins over a SET, so a recovered phase is never reported down.
+ *
+ * #CORRECTION CL-07/TD-04 (2026-11-09): columns has_a / has_b / has_c and parameter $4 added.
+ * Existing phases (CL-07 / TD-04): has_a / has_b / has_c say whether va / vb / vc was not NULL in
+ * at least one `smac_vc_values` reading of the transformer's SMAC within $4 days up to its latest
+ * reading (`last_smac_vc_values.recorded_at`, a stored timestamp, so old data keeps its phases).
+ * All three are NULL when there is no such reading; all false when every voltage was NULL.
+ * The window uses the primary key (hw_id, recorded_at) of `smac_vc_values`.
  */
 export const TRANSFORMER_SUMMARY_SQL = `
   SELECT t.node_id, t.custom_id,
          (s.last_seen IS NULL OR s.last_seen < now() - $2 * interval '1 hour') AS inactive,
-         COALESCE(d.down_channels, '{}') AS down_channels
+         COALESCE(d.down_channels, '{}') AS down_channels,
+         p.has_a, p.has_b, p.has_c
   FROM public.trafos t
+  -- #CORRECTION CL-07/TD-04 (2026-11-09): phases with a non-NULL voltage within $4 days up to the latest reading.
+  LEFT JOIN LATERAL (
+    SELECT BOOL_OR(v.va IS NOT NULL) AS has_a,
+           BOOL_OR(v.vb IS NOT NULL) AS has_b,
+           BOOL_OR(v.vc IS NOT NULL) AS has_c
+    FROM public.last_smac_vc_values lv
+    JOIN public.smac_vc_values v
+      ON v.hw_id = lv.hw_id
+     AND v.recorded_at <= lv.recorded_at
+     AND v.recorded_at >= lv.recorded_at - $4 * interval '1 day'
+    WHERE lv.hw_id = t.current_hw_id
+  ) p ON true
   CROSS JOIN LATERAL (
     SELECT GREATEST(
              (SELECT recorded_at FROM public.last_smac_vc_values WHERE hw_id = t.current_hw_id),

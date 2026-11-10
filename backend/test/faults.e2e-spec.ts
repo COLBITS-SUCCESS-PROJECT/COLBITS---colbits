@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
+import { NodesService } from '../src/nodes/nodes.service';
 import {
   ALERT_TYPE_DEFINITIONS,
   ALERT_TYPES,
@@ -530,7 +531,7 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       expect(reports).toHaveLength(1);
     });
 
-    it('does not list a fuse that telemetry shows open when its alarms say closed (known limitation)', async () => {
+    it('does not list a fuse that telemetry shows open when its alarms say closed, and the map agrees (CL-01)', async () => {
       const telemetry: Array<{ fuse_state: string }> = await dataSource.query(
         `SELECT l.fuse_state FROM last_falcon_values l
          JOIN fuses f ON f.current_hw_id = l.hw_id WHERE f.custom_id = '0000100002-A-R'`,
@@ -540,11 +541,19 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
          ORDER BY recorded_at DESC LIMIT 1`,
       );
 
-      expect(telemetry[0].fuse_state).toBe('Abierto'); // the map shows this node as critical
+      expect(telemetry[0].fuse_state).toBe('Abierto'); // telemetry still says open
       expect(lastAlarm[0].event_type).toBe('CLEAR'); // but its alarm history closed the opening
       expect(
         body.faults.filter((fault) => fault.node === SEED_RESOLVED_NODE),
       ).toEqual([]);
+      // #CORRECTION CL-01/TD-01 (2026-11-09): was a known limitation (map red, list empty); the map now agrees with the list.
+      // CL-01 / TD-01: alarms win on the map too, so the node is no longer red.
+      const { nodes } = await app
+        .get(NodesService)
+        .findAll({ kind: 'unrestricted' });
+      expect(
+        nodes.find((node) => node.name === SEED_RESOLVED_NODE)?.fuse_state,
+      ).not.toBe('CRITICAL');
     });
 
     it('changes the grouping when the window changes, without code changes (NF-09)', async () => {

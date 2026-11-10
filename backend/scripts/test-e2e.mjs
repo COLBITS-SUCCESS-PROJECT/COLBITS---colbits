@@ -36,6 +36,8 @@ const TEST_ENV = {
   JWT_SECRET: randomBytes(32).toString('hex'),
   FALCON_INACTIVITY_HOURS: '9',
   SMAC_INACTIVITY_HOURS: '3',
+  // #CORRECTION TD-04 (2026-11-09): new setting, default value.
+  SMAC_PHASE_WINDOW_DAYS: '7',
 };
 
 /** Jest only loads the ESM build of NestJS from this version on (the Dockerfile and CI use 24). */

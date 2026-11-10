@@ -58,6 +58,8 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       FALCON_INACTIVITY_HOURS: ${FALCON_INACTIVITY_HOURS:-9}
       SMAC_INACTIVITY_HOURS: ${SMAC_INACTIVITY_HOURS:-3}
+      #CORRECTION TD-04 (2026-11-09): new setting, provisional (decisions doc, section 7.2).
+      SMAC_PHASE_WINDOW_DAYS: ${SMAC_PHASE_WINDOW_DAYS:-7}
       # File events do not cross the Windows/macOS → Docker boundary; poll instead.
       TSC_WATCHFILE: DynamicPriorityPolling
       CHOKIDAR_USEPOLLING: 'true'
