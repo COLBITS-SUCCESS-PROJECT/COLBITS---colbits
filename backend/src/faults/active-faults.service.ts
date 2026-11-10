@@ -18,6 +18,13 @@ import {
 import { canonicalPhases, classifyFault } from './fault-classification';
 import { FuseEvent, FuseFault, groupFuseFaults } from './fault-grouping';
 import { FaultsService } from './faults.service';
+import {
+  ACTIVE_SOURCE_ALARMS_SQL,
+  SOURCE_ALARM_PATTERNS,
+  SourceAlarmRow,
+  SourceAlarmSkipReason,
+  toSourceAlarmDto,
+} from './source-alarms';
 
 const FUSE_OPENING_PATTERN = requiredPattern('FUSE_OPENING');
 
@@ -119,15 +126,24 @@ interface SetInfo {
   circuit: { id: number; name: string };
 }
 
+/** Order of the alert types at the same instant: the registry order (FUSE_OPENING first). */
+const TYPE_ORDER = new Map<string, number>(
+  ALERT_TYPES.map((type, index) => [type, index]),
+);
+
 /**
- * Active (open) fuse-opening faults inside a user's scope: the alarm events are grouped per fuse
- * set within the configured window, classified by distinct canonical phases, and only the open
- * ones are returned. It filters and groups; it does not detect anything new (F-47).
+ * Active (open) entries inside a user's scope, oldest first:
+ * - fuse-opening faults (US10): the alarm events are grouped per fuse set within the configured
+ *   window, classified by distinct canonical phases, and only the open ones are returned;
+ * - source alarms (SCRUM-225): loss of voltage per fuse and SMAC phase alarms per transformer
+ *   channel, never grouped (see source-alarms.ts).
+ * It filters and groups; it does not detect anything new (F-47).
  */
 @Injectable()
 export class ActiveFaultsService {
   private readonly logger = new Logger(ActiveFaultsService.name);
   private readonly reportedCodes = new Set<string>();
+  private readonly reportedSourceAlarms = new Set<string>();
 
   constructor(
     @InjectRepository(Node)
@@ -143,10 +159,19 @@ export class ActiveFaultsService {
     const nodes = await this.nodesInScope(scope);
     if (nodes.length === 0) return responseOf(now, []);
 
-    const rows: EventRow[] = await this.nodesRepository.query(
-      ACTIVE_FAULT_EVENTS_SQL,
-      [nodes, FUSE_OPENING_PATTERN, DOCUMENTED_PATTERNS],
-    );
+    // Independent statements on the same node list, so they run in parallel.
+    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] =
+      await Promise.all([
+        this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
+          nodes,
+          FUSE_OPENING_PATTERN,
+          DOCUMENTED_PATTERNS,
+        ]),
+        this.nodesRepository.query(ACTIVE_SOURCE_ALARMS_SQL, [
+          nodes,
+          ...SOURCE_ALARM_PATTERNS,
+        ]),
+      ]);
 
     const sets = new Map<number, SetInfo>();
     const events: FuseEvent[] = [];
@@ -170,14 +195,21 @@ export class ActiveFaultsService {
       });
     }
 
-    const faults = groupFuseFaults(
+    const fuseFaults = groupFuseFaults(
       events,
       this.faultsService.getGroupingWindowMinutes(),
     )
       .filter((fault) => fault.state === 'OPEN')
       .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
 
-    return responseOf(now, faults);
+    const sourceAlarms: ActiveFaultDto[] = [];
+    for (const row of sourceRows) {
+      const mapped = toSourceAlarmDto(row, now);
+      if ('fault' in mapped) sourceAlarms.push(mapped.fault);
+      else this.reportSkippedSourceAlarm(row, mapped.skipped);
+    }
+
+    return responseOf(now, mergeOldestFirst(fuseFaults, sourceAlarms));
   }
 
   /** Same scope rule as the nodes list: the names of the nodes the user may see. */
@@ -203,6 +235,24 @@ export class ActiveFaultsService {
     this.reportedCodes.add(row.event_code);
     this.logger.warn(
       `Unrecognized alarm event_code ${JSON.stringify(row.event_code)} on fuse ${JSON.stringify(row.fuse_id)}: not mapped to any alert type`,
+    );
+  }
+
+  /** An active source alarm that could not be listed (e.g. unknown SMAC channel): logged once, not guessed. */
+  private reportSkippedSourceAlarm(
+    row: SourceAlarmRow,
+    reason: SourceAlarmSkipReason,
+  ): void {
+    const key = `${reason}:${row.source_id}:${row.event_code}`;
+    if (
+      this.reportedSourceAlarms.has(key) ||
+      this.reportedSourceAlarms.size >= MAX_REPORTED_CODES
+    ) {
+      return;
+    }
+    this.reportedSourceAlarms.add(key);
+    this.logger.warn(
+      `Active alarm event_code ${JSON.stringify(row.event_code)} on ${JSON.stringify(row.source_id)} not listed: ${reason}`,
     );
   }
 }
@@ -237,6 +287,9 @@ function toDto(fault: FuseFault, info: SetInfo, now: Date): ActiveFaultDto {
     fuses_set_id: fault.fusesSetId,
     branch: info.branch,
     alert_type: 'FUSE_OPENING',
+    device: 'FALCON',
+    source_id: null,
+    channel: null,
     state: 'OPEN',
     phases: classification === null ? null : canonicalPhases(rawPhases),
     classification,
@@ -255,6 +308,29 @@ function toDto(fault: FuseFault, info: SetInfo, now: Date): ActiveFaultDto {
     })),
     warnings,
   };
+}
+
+/**
+ * Both lists oldest first. At the same instant: by alert type (registry order), then source and
+ * channel. Fuse-opening faults keep their own relative order (Array.prototype.sort is stable).
+ */
+function mergeOldestFirst(
+  fuseFaults: ActiveFaultDto[],
+  sourceAlarms: ActiveFaultDto[],
+): ActiveFaultDto[] {
+  return [...fuseFaults, ...sourceAlarms].sort(
+    (a, b) =>
+      Date.parse(a.started_at) - Date.parse(b.started_at) ||
+      (TYPE_ORDER.get(a.alert_type) ?? 0) -
+        (TYPE_ORDER.get(b.alert_type) ?? 0) ||
+      compareText(a.source_id ?? '', b.source_id ?? '') ||
+      compareText(a.channel ?? '', b.channel ?? ''),
+  );
+}
+
+/** Code-unit order, independent of the server locale. */
+function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function responseOf(
