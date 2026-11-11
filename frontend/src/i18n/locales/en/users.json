@@ -34,5 +34,42 @@
     "description": "{{name}} will immediately lose access to Colbits. Their data scope assignment is kept and can be restored if the account is reactivated.",
     "cancel": "Cancel",
     "confirm": "Deactivate user"
+  },
+  "form": {
+    "createTitle": "New consultation user",
+    "createSubtitle": "Only a Colbits administrator can create users",
+    "close": "Close form",
+    "name": "Full name",
+    "namePlaceholder": "e.g. Laura Gómez",
+    "email": "Email address",
+    "emailPlaceholder": "user@colbits.com",
+    "password": "Temporary password",
+    "passwordPlaceholder": "Auto-generated · sent by email",
+    "role": "Role",
+    "roleViewer": "Consultation user",
+    "cancel": "Cancel",
+    "create": "Create user",
+    "validation": {
+      "nameRequired": "Enter the full name",
+      "nameTooLong": "The name cannot be longer than {{max}} characters",
+      "emailRequired": "Enter the email address",
+      "emailInvalid": "Enter a valid email, e.g. user@colbits.com",
+      "emailTaken": "A user with this email already exists",
+      "scopeRequired": "Select at least one network element"
+    }
+  },
+  "scope": {
+    "title": "Data scope",
+    "description": "Assign one or more zones, substations, circuits, nodes or individual devices. The same scope can be assigned to multiple users.",
+    "search": "Search the network",
+    "searchPlaceholder": "Search zone, substation, circuit, node or device…",
+    "noMatches": "No network element matches the search.",
+    "selected": "Selected scope ({{count}})",
+    "noneSelected": "You have not selected any element yet.",
+    "devices_one": "{{count}} device",
+    "devices_other": "{{count}} devices",
+    "rowWithDescription": "{{level}} {{name}} · {{description}}",
+    "expand": "Show the contents of {{name}}",
+    "collapse": "Hide the contents of {{name}}"
   }
 }

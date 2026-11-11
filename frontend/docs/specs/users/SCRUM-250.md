@@ -87,4 +87,7 @@ Not defined by the backend yet. The domain types are in `src/features/users/mode
 ## 9. Implementation notes
 - Sample data and the in-memory state are in `features/users` until the endpoints exist; replacing `useUserManagement` with TanStack Query hooks must not change the components.
 - `ScopeTag` and `ScopeTreeRow` live in `design-system/molecules` because `analysis` will reuse them (FEATURE.md §6).
+- **Scope selection model (F-08).** The scope stores exactly what the administrator ticks. Ticking an element covers its whole subtree: the rows below show checked and locked, and ticks that were already below it are dropped. Nothing is promoted upwards — ticking the only node of a circuit assigns the node, not the circuit, so nodes added to that circuit later stay out of the user's scope. Logic in `model/scopeTree.ts`.
+- The scope tree has open / close chevrons (not in Figma) so a substation or a node can be reached without ticking its zone; the path to an existing scope opens by itself, and a search shows every match with its path.
+- In Figma the partial zone also appears in *Selected scope*; here only the ticked elements are listed, which is what is saved.
 - The blue note under the table in Figma (*"Laura Gómez and Carlos Pérez both have…"*) is a design annotation for F-09, not UI.

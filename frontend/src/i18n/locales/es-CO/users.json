@@ -34,5 +34,42 @@
     "description": "{{name}} perderá el acceso a Colbits de inmediato. Su alcance de datos se conserva y se puede restaurar si la cuenta se reactiva.",
     "cancel": "Cancelar",
     "confirm": "Desactivar usuario"
+  },
+  "form": {
+    "createTitle": "Nuevo usuario de consulta",
+    "createSubtitle": "Solo un administrador de Colbits puede crear usuarios",
+    "close": "Cerrar formulario",
+    "name": "Nombre completo",
+    "namePlaceholder": "p. ej. Laura Gómez",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "usuario@colbits.com",
+    "password": "Contraseña temporal",
+    "passwordPlaceholder": "Autogenerada · se envía por correo",
+    "role": "Rol",
+    "roleViewer": "Usuario de consulta",
+    "cancel": "Cancelar",
+    "create": "Crear usuario",
+    "validation": {
+      "nameRequired": "Escribe el nombre completo",
+      "nameTooLong": "El nombre no puede tener más de {{max}} caracteres",
+      "emailRequired": "Escribe el correo electrónico",
+      "emailInvalid": "Escribe un correo válido, p. ej. usuario@colbits.com",
+      "emailTaken": "Ya existe un usuario con este correo",
+      "scopeRequired": "Selecciona al menos un elemento de la red"
+    }
+  },
+  "scope": {
+    "title": "Alcance de datos",
+    "description": "Asigna una o más zonas, subestaciones, circuitos, nodos o dispositivos individuales. El mismo alcance se puede asignar a varios usuarios.",
+    "search": "Buscar en la red",
+    "searchPlaceholder": "Buscar zona, subestación, circuito, nodo o dispositivo…",
+    "noMatches": "Ningún elemento coincide con la búsqueda.",
+    "selected": "Alcance seleccionado ({{count}})",
+    "noneSelected": "Todavía no has seleccionado ningún elemento.",
+    "devices_one": "{{count}} dispositivo",
+    "devices_other": "{{count}} dispositivos",
+    "rowWithDescription": "{{level}} {{name}} · {{description}}",
+    "expand": "Mostrar contenido de {{name}}",
+    "collapse": "Ocultar contenido de {{name}}"
   }
 }

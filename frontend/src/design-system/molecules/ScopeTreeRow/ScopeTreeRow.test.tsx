@@ -68,6 +68,32 @@ describe('ScopeTreeRow', () => {
     expect(row()).not.toHaveClass('bg-feedback-info-bg')
   })
 
+  it('opens and closes the children with the chevron button', async () => {
+    const onExpand = vi.fn()
+    renderRow({ expand: { isExpanded: false, onToggle: onExpand, label: 'Mostrar SE-Norte' } })
+
+    const chevron = screen.getByRole('button', { name: 'Mostrar SE-Norte' })
+    expect(chevron).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(chevron)
+
+    expect(onExpand).toHaveBeenCalledOnce()
+  })
+
+  it('has no chevron button for a leaf', () => {
+    renderRow()
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('locks the checkbox when disabled', async () => {
+    const { onToggle } = renderRow({ isChecked: true, isDisabled: true })
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Subestación SE-Norte' })
+    expect(checkbox).toBeDisabled()
+    await userEvent.click(checkbox)
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
   it('indents the row by its level', () => {
     const { container } = renderRow({ level: 3 })
 

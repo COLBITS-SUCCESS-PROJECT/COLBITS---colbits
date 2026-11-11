@@ -25,6 +25,38 @@ describe('useUserManagement', () => {
     expect(byId(result.current.users, 'u-1')).toMatchObject({ status: 'ACTIVE', scope })
   })
 
+  it('creates an active user with its scope (F-07)', () => {
+    const { result } = renderHook(() => useUserManagement())
+    const scope = [{ id: 'CIRCUIT:CR-12', level: 'CIRCUIT' as const, name: 'CR-12' }]
+
+    act(() => result.current.createUser({ name: 'Paula Ríos', email: 'p@colbits.com', scope }))
+
+    expect(result.current.users).toHaveLength(SAMPLE_USERS.length + 1)
+    expect(result.current.users[result.current.users.length - 1]).toMatchObject({
+      name: 'Paula Ríos',
+      status: 'ACTIVE',
+      scope,
+    })
+  })
+
+  it('lets two users share the same scope element (F-09, AC7)', () => {
+    const { result } = renderHook(() => useUserManagement())
+    const scope = byId(SAMPLE_USERS, 'u-1')?.scope ?? []
+
+    act(() => result.current.createUser({ name: 'Otra', email: 'otra@colbits.com', scope }))
+
+    expect(byId(result.current.users, 'u-1')?.scope).toEqual(scope)
+    expect(result.current.users[result.current.users.length - 1]?.scope).toEqual(scope)
+  })
+
+  it('detects a taken email ignoring case, except for the user being edited', () => {
+    const { result } = renderHook(() => useUserManagement())
+
+    expect(result.current.isEmailTaken(' Laura.Gomez@colbits.com ')).toBe(true)
+    expect(result.current.isEmailTaken('laura.gomez@colbits.com', 'u-1')).toBe(false)
+    expect(result.current.isEmailTaken('nueva@colbits.com')).toBe(false)
+  })
+
   it('leaves the other users unchanged', () => {
     const { result } = renderHook(() => useUserManagement())
 

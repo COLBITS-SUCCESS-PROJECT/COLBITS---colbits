@@ -46,6 +46,25 @@ describe('UserManagementPage', () => {
     expect(row('Laura Gómez')).toHaveAttribute('data-status', 'ACTIVE')
   })
 
+  it('creates a user from the drawer and lists it as active (AC5)', async () => {
+    render(<UserManagementPage />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Nuevo usuario' }))
+    const drawer = screen.getByRole('dialog', { name: 'Nuevo usuario de consulta' })
+    await userEvent.type(within(drawer).getByRole('textbox', { name: /Nombre/ }), 'Paula Ríos')
+    await userEvent.type(
+      within(drawer).getByRole('textbox', { name: /Correo/ }),
+      'paula@colbits.com'
+    )
+    await userEvent.click(within(drawer).getByRole('checkbox', { name: /Zona Z-03/ }))
+    await userEvent.click(within(drawer).getByRole('button', { name: 'Crear usuario' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(row('Paula Ríos')).toHaveAttribute('data-status', 'ACTIVE')
+    expect(within(row('Paula Ríos')).getByText('Zona Z-03')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nuevo usuario' })).toHaveFocus()
+  })
+
   it('reactivates an inactive user (AC4)', async () => {
     render(<UserManagementPage />)
 
