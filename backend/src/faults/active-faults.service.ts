@@ -20,10 +20,14 @@ import { FuseEvent, FuseFault, groupFuseFaults } from './fault-grouping';
 import { FaultsService } from './faults.service';
 import {
   ACTIVE_SOURCE_ALARMS_SQL,
+  RESOLVED_SOURCE_ALARMS_SQL,
   SOURCE_ALARM_PATTERNS,
+  SourceAlarmEpisode,
+  SourceAlarmEpisodeRow,
   SourceAlarmRow,
   SourceAlarmSkipReason,
   toSourceAlarmDto,
+  toSourceAlarmEpisode,
 } from './source-alarms';
 
 const FUSE_OPENING_PATTERN = requiredPattern('FUSE_OPENING');
@@ -206,10 +210,48 @@ export class ActiveFaultsService {
     for (const row of sourceRows) {
       const mapped = toSourceAlarmDto(row, now);
       if ('fault' in mapped) sourceAlarms.push(mapped.fault);
-      else this.reportSkippedSourceAlarm(row, mapped.skipped);
+      else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Active');
     }
 
     return responseOf(now, mergeOldestFirst(fuseFaults, sourceAlarms));
+  }
+
+  /**
+   * SCRUM-226 · F-60: the source-alarm episodes (NO_VOLTAGE, PHASE_LOSS, PHASE_OUT_OF_RANGE) of
+   * the user's scope that a CLEAR resolved at or after `resolvedSince` (boundary included). Each
+   * episode runs from its first SET to that CLEAR, both as recorded in `alarms`; the rules are in
+   * RESOLVED_SOURCE_ALARMS_SQL. Same scope rule (F-10) and the same skip reasons as activeFaults.
+   *
+   * Internal: no route calls it yet. The resolved list (F-62: route, last hour/day, newest first)
+   * belongs to SCRUM-229 and durations (F-63) to SCRUM-228. The rows come in a fixed order, not
+   * that list's order. `resolvedSince` must be a valid Date: callers validate user input.
+   */
+  async resolvedSourceAlarms(
+    scope: ScopeContext,
+    resolvedSince: Date,
+  ): Promise<SourceAlarmEpisode[]> {
+    if (
+      !(resolvedSince instanceof Date) ||
+      Number.isNaN(resolvedSince.getTime())
+    ) {
+      throw new RangeError('resolvedSince must be a valid Date');
+    }
+
+    const nodes = await this.nodesInScope(scope);
+    if (nodes.length === 0) return [];
+
+    const rows: SourceAlarmEpisodeRow[] = await this.nodesRepository.query(
+      RESOLVED_SOURCE_ALARMS_SQL,
+      [nodes, ...SOURCE_ALARM_PATTERNS, resolvedSince],
+    );
+
+    const episodes: SourceAlarmEpisode[] = [];
+    for (const row of rows) {
+      const mapped = toSourceAlarmEpisode(row);
+      if ('episode' in mapped) episodes.push(mapped.episode);
+      else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Resolved');
+    }
+    return episodes;
   }
 
   /** Same scope rule as the nodes list: the names of the nodes the user may see. */
@@ -238,12 +280,13 @@ export class ActiveFaultsService {
     );
   }
 
-  /** An active source alarm that could not be listed (e.g. unknown SMAC channel): logged once, not guessed. */
+  /** A source alarm that could not be listed (e.g. unknown SMAC channel): logged once per list, not guessed. */
   private reportSkippedSourceAlarm(
     row: SourceAlarmRow,
     reason: SourceAlarmSkipReason,
+    list: 'Active' | 'Resolved',
   ): void {
-    const key = `${reason}:${row.source_id}:${row.event_code}`;
+    const key = `${list}:${reason}:${row.source_id}:${row.event_code}`;
     if (
       this.reportedSourceAlarms.has(key) ||
       this.reportedSourceAlarms.size >= MAX_REPORTED_CODES
@@ -252,7 +295,7 @@ export class ActiveFaultsService {
     }
     this.reportedSourceAlarms.add(key);
     this.logger.warn(
-      `Active alarm event_code ${JSON.stringify(row.event_code)} on ${JSON.stringify(row.source_id)} not listed: ${reason}`,
+      `${list} alarm event_code ${JSON.stringify(row.event_code)} on ${JSON.stringify(row.source_id)} not listed: ${reason}`,
     );
   }
 }

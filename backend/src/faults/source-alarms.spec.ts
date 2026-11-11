@@ -1,7 +1,11 @@
 import { ALERT_TYPE_DEFINITIONS, ALERT_TYPES } from './fault-alert-types';
 import {
+  ACTIVE_SOURCE_ALARMS_SQL,
+  RESOLVED_SOURCE_ALARMS_SQL,
   SMAC_CHANNELS,
+  SOURCE_ALARM_EVENTS_CTE,
   SOURCE_ALARM_TYPES,
+  SourceAlarmEpisodeRow,
   SourceAlarmRow,
   channelOf,
   deviceOf,
@@ -9,6 +13,7 @@ import {
   sourceAlarmId,
   sourceAlarmTypeOf,
   toSourceAlarmDto,
+  toSourceAlarmEpisode,
 } from './source-alarms';
 
 const NOW = new Date('2026-10-29T15:20:00.000Z');
@@ -320,4 +325,136 @@ describe('toSourceAlarmDto', () => {
       }
     });
   });
+});
+
+describe('RESOLVED_SOURCE_ALARMS_SQL (SCRUM-226 · F-60)', () => {
+  it('builds on the same event selection as the active query', () => {
+    expect(RESOLVED_SOURCE_ALARMS_SQL).toContain(SOURCE_ALARM_EVENTS_CTE);
+    expect(ACTIVE_SOURCE_ALARMS_SQL).toContain(SOURCE_ALARM_EVENTS_CTE);
+  });
+
+  it('references $1 to $5 and no other parameter', () => {
+    const placeholders = [
+      ...RESOLVED_SOURCE_ALARMS_SQL.matchAll(/\$(\d+)/g),
+    ].map((match) => Number(match[1]));
+
+    expect([...new Set(placeholders)].sort((a, b) => a - b)).toEqual([
+      1, 2, 3, 4, 5,
+    ]);
+  });
+
+  it('reads only the alarms table by custom_id, and never the clock', () => {
+    expect(RESOLVED_SOURCE_ALARMS_SQL).not.toMatch(
+      /falcon_values|smac_(vc|pw|pf)_values/,
+    );
+    expect(RESOLVED_SOURCE_ALARMS_SQL).not.toMatch(/hw_id/);
+    expect(RESOLVED_SOURCE_ALARMS_SQL).not.toMatch(
+      /now\(\)|interval|current_timestamp|localtimestamp/i,
+    );
+  });
+
+  it('applies resolvedSince to the CLEAR instant, boundary included', () => {
+    expect(RESOLVED_SOURCE_ALARMS_SQL).toContain(
+      'ep.ended_at >= $5::timestamptz',
+    );
+  });
+
+  it('excludes zero-length episodes (provisional decision D3-B, pending team review)', () => {
+    expect(RESOLVED_SOURCE_ALARMS_SQL).toContain('ep.ended_at > ep.started_at');
+  });
+});
+
+describe('toSourceAlarmEpisode (SCRUM-226 · F-59, F-60)', () => {
+  const ENDED = '2026-10-29T15:12:00.000Z';
+  const resolvedRow = (
+    row: SourceAlarmRow,
+    endedAt: Date | string | null = new Date(ENDED),
+  ): SourceAlarmEpisodeRow => ({ ...row, ended_at: endedAt });
+
+  function episodeOf(row: SourceAlarmEpisodeRow) {
+    const result = toSourceAlarmEpisode(row);
+    if (!('episode' in result)) {
+      throw new Error(`expected an episode, got ${JSON.stringify(result)}`);
+    }
+    return result.episode;
+  }
+
+  it('NO_VOLTAGE: the fuse, its set, branch and stored phase, resolved at the CLEAR', () => {
+    expect(episodeOf(resolvedRow(voltageRow({ phase: 'T2' })))).toEqual({
+      id: `NO_VOLTAGE:0000100002-A-R:${STARTED}`,
+      alertType: 'NO_VOLTAGE',
+      sourceId: '0000100002-A-R',
+      channel: null,
+      node: '0000100002',
+      circuit: { id: 1, name: 'CTO 1' },
+      fuse: { fusesSetId: 2, branch: 'A', phase: 'T2' },
+      state: 'RESOLVED',
+      startedAt: new Date(STARTED),
+      endedAt: new Date(ENDED),
+    });
+  });
+
+  it('SMAC: the transformer and normalized channel, no fuse, numbers read from text', () => {
+    expect(
+      episodeOf(resolvedRow(smacRow({ event_code: '0514202' }), ENDED)),
+    ).toEqual({
+      id: `PHASE_OUT_OF_RANGE:0000100004-T1-3:B:${STARTED}`,
+      alertType: 'PHASE_OUT_OF_RANGE',
+      sourceId: '0000100004-T1-3',
+      channel: 'B',
+      node: '0000100004',
+      circuit: { id: 3, name: 'CTO 3' },
+      fuse: null,
+      state: 'RESOLVED',
+      startedAt: new Date(STARTED),
+      endedAt: new Date(ENDED),
+    });
+  });
+
+  it('keeps the id the alarm had while active', () => {
+    for (const row of [voltageRow(), smacRow({ event_code: '0514213' })]) {
+      expect(episodeOf(resolvedRow(row)).id).toBe(faultOf(row).id);
+    }
+  });
+
+  it('takes both times from the row, as UTC instants, never from the clock', () => {
+    const episode = episodeOf(
+      resolvedRow(
+        smacRow({ started_at: '2026-10-29T10:05:00-05:00' }),
+        '2026-10-29T10:12:00-05:00',
+      ),
+    );
+
+    expect(episode.startedAt.toISOString()).toBe(STARTED);
+    expect(episode.endedAt?.toISOString()).toBe(ENDED);
+  });
+
+  it('is OPEN with no end while ended_at is null', () => {
+    expect(episodeOf(resolvedRow(voltageRow(), null))).toMatchObject({
+      state: 'OPEN',
+      endedAt: null,
+    });
+  });
+
+  it('keeps a stored phase it cannot classify as it is: phases are not part of an episode', () => {
+    expect(episodeOf(resolvedRow(voltageRow({ phase: null }))).fuse).toEqual({
+      fusesSetId: 2,
+      branch: 'A',
+      phase: null,
+    });
+  });
+
+  it.each([
+    [smacRow({ event_code: '051421D' }), 'UNKNOWN_CHANNEL'],
+    [voltageRow({ event_code: '131420' }), 'NOT_A_SOURCE_ALARM'],
+    [voltageRow({ fuses_set_id: null }), 'MISSING_FUSE_SET'],
+  ])(
+    'skips a row it cannot place, as the active list does (%#)',
+    (row, reason) => {
+      expect(toSourceAlarmEpisode(resolvedRow(row))).toEqual({
+        skipped: reason,
+      });
+      expect(toSourceAlarmDto(row, NOW)).toEqual({ skipped: reason });
+    },
+  );
 });
