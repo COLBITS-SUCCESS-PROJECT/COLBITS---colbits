@@ -142,6 +142,13 @@ const TYPE_ORDER = new Map<string, number>(
  * - source alarms (SCRUM-225): loss of voltage per fuse and SMAC phase alarms per transformer
  *   channel, never grouped (see source-alarms.ts).
  * It filters and groups; it does not detect anything new (F-47).
+ *
+ * Alarm lifecycles (F-59, F-60) are derived from `alarms` on every request; nothing is stored:
+ * - source alarms: active from the first SET after the last CLEAR until the next CLEAR, which is
+ *   the resolution time; a CLEAR wins at the same instant (details in source-alarms.ts);
+ * - fuse openings: each fuse has an opening from its first SET to its next CLEAR, and a SET wins at
+ *   the same instant (fault-grouping.ts). The openings are listed grouped as one fault, which is
+ *   open while any of them is open; resolved faults (F-61) are not returned yet.
  */
 @Injectable()
 export class ActiveFaultsService {
@@ -223,8 +230,13 @@ export class ActiveFaultsService {
    * RESOLVED_SOURCE_ALARMS_SQL. Same scope rule (F-10) and the same skip reasons as activeFaults.
    *
    * Internal: no route calls it yet. The resolved list (F-62: route, last hour/day, newest first)
-   * belongs to SCRUM-229 and durations (F-63) to SCRUM-228. The rows come in a fixed order, not
-   * that list's order. `resolvedSince` must be a valid Date: callers validate user input.
+   * belongs to SCRUM-229 and durations (F-63) to SCRUM-228, which can take them from `endedAt -
+   * startedAt`. The rows come in a fixed order, not that list's order.
+   *
+   * An invalid `resolvedSince` throws a RangeError, so an HTTP caller must validate its input and
+   * answer 400 itself. Instants are `Date` values (milliseconds) while `recorded_at` has
+   * microseconds, so they are truncated to the millisecond. Only source alarms are returned: the
+   * resolved fuse-opening faults (F-61) belong to SCRUM-227.
    */
   async resolvedSourceAlarms(
     scope: ScopeContext,

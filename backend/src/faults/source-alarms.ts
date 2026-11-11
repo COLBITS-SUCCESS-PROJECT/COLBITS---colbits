@@ -21,6 +21,21 @@ import { canonicalPhases, classifyFault } from './fault-classification';
  * telemetry never creates one. ACTIVE_SOURCE_ALARMS_SQL selects the active ones and
  * RESOLVED_SOURCE_ALARMS_SQL the resolved episodes (SCRUM-226 · F-59, F-60); the functions here
  * are pure and map those rows to the fault-list format or to SourceAlarmEpisode.
+ *
+ * Lifecycle (SCRUM-226). The events of one key (type + source + channel; the firmware version is
+ * ignored and the SMAC channel normalized) form episodes:
+ *   - an episode starts at the first SET after a CLEAR; later SETs change nothing, so the alarm
+ *     stays active while the device keeps reporting it (F-59);
+ *   - the next CLEAR resolves it, and that CLEAR's `recorded_at` is the resolution time (F-60);
+ *   - a later SET starts a new episode with its own start time and id.
+ * `startedAt` and `endedAt` are always `recorded_at` values (server receipt time), never the time
+ * of the query. A CLEAR and a SET at the same instant: the CLEAR wins. An episode that would start
+ * and end at that same instant is not reported at all (D3-B, provisional, pending team review).
+ *
+ * These are the individual source alarms. Fuse openings (13xx20) have their own lifecycle in
+ * fault-grouping.ts, are listed grouped as faults, and break a same-instant tie the other way (the
+ * SET wins); that difference is not a requirement and is pending a team decision. Resolving a
+ * whole fuse fault (F-61) is not done here.
  */
 export const SOURCE_ALARM_TYPES = [
   'NO_VOLTAGE',
