@@ -38,9 +38,21 @@ describe('appRoutes', () => {
     }
   )
 
+  it('opens user management for an administrator (SCRUM-250)', async () => {
+    useAuthStore.getState().setSession({ id: 'a-1', name: 'Admin', role: 'ADMIN' }, 'token')
+
+    renderAppAt(ROUTES.users)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Usuarios de consulta' }, LAZY_ROUTE_TIMEOUT)
+    ).toBeInTheDocument()
+  })
+
   it('shows the not-found page for an unknown address', async () => {
     renderAppAt('/does-not-exist')
 
-    expect(await screen.findByText('Página no encontrada', {}, LAZY_ROUTE_TIMEOUT)).toBeInTheDocument()
+    expect(
+      await screen.findByText('Página no encontrada', {}, LAZY_ROUTE_TIMEOUT)
+    ).toBeInTheDocument()
   })
 })

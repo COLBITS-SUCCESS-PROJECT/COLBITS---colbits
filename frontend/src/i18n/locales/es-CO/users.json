@@ -1,0 +1,32 @@
+{
+  "table": {
+    "title": "Usuarios de consulta",
+    "subtitle": "Crea, edita y desactiva usuarios y asigna su alcance de datos",
+    "newUser": "Nuevo usuario",
+    "search": "Buscar usuario por nombre o correo",
+    "searchPlaceholder": "Buscar por nombre o correo…",
+    "statusFilter": "Estado",
+    "empty": "Todavía no hay usuarios de consulta.",
+    "noResults": "Ningún usuario coincide con la búsqueda."
+  },
+  "status": {
+    "ALL": "Todos los estados",
+    "ACTIVE": "Activo",
+    "INACTIVE": "Inactivo"
+  },
+  "row": {
+    "scope": "Alcance de {{name}}",
+    "moreScope": "+{{count}} más",
+    "edit": "Editar a {{name}}",
+    "deactivate": "Desactivar a {{name}}",
+    "reactivate": "Reactivar a {{name}}"
+  },
+  "scopeLevel": {
+    "ZONE": "Zona",
+    "SUBSTATION": "Subestación",
+    "CIRCUIT": "Circuito",
+    "NODE": "Nodo",
+    "DEVICE": "Dispositivo"
+  },
+  "scopeTag": "{{level}} {{name}}"
+}

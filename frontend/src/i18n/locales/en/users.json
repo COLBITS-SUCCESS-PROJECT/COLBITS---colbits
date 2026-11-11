@@ -1,0 +1,32 @@
+{
+  "table": {
+    "title": "Consultation users",
+    "subtitle": "Create, edit, deactivate users and assign their data scope",
+    "newUser": "New user",
+    "search": "Search user by name or email",
+    "searchPlaceholder": "Search by name or email…",
+    "statusFilter": "Status",
+    "empty": "There are no consultation users yet.",
+    "noResults": "No user matches the search."
+  },
+  "status": {
+    "ALL": "All statuses",
+    "ACTIVE": "Active",
+    "INACTIVE": "Inactive"
+  },
+  "row": {
+    "scope": "Scope of {{name}}",
+    "moreScope": "+{{count}} more",
+    "edit": "Edit {{name}}",
+    "deactivate": "Deactivate {{name}}",
+    "reactivate": "Reactivate {{name}}"
+  },
+  "scopeLevel": {
+    "ZONE": "Zone",
+    "SUBSTATION": "Substation",
+    "CIRCUIT": "Circuit",
+    "NODE": "Node",
+    "DEVICE": "Device"
+  },
+  "scopeTag": "{{level}} {{name}}"
+}

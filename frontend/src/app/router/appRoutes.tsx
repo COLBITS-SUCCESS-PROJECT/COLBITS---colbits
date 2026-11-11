@@ -30,7 +30,12 @@ export const appRoutes: RouteObject[] = [
           // User management is for the Colbits administrator only (F-05, US19 — Sprint 5).
           {
             element: <RequireRole roles={['ADMIN']} />,
-            children: [{ path: `${ROUTES.users}/*`, lazy: loadComingSoon }],
+            children: [
+              {
+                path: `${ROUTES.users}/*`,
+                lazy: () => import('@/features/users').then((m) => ({ Component: m.UsersRoutes })),
+              },
+            ],
           },
         ],
       },

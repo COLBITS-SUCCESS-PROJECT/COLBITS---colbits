@@ -11,21 +11,39 @@ import esCommon from './locales/es-CO/common.json'
 import esAuth from './locales/es-CO/auth.json'
 import esErrors from './locales/es-CO/errors.json'
 import esDashboard from './locales/es-CO/dashboard.json'
+import esUsers from './locales/es-CO/users.json'
 import enCommon from './locales/en/common.json'
 import enAuth from './locales/en/auth.json'
 import enErrors from './locales/en/errors.json'
 import enDashboard from './locales/en/dashboard.json'
+import enUsers from './locales/en/users.json'
 
 export const resources = {
-  'es-CO': { common: esCommon, auth: esAuth, errors: esErrors, dashboard: esDashboard },
-  en: { common: enCommon, auth: enAuth, errors: enErrors, dashboard: enDashboard },
+  'es-CO': {
+    common: esCommon,
+    auth: esAuth,
+    errors: esErrors,
+    dashboard: esDashboard,
+    users: esUsers,
+  },
+  en: { common: enCommon, auth: enAuth, errors: enErrors, dashboard: enDashboard, users: enUsers },
 } as const satisfies Record<Language, Record<string, object>>
 
 void i18n.use(initReactI18next).init({
   lng: DEFAULT_LANGUAGE,
   fallbackLng: DEFAULT_LANGUAGE,
   defaultNS: 'common',
-  ns: ['common', 'auth', 'dashboard', 'devices', 'alerts', 'reports', 'settings', 'errors'],
+  ns: [
+    'common',
+    'auth',
+    'dashboard',
+    'users',
+    'devices',
+    'alerts',
+    'reports',
+    'settings',
+    'errors',
+  ],
   resources,
   interpolation: { escapeValue: false },
 })

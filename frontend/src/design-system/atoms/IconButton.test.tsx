@@ -43,6 +43,14 @@ describe('IconButton', () => {
     expect(screen.getByRole('button', { pressed: false })).toHaveClass('bg-bg-surface')
   })
 
+  it('paints the glyph red with the danger tone', () => {
+    render(<IconButton icon="power" label="Desactivar" tone="danger" />)
+
+    const button = screen.getByRole('button', { name: 'Desactivar' })
+    expect(button).toHaveClass('text-action-primary')
+    expect(button).not.toHaveClass('text-action-secondary')
+  })
+
   it('does not call onClick when disabled', async () => {
     const onClick = vi.fn()
     render(<IconButton icon="layers" label="Capas" onClick={onClick} disabled />)
