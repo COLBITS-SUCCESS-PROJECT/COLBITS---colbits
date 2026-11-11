@@ -63,19 +63,21 @@ No hex/rgb colors and no `[13px]`-style arbitrary values in components. Use thes
 
 ## Molecules — `molecules/`
 
-| Component          | Figma                 | Use it for                                                                                                   | Key props                                                                    |
-| ------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| `NavItem`          | Nav Item              | Sidebar link, highlights itself on the current route                                                         | `to`, `label`, `icon`                                                        |
-| `LanguageSwitch`   | — (SCRUM-158)         | One-click toggle pill (ES \| EN, active one filled); labels come by props                                     | `options`, `value`, `onChange`, `label`                                      |
-| `UserSummary`      | Sidebar → User        | Avatar + name + role + logout (navy background)                                                              | `name`, `roleLabel`, `onLogout`                                              |
-| `Select`           | Select                | Labelled dropdown (zone / substation / circuit, any filter)                                                  | `label`, `options`, native select props                                      |
-| `SearchField`      | Search Field          | Search box with icon                                                                                         | `label` (accessible), native input props                                     |
-| `FormField`        | Input → Label / Error | Labelled input with its error message, linked for screen readers. Works with `register()` of react-hook-form | `label`, `error`, `isRequired`, native input props                           |
-| `Tabs`             | Tab                   | Underlined tabs with arrow-key navigation                                                                    | `items`, `activeId`, `onChange`, `idPrefix` — panel id via `getTabPanelId()` |
-| `LegendItem`       | Legend Item           | Dot + meaning in a legend                                                                                    | `status`, `label`                                                            |
-| `RefreshTimestamp` | Refresh Timestamp     | "Last update" pill with live / stale dot and refresh                                                         | `label`, `isStale`, `statusLabel`, `onRefresh`                               |
-| `CounterCard`      | Fault Counter Card    | Big number with accent bar and caption                                                                       | `value`, `label`, `tone` (`primary · info · warning · critical`)             |
-| `DataField`        | Fault List Item cells | Uppercase caption + value; shows "—" when empty. Inside a `<dl>`                                             | `label`, `value`                                                             |
+| Component          | Figma                 | Use it for                                                                                                   | Key props                                                                          |
+| ------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `NavItem`          | Nav Item              | Sidebar link, highlights itself on the current route                                                         | `to`, `label`, `icon`                                                              |
+| `LanguageSwitch`   | — (SCRUM-158)         | One-click toggle pill (ES \| EN, active one filled); labels come by props                                    | `options`, `value`, `onChange`, `label`                                            |
+| `UserSummary`      | Sidebar → User        | Avatar + name + role + logout (navy background)                                                              | `name`, `roleLabel`, `onLogout`                                                    |
+| `Select`           | Select                | Labelled dropdown (zone / substation / circuit, any filter)                                                  | `label`, `options`, native select props                                            |
+| `SearchField`      | Search Field          | Search box with icon                                                                                         | `label` (accessible), native input props                                           |
+| `FormField`        | Input → Label / Error | Labelled input with its error message, linked for screen readers. Works with `register()` of react-hook-form | `label`, `error`, `isRequired`, native input props                                 |
+| `Tabs`             | Tab                   | Underlined tabs with arrow-key navigation                                                                    | `items`, `activeId`, `onChange`, `idPrefix` — panel id via `getTabPanelId()`       |
+| `LegendItem`       | Legend Item           | Dot + meaning in a legend                                                                                    | `status`, `label`                                                                  |
+| `RefreshTimestamp` | Refresh Timestamp     | "Last update" pill with live / stale dot and refresh                                                         | `label`, `isStale`, `statusLabel`, `onRefresh`                                     |
+| `CounterCard`      | Fault Counter Card    | Big number with accent bar and caption                                                                       | `value`, `label`, `tone` (`primary · info · warning · critical`)                   |
+| `DataField`        | Fault List Item cells | Uppercase caption + value; shows "—" when empty. Inside a `<dl>`                                             | `label`, `value`                                                                   |
+| `ScopeTag`         | Scope Tag             | Blue pill naming one network element of a data scope (user list, selected scope)                             | `label`, `icon`                                                                    |
+| `ScopeTreeRow`     | Scope Tree Row        | Indented checkable row of the zone › substation › circuit › node › device tree                               | `label`, `icon`, `level` (0–4), `isChecked`, `isIndeterminate`, `meta`, `onToggle` |
 
 ## Organisms — `organisms/`
 
@@ -94,7 +96,6 @@ No hex/rgb colors and no `[13px]`-style arbitrary values in components. Use thes
 | -------------------------------------------------------------- | -------------------- | ------------------------------------- |
 | Banner / Alert (Stale · Filter active · Info)                  | Molecule             | design-system                         |
 | KPI Card                                                       | Molecule             | design-system (`analysis`, `reports`) |
-| Scope Tag, Scope Tree Row                                      | Molecule             | design-system (`analysis`, `users`)   |
 | Level Bar                                                      | Atom (`ProgressBar`) | design-system                         |
 | Telemetry Row, Fuse Row, Fuse Group Card, Inactive Device Card | Molecule / organism  | feature `dashboard`                   |
 | Chat Bubble, Chatbot FAB, Chatbot Window                       | Molecule / organism  | feature `chatbot`                     |

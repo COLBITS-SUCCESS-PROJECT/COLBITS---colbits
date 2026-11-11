@@ -10,6 +10,8 @@ export {
 export { LegendItem, type LegendItemProps } from './LegendItem'
 export { NavItem, type NavItemProps } from './NavItem'
 export { RefreshTimestamp, type RefreshTimestampProps } from './RefreshTimestamp'
+export { ScopeTag, type ScopeTagProps } from './ScopeTag'
+export { ScopeTreeRow, type ScopeTreeRowLevel, type ScopeTreeRowProps } from './ScopeTreeRow'
 export { SearchField, type SearchFieldProps } from './SearchField'
 export { Select, type SelectOption, type SelectProps } from './Select'
 export { Tabs, type TabItem, type TabsProps } from './Tabs'
