@@ -158,7 +158,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: 120,
     description:
-      'Clients associated with the fuse set (fuses_sets.client_count); null when not recorded. Always null on source alarms for now.',
+      'Clients associated with the fuse set (fuses_sets.client_count); null when not recorded (unknown, not zero). Always null on source alarms for now. In the listing order a null counts as 0.',
   })
   client_count: number | null;
 
@@ -217,7 +217,7 @@ export class ActiveFaultsResponseDto {
   @ApiProperty({
     type: () => [ActiveFaultDto],
     description:
-      'Oldest first; at the same instant by alert type, then source. Filtering and ordering by severity are not part of this endpoint.',
+      'Ordered by severity (F-57): most affected clients first, a null client_count counting as 0 for the sort only; faults with the same count oldest first; then by alert type, source, channel and fuse set. Filtering and configurable ordering criteria are not part of this endpoint.',
   })
   faults: ActiveFaultDto[];
 }
