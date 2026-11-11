@@ -23,6 +23,16 @@ export function formatDateTime(date: Date, locale: string, variant: 'long' | 'sh
   return `${day}${DATE_TIME_SEPARATOR}${time}`
 }
 
+/** "21:04:12" — time of day with seconds, 24-hour clock. */
+export function formatTime(date: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).format(date)
+}
+
 const MINUTES_PER_HOUR = 60
 
 /** "52 min", "2 h 03 min" — unit names come from Intl, so they follow the locale. */

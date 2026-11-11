@@ -33,6 +33,8 @@ export interface MapCanvasProps {
   onSelectNode?: (nodeId: string) => void
   /** Overlay at the bottom-left corner (the legend). */
   children?: ReactNode
+  /** Overlay at the top-left corner, beside the zoom buttons (the last refresh time below lg, F-32). */
+  topOverlay?: ReactNode
 }
 
 /** Keys that activate a focused cluster, as on any button. */
@@ -49,6 +51,7 @@ export function MapCanvas({
   onRetry,
   onSelectNode,
   children,
+  topOverlay,
 }: MapCanvasProps) {
   const { t } = useTranslation('dashboard')
   const [map, setMap] = useState<LeafletMap | null>(null)
@@ -191,6 +194,7 @@ export function MapCanvas({
         </button>
       </div>
 
+      {topOverlay && <div className="absolute top-4 left-4 z-10">{topOverlay}</div>}
       {children && (
         <div className="absolute right-4 bottom-4 left-4 z-10 flex items-end justify-between gap-3">
           {children}
