@@ -373,7 +373,7 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
       ]);
     });
 
-    it('orders the faults oldest first', async () => {
+    it('orders faults with the same client count oldest first', async () => {
       const { service } = serviceWith([
         row({
           fuses_set_id: 3,
@@ -387,6 +387,98 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
       const result = await service.activeFaults(UNRESTRICTED, NOW);
 
       expect(result.faults.map((fault) => fault.fuses_set_id)).toEqual([2, 3]);
+    });
+  });
+
+  describe('order by severity (F-57)', () => {
+    /** One open fault on its own fuse set, node and fuse, opened `minutes` ago. */
+    const faultRow = (
+      setId: number,
+      clients: number | null,
+      minutes: number,
+    ): Row =>
+      row({
+        fuses_set_id: setId,
+        node_id: `N${setId}`,
+        fuse_id: `N${setId}-R`,
+        client_count: clients,
+        recorded_at: minutesAgo(minutes),
+      });
+    const sets = (faults: Array<{ fuses_set_id: number | null }>) =>
+      faults.map((fault) => fault.fuses_set_id);
+
+    it('lists 200, 50 and 50 affected clients as the 200 first and the two 50 oldest first', async () => {
+      const { service } = serviceWith(
+        [faultRow(11, 50, 5), faultRow(12, 200, 30), faultRow(13, 50, 20)],
+        { nodes: ['N11', 'N12', 'N13'] },
+      );
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      // Set 12 is the newest-but-one in time terms, yet first; set 13 (20 min) precedes set 11 (5 min).
+      expect(sets(faults)).toEqual([12, 13, 11]);
+      expect(faults.map((fault) => fault.client_count)).toEqual([200, 50, 50]);
+    });
+
+    it('does not depend on the order of the events read', async () => {
+      const rows = [
+        faultRow(11, 50, 5),
+        faultRow(12, 200, 30),
+        faultRow(13, 50, 20),
+        faultRow(14, null, 90),
+      ];
+      const expected = [12, 13, 11, 14];
+
+      for (const input of [rows, [...rows].reverse()]) {
+        const { service } = serviceWith(input, {
+          nodes: ['N11', 'N12', 'N13', 'N14'],
+        });
+
+        const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+        expect(sets(faults)).toEqual(expected);
+      }
+    });
+
+    it('sorts an unknown client count as 0 but returns it as null, and a known 0 as 0', async () => {
+      const { service } = serviceWith(
+        [faultRow(11, 0, 10), faultRow(12, null, 20), faultRow(13, 1, 5)],
+        { nodes: ['N11', 'N12', 'N13'] },
+      );
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      // 1 client first; the known 0 and the unknown count tie, so the older (set 12) is first.
+      expect(sets(faults)).toEqual([13, 12, 11]);
+      expect(faults.map((fault) => fault.client_count)).toEqual([1, null, 0]);
+    });
+
+    it('keeps a numeric string from the database as a number when ordering', async () => {
+      // PostgreSQL returns bigint/numeric columns as strings: "9" must not sort after "10" as text.
+      const { service } = serviceWith(
+        [
+          row({
+            fuses_set_id: 11,
+            node_id: 'N11',
+            fuse_id: 'N11-R',
+            client_count: '9',
+            recorded_at: minutesAgo(30),
+          }),
+          row({
+            fuses_set_id: 12,
+            node_id: 'N12',
+            fuse_id: 'N12-R',
+            client_count: '10',
+            recorded_at: minutesAgo(5),
+          }),
+        ],
+        { nodes: ['N11', 'N12'] },
+      );
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(sets(faults)).toEqual([12, 11]);
+      expect(faults.map((fault) => fault.client_count)).toEqual([10, 9]);
     });
   });
 
@@ -729,7 +821,7 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
       expect(faults.every((fault) => fault.fuses_set_id === null)).toBe(true);
     });
 
-    it('merges with fuse faults oldest first', async () => {
+    it('lists a fuse fault with clients before source alarms, which have no client count, oldest first among themselves (F-57)', async () => {
       const { service } = serviceWith([row({ recorded_at: minutesAgo(15) })], {
         sourceRows: [
           smacRow({ started_at: minutesAgo(10) }),
@@ -741,6 +833,31 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
 
       expect(result.count).toBe(3);
       expect(typesOf(result.faults)).toEqual([
+        'FUSE_OPENING',
+        'NO_VOLTAGE',
+        'PHASE_LOSS',
+      ]);
+      expect(result.faults.map((fault) => fault.client_count)).toEqual([
+        120,
+        null,
+        null,
+      ]);
+    });
+
+    it('merges a fuse fault with an unknown client count with source alarms by age (F-57)', async () => {
+      const { service } = serviceWith(
+        [row({ client_count: null, recorded_at: minutesAgo(15) })],
+        {
+          sourceRows: [
+            smacRow({ started_at: minutesAgo(10) }),
+            sourceRow({ started_at: minutesAgo(20) }),
+          ],
+        },
+      );
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(typesOf(faults)).toEqual([
         'NO_VOLTAGE',
         'FUSE_OPENING',
         'PHASE_LOSS',
