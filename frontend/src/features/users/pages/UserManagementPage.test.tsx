@@ -65,6 +65,44 @@ describe('UserManagementPage', () => {
     expect(screen.getByRole('button', { name: 'Nuevo usuario' })).toHaveFocus()
   })
 
+  it('edits a user and shows the new values in the list (AC8)', async () => {
+    render(<UserManagementPage />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar a Carlos Pérez' }))
+    const drawer = screen.getByRole('dialog', { name: 'Editar usuario' })
+    const name = within(drawer).getByRole('textbox', { name: /Nombre/ })
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Carlos A. Pérez')
+    await userEvent.click(within(drawer).getByRole('checkbox', { name: /Zona Z-01/ }))
+    await userEvent.click(within(drawer).getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const carlos = row('Carlos A. Pérez')
+    expect(within(carlos).queryByText('Zona Z-01')).not.toBeInTheDocument()
+    expect(within(carlos).getByText('Circuito CR-07')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Editar a Carlos A. Pérez' })).toHaveFocus()
+  })
+
+  it('deactivates from the edit drawer after confirming', async () => {
+    render(<UserManagementPage />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar a Sofía Martínez' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Desactivar usuario' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const dialog = screen.getByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Desactivar usuario' }))
+
+    expect(row('Sofía Martínez')).toHaveAttribute('data-status', 'INACTIVE')
+  })
+
+  it('does not offer to deactivate an inactive user from the drawer', async () => {
+    render(<UserManagementPage />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Editar a Andrés Ibarra' }))
+
+    expect(screen.queryByRole('button', { name: 'Desactivar usuario' })).not.toBeInTheDocument()
+  })
+
   it('reactivates an inactive user (AC4)', async () => {
     render(<UserManagementPage />)
 

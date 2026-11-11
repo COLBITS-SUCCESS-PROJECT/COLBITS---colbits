@@ -13,6 +13,8 @@ export interface UserManagement {
   setStatus: (userId: string, status: UserStatus) => void
   /** F-07: a new consultation user starts active with the scope given in the form. */
   createUser: (values: UserFormValues) => void
+  /** F-05: changes name, email and scope; the status is kept. */
+  updateUser: (userId: string, values: UserFormValues) => void
   /** True when a user other than `exceptUserId` already has this email. */
   isEmailTaken: (email: string, exceptUserId?: string) => boolean
 }
@@ -28,6 +30,10 @@ export function useUserManagement(initialUsers: ManagedUser[] = SAMPLE_USERS): U
     setUsers((list) => [...list, { id: crypto.randomUUID(), status: 'ACTIVE', ...values }])
   }, [])
 
+  const updateUser = useCallback((userId: string, values: UserFormValues) => {
+    setUsers((list) => list.map((user) => (user.id === userId ? { ...user, ...values } : user)))
+  }, [])
+
   const isEmailTaken = useCallback(
     (email: string, exceptUserId?: string) =>
       users.some(
@@ -36,5 +42,5 @@ export function useUserManagement(initialUsers: ManagedUser[] = SAMPLE_USERS): U
     [users]
   )
 
-  return { users, setStatus, createUser, isEmailTaken }
+  return { users, setStatus, createUser, updateUser, isEmailTaken }
 }

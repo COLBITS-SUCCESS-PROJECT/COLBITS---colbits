@@ -56,7 +56,13 @@
       "emailInvalid": "Enter a valid email, e.g. user@colbits.com",
       "emailTaken": "A user with this email already exists",
       "scopeRequired": "Select at least one network element"
-    }
+    },
+    "editTitle": "Edit user",
+    "editSubtitle": "Only a Colbits administrator can modify this account",
+    "save": "Save changes",
+    "resetPassword": "Send password reset link",
+    "resetPasswordNotice": "Sending the link will be available once the user service is connected.",
+    "deactivate": "Deactivate user"
   },
   "scope": {
     "title": "Data scope",

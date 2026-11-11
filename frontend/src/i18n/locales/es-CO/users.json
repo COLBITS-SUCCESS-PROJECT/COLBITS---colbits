@@ -56,7 +56,13 @@
       "emailInvalid": "Escribe un correo válido, p. ej. usuario@colbits.com",
       "emailTaken": "Ya existe un usuario con este correo",
       "scopeRequired": "Selecciona al menos un elemento de la red"
-    }
+    },
+    "editTitle": "Editar usuario",
+    "editSubtitle": "Solo un administrador de Colbits puede modificar esta cuenta",
+    "save": "Guardar cambios",
+    "resetPassword": "Enviar enlace de restablecimiento",
+    "resetPasswordNotice": "El envío del enlace estará disponible cuando el servicio de usuarios esté conectado.",
+    "deactivate": "Desactivar usuario"
   },
   "scope": {
     "title": "Alcance de datos",

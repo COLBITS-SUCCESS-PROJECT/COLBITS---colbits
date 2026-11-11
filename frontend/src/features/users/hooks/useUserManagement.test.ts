@@ -49,6 +49,23 @@ describe('useUserManagement', () => {
     expect(result.current.users[result.current.users.length - 1]?.scope).toEqual(scope)
   })
 
+  it('updates the data and scope of a user and keeps the status', () => {
+    const { result } = renderHook(() => useUserManagement())
+    const scope = [{ id: 'ZONE:Z-02', level: 'ZONE' as const, name: 'Z-02' }]
+
+    act(() =>
+      result.current.updateUser('u-4', { name: 'Andrés I.', email: 'ai@colbits.com', scope })
+    )
+
+    expect(byId(result.current.users, 'u-4')).toEqual({
+      id: 'u-4',
+      name: 'Andrés I.',
+      email: 'ai@colbits.com',
+      status: 'INACTIVE',
+      scope,
+    })
+  })
+
   it('detects a taken email ignoring case, except for the user being edited', () => {
     const { result } = renderHook(() => useUserManagement())
 

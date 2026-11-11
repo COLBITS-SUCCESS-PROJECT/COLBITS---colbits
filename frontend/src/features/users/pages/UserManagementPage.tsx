@@ -8,12 +8,16 @@ import { SAMPLE_SCOPE_TREE } from '../model/users.sampleData'
 import type { ManagedUser } from '../model/users.types'
 import type { UserFormValues } from '../schemas/userForm.schema'
 
+/** Which form is open: `user: null` creates a new user, a user edits that one. */
+type DrawerState = { user: ManagedUser | null } | null
+
 export function UserManagementPage() {
-  const { users, setStatus, createUser, isEmailTaken } = useUserManagement()
-  const [isCreating, setIsCreating] = useState(false)
+  const { users, setStatus, createUser, updateUser, isEmailTaken } = useUserManagement()
+  const [drawer, setDrawer] = useState<DrawerState>(null)
   const [userToDeactivate, setUserToDeactivate] = useState<ManagedUser | null>(null)
   const cancelDeactivation = useCallback(() => setUserToDeactivate(null), [])
-  const closeDrawer = useCallback(() => setIsCreating(false), [])
+  const closeDrawer = useCallback(() => setDrawer(null), [])
+  const editedUser = drawer?.user ?? null
 
   // Deactivating asks first (Figma: Admin / Deactivate confirmation); reactivating is immediate (spec Q1).
   function toggleStatus(user: ManagedUser) {
@@ -26,20 +30,37 @@ export function UserManagementPage() {
     setUserToDeactivate(null)
   }
 
-  function submitNewUser(values: UserFormValues) {
-    createUser(values)
-    setIsCreating(false)
+  function submitForm(values: UserFormValues) {
+    if (editedUser) updateUser(editedUser.id, values)
+    else createUser(values)
+    setDrawer(null)
+  }
+
+  /** "Deactivate user" in the edit drawer: close the form, then ask for confirmation. */
+  function deactivateFromDrawer(user: ManagedUser) {
+    setDrawer(null)
+    setUserToDeactivate(user)
   }
 
   return (
     <div className="p-4 md:p-6">
-      <UserTable users={users} onCreate={() => setIsCreating(true)} onToggleStatus={toggleStatus} />
-      {isCreating && (
+      <UserTable
+        users={users}
+        onCreate={() => setDrawer({ user: null })}
+        onEdit={(user) => setDrawer({ user })}
+        onToggleStatus={toggleStatus}
+      />
+      {drawer && (
         // TODO SCRUM-117: the network tree comes from the API.
         <UserFormDrawer
+          key={editedUser?.id ?? 'new'}
           tree={SAMPLE_SCOPE_TREE}
-          isEmailTaken={isEmailTaken}
-          onSubmit={submitNewUser}
+          user={editedUser ?? undefined}
+          isEmailTaken={(email) => isEmailTaken(email, editedUser?.id)}
+          onSubmit={submitForm}
+          onDeactivate={
+            editedUser?.status === 'ACTIVE' ? () => deactivateFromDrawer(editedUser) : undefined
+          }
           onClose={closeDrawer}
         />
       )}
