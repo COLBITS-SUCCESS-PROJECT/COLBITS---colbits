@@ -1,7 +1,13 @@
 /** Unit tests for the fault panel business rules. */
 import { describe, it, expect } from 'vitest'
 import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
-import { compareFaults, matchesFilters, selectFaults, type FaultFilters } from './faultRules'
+import {
+  compareFaults,
+  countAlarmNodes,
+  matchesFilters,
+  selectFaults,
+  type FaultFilters,
+} from './faultRules'
 import { ALL, MS_PER_MINUTE } from './liveMonitoring.constants'
 
 const NOW = new Date(2026, 9, 2, 6, 0).getTime()
@@ -88,5 +94,44 @@ describe('selectFaults', () => {
 
   it('returns an empty list when nothing matches', () => {
     expect(selectFaults(faults, { ...NO_FILTERS, search: 'nope' }, 'OPEN', NOW)).toEqual([])
+  })
+})
+
+describe('countAlarmNodes', () => {
+  it('counts the nodes in alarm per alert type', () => {
+    const open = selectFaults(faults, NO_FILTERS, 'OPEN', NOW)
+
+    expect(countAlarmNodes(open)).toEqual({
+      fuseAlarmNodes: 2,
+      voltageAlarmNodes: 1,
+      phaseOutOfRangeNodes: 1,
+      phaseDroppedNodes: 2,
+    })
+  })
+
+  it('counts a node once per type even when it has several faults', () => {
+    const sameNode = [byId('f-1'), { ...byId('f-1'), id: 'f-1b' }]
+
+    expect(countAlarmNodes(sameNode).fuseAlarmNodes).toBe(1)
+  })
+
+  it('follows the map filter: only the faults that remain are counted', () => {
+    const fusesOnly = selectFaults(faults, { ...NO_FILTERS, layers: ['FUSES'] }, 'OPEN', NOW)
+
+    expect(countAlarmNodes(fusesOnly)).toEqual({
+      fuseAlarmNodes: 2,
+      voltageAlarmNodes: 1,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 0,
+    })
+  })
+
+  it('returns zeros when there are no faults', () => {
+    expect(countAlarmNodes([])).toEqual({
+      fuseAlarmNodes: 0,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 0,
+    })
   })
 })

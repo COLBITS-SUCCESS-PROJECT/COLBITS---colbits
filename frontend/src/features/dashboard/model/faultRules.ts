@@ -6,7 +6,7 @@ import {
   TIME_WINDOWS,
   type TimeWindow,
 } from './liveMonitoring.constants'
-import type { FaultAlert, MapLayer } from './liveMonitoring.types'
+import type { AlertType, FaultAlert, FaultCounters, MapLayer } from './liveMonitoring.types'
 
 export interface FaultFilters {
   layers: MapLayer[]
@@ -60,4 +60,28 @@ export function selectFaults(
   return faults
     .filter((fault) => fault.status === status && matchesFilters(fault, filters, now))
     .sort(compareFaults)
+}
+
+/** Counter of the panel summary → the alert type whose nodes it counts (F-58). */
+const COUNTER_ALERT_TYPE: Record<keyof FaultCounters, AlertType> = {
+  fuseAlarmNodes: 'FUSE_OPENING',
+  voltageAlarmNodes: 'NO_VOLTAGE',
+  phaseOutOfRangeNodes: 'OVERLOAD_UNBALANCE',
+  phaseDroppedNodes: 'PHASE_LOSS',
+}
+
+/**
+ * Nodes in alarm per alert type, over the faults the panel lists, so the counters follow the map
+ * filter. A node counts once per type however many faults it has (e.g. two fuse sets).
+ */
+export function countAlarmNodes(faults: FaultAlert[]): FaultCounters {
+  const count = (type: AlertType) =>
+    new Set(faults.filter((fault) => fault.type === type).map((fault) => fault.nodeId)).size
+
+  return {
+    fuseAlarmNodes: count(COUNTER_ALERT_TYPE.fuseAlarmNodes),
+    voltageAlarmNodes: count(COUNTER_ALERT_TYPE.voltageAlarmNodes),
+    phaseOutOfRangeNodes: count(COUNTER_ALERT_TYPE.phaseOutOfRangeNodes),
+    phaseDroppedNodes: count(COUNTER_ALERT_TYPE.phaseDroppedNodes),
+  }
 }
