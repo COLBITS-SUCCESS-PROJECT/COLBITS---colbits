@@ -28,5 +28,11 @@
     "NODE": "Node",
     "DEVICE": "Device"
   },
-  "scopeTag": "{{level}} {{name}}"
+  "scopeTag": "{{level}} {{name}}",
+  "deactivate": {
+    "title": "Deactivate this user?",
+    "description": "{{name}} will immediately lose access to Colbits. Their data scope assignment is kept and can be restored if the account is reactivated.",
+    "cancel": "Cancel",
+    "confirm": "Deactivate user"
+  }
 }

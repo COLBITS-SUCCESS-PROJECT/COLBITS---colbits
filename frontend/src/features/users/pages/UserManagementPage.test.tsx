@@ -20,6 +20,32 @@ describe('UserManagementPage', () => {
     expect(within(row('Andrés Ibarra')).getByText('Inactivo')).toBeInTheDocument()
   })
 
+  it('deactivates a user after confirming (AC3)', async () => {
+    render(<UserManagementPage />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Desactivar a Laura Gómez' }))
+    const dialog = screen.getByRole('alertdialog', { name: '¿Desactivar este usuario?' })
+    expect(dialog).toHaveAccessibleDescription(/Laura Gómez/)
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Desactivar usuario' }))
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(row('Laura Gómez')).toHaveAttribute('data-status', 'INACTIVE')
+    expect(within(row('Laura Gómez')).getByText('Zona Z-01')).toBeInTheDocument()
+  })
+
+  it.each([
+    ['Cancel', () => userEvent.click(screen.getByRole('button', { name: 'Cancelar' }))],
+    ['Escape', () => userEvent.keyboard('{Escape}')],
+  ])('keeps the user active when the dialog is closed with %s (AC3)', async (_how, close) => {
+    render(<UserManagementPage />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Desactivar a Laura Gómez' }))
+    await close()
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(row('Laura Gómez')).toHaveAttribute('data-status', 'ACTIVE')
+  })
+
   it('reactivates an inactive user (AC4)', async () => {
     render(<UserManagementPage />)
 

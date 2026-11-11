@@ -28,5 +28,11 @@
     "NODE": "Nodo",
     "DEVICE": "Dispositivo"
   },
-  "scopeTag": "{{level}} {{name}}"
+  "scopeTag": "{{level}} {{name}}",
+  "deactivate": {
+    "title": "¿Desactivar este usuario?",
+    "description": "{{name}} perderá el acceso a Colbits de inmediato. Su alcance de datos se conserva y se puede restaurar si la cuenta se reactiva.",
+    "cancel": "Cancelar",
+    "confirm": "Desactivar usuario"
+  }
 }
