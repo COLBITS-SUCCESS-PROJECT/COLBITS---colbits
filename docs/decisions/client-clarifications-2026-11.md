@@ -3,7 +3,8 @@
 **Project:** Colbits IoT Grid Monitoring Platform
 **Version:** 1.0 · 7 November 2026
 **Status:** Colbits answers are confirmed. Team decisions are proposed and must be agreed by the team before implementation.
-**Update 9 November 2026:** the code was checked against this document and the corrections listed in section 7 were made. TD-04 is resolved provisionally (section 7.2).
+**Update 9 November 2026:** the code was checked against this document and the corrections listed in section 7 were made.
+**Update 11 November 2026:** Colbits answered the TD-04 follow-up (CL-24): a failed phase always reports a value. TD-04 is now resolved with the simple variant, the latest reading only (section 7.2).
 
 ## Purpose
 
@@ -85,6 +86,12 @@ This document records what Colbits clarified about the database schema on 3 Nove
 | --- | --- | --- |
 | CL-23 | `idx_falcon_values_custom` and `idx_falcon_values_custom_id` | Identical; one may be omitted. (Q23) |
 
+### 1.7 Follow-up (11 Nov 2026, Katerine Lotero)
+
+| ID | Item | Clarification | Affects |
+| --- | --- | --- | --- |
+| CL-24 | `va`, `vb`, `vc` of a phase that lost voltage | A failed phase **always reports a value**, never `NULL`. So `NULL` only means the phase does not exist, and the simplification proposed by the team is accepted. (Follow-up to Q6) | TD-04, TD-05, F-23 |
+
 ---
 
 ## 2. Resolved by the documentation
@@ -111,7 +118,7 @@ This document records what Colbits clarified about the database schema on 3 Nove
 | TD-01 | Fuse and voltage state come from the latest `13xx20` / `13xx21` event. Telemetry (`fuse_state`, `is_voltage_present`) is used **only** for a fuse that has no event of that type yet. | Applies CL-01. Without a fallback, a fuse that has never changed could not be confirmed closed, so F-18 could never show it green. | Low |
 | TD-02 | `13xx01` is accepted as `SET` or `MSG`, case-insensitively. Its alert resolves at the first record with `is_free_fall_alarm = false`. | The event has no `CLEAR`; CL-14 makes the flag the same condition. Q18 was not answered. | Low |
 | TD-03 | The event parser accepts the SMAC channel as a digit (`1`–`3`) or a letter (`A`–`C`). | CL-19 confirms digits; the sample data uses letters. | None |
-| TD-04 | A transformer's existing phases are the voltage columns that are not `NULL`. Proposed safer variant: channels non-`NULL` at least once in the last 7 days. **Provisionally resolved (9 Nov 2026): the 7-day variant, with the window as a setting (`SMAC_PHASE_WINDOW_DAYS`, 0 = latest reading only). See 7.2.** | Applies CL-07 and F-23. | Medium: a dropped phase stored as `NULL` would look like a missing one |
+| TD-04 | A transformer's existing phases are the voltage columns that are not `NULL`. Proposed safer variant: channels non-`NULL` at least once in the last 7 days. **Resolved (11 Nov 2026, CL-24): the latest reading only. The window stays as a setting (`SMAC_PHASE_WINDOW_DAYS`, default 0). It was provisionally 7 days on 9 Nov. See 7.2.** | Applies CL-07 and F-23. | Low since CL-24: a failed phase always reports a value, so `NULL` is never a failure |
 | TD-05 | Drop events on a channel the transformer does not have are ignored and logged. | F-23: a missing phase must never count as down. | Low |
 | TD-06 | Event codes that match no documented pattern are logged and kept out of the alert list. | F-47 allows no other alert types. | Low |
 | TD-07 | SMAC inactivity uses the latest `recorded_at` across `last_smac_vc_values`, `last_smac_pw_values` and `last_smac_pf_values`. | Specification 3.3 does not say which table; a device that sends any part is communicating. | Low |
@@ -200,7 +207,7 @@ All values are configurable. TD-09 and TD-10 need a new flexibility requirement 
 | Item | Status | Owner |
 | --- | --- | --- |
 | Initial `cuf_percent` threshold (TD-10) | Not set | Team |
-| TD-04 variant: latest reading or last 7 days | Resolved provisionally: 7 days, configurable (7.2). Can change by configuration | Team |
+| TD-04 variant: latest reading or last 7 days | Resolved (11 Nov 2026, CL-24): latest reading only; the window stays a setting (7.2) | Team |
 | Legacy I, C, D phases in the fault classification (CL-18) | Kept as they are (7.2) | Team |
 | Q18: does `13xx01` arrive as `SET` or `MSG`? | Unanswered; covered by TD-02 | No action needed |
 | Hours without voltage before `is_solar_panel_alarm` fires | Not given; evaluated by the device | No action needed |
@@ -216,7 +223,7 @@ Every change in code, SQL and configuration is marked with a comment that starts
 | Rule | Problem found | Correction | Files |
 | --- | --- | --- | --- |
 | CL-01, TD-01 | The fuse layer of the map used telemetry only (`fuse_state`, `is_voltage_present`). The seed fuse `0000100002-A-R` showed red on the map while its alarm history had closed it, and the fault list did not show it. | Fuse and voltage state come from the latest `13xx20` / `13xx21` event of each fuse (by `custom_id`; SET wins at the same instant, as in the fault list). Telemetry is used only for a fuse with no event of that type. Inactivity still comes from the last Falcon record. | `backend/src/nodes/fuse-state.ts`, `backend/src/nodes/nodes.service.ts` |
-| CL-07, TD-04 | Existing phases came from the `-2` / `-3` suffix of `custom_id`, assuming a two-phase transformer has A and B. On a B-C transformer a drop on C was ignored and a drop on A counted. | Existing phases are the voltage columns (`va`, `vb`, `vc`) that were not `NULL` at least once within `SMAC_PHASE_WINDOW_DAYS` (default 7) up to the SMAC's latest reading. Without any voltage reading, the identifier suffix is the fallback. | `backend/src/nodes/transformer-state.ts`, `backend/src/nodes/nodes.service.ts` |
+| CL-07, TD-04 | Existing phases came from the `-2` / `-3` suffix of `custom_id`, assuming a two-phase transformer has A and B. On a B-C transformer a drop on C was ignored and a drop on A counted. | Existing phases are the voltage columns (`va`, `vb`, `vc`) that were not `NULL` at least once within `SMAC_PHASE_WINDOW_DAYS` up to the SMAC's latest reading (default 0 since 11 Nov: the latest reading only; it was 7 on 9 Nov). Without any voltage reading, the identifier suffix is the fallback. | `backend/src/nodes/transformer-state.ts`, `backend/src/nodes/nodes.service.ts` |
 | TD-05 | A drop event on a missing phase was ignored but not logged. | It is ignored and logged once per transformer and channel (at most 100 per process). | `backend/src/nodes/nodes.service.ts` |
 | CL-13, CL-01 | `FaultsService.getActiveFaults()` filtered `fuse_state = 'OPEN'` (the real value is `Abierto`) and read telemetry instead of `alarms`. Nothing used it. | Removed. The active fault list is `ActiveFaultsService`. | `backend/src/faults/faults.service.ts` |
 | TD-21 | The generator wrote `vc = 0` and `ic = 0` for the missing phase. | The missing phase is `NULL` in all three SMAC tables. | `generator/src/telemetry.ts` |
@@ -229,17 +236,17 @@ Every change in code, SQL and configuration is marked with a comment that starts
 | TD-25 | The seed stored the missing phase C of `0000100005-T1-2` as `0`. | Stored as `NULL`. | `backend/database/02_dummy_inserts.sql` |
 | Section 4.1 | The Requirements Specification v2.0 still had the old texts. | F-46 rationale, F-73 criterion (2 min), NF-12 initial value, and new NF-22 (overload and imbalance thresholds). NF-22 is numbered after NF-21 so existing references keep their numbers. | `COLBITS_Requirements_Specification_v2.md` |
 
-New setting: `SMAC_PHASE_WINDOW_DAYS` (default 7), added next to `FALCON_INACTIVITY_HOURS` and `SMAC_INACTIVITY_HOURS` in `.env.example`, `backend/.env.example`, both `docker-compose.yml` files and the e2e runner.
+New setting: `SMAC_PHASE_WINDOW_DAYS` (default 0, latest reading only; changed from 7 on 11 Nov 2026), added next to `FALCON_INACTIVITY_HOURS` and `SMAC_INACTIVITY_HOURS` in `.env.example`, `backend/.env.example`, both `docker-compose.yml` files and the e2e runner.
 
-Tests added or updated: fuse layer with alarms vs. telemetry (unit and e2e), B-C and A-C transformers and the 7-day window (unit and e2e), generator NULL phases, phase pairs and the `load_percent` formula.
+Tests added or updated: fuse layer with alarms vs. telemetry (unit and e2e), B-C and A-C transformers, a NULL phase versus a failed phase that still reports a value, and the window setting (unit and e2e), generator NULL phases, phase pairs and the `load_percent` formula.
 
 ### 7.2 Decisions that may change
 
-These are resolved provisionally. Each can change later; the table says how.
+Each can change later; the table says how. TD-04 was provisional on 9 Nov 2026 and was confirmed by Colbits on 11 Nov 2026 (CL-24).
 
 | Item | Decision | Why | How to change it |
 | --- | --- | --- | --- |
-| TD-04: latest reading or last 7 days | **7 days**, counted back from the SMAC's latest reading, not from the current time. | A phase that drops and is stored as `NULL` must not look like a phase the transformer lacks (TD-04 risk). Counting from the latest reading keeps the phases of a silent SMAC and of old data, such as the seed. | Configuration only: `SMAC_PHASE_WINDOW_DAYS`. `0` gives the other variant (latest reading only); any other number of days is accepted. No code change. |
+| TD-04: latest reading or last 7 days | **Latest reading only** (`SMAC_PHASE_WINDOW_DAYS=0`). It was provisionally 7 days (9 Nov 2026). | Colbits confirmed on 11 Nov 2026 (CL-24) that a failed phase always reports a value, so `NULL` only means the phase does not exist and a longer window is not needed. The window stays as a setting, so a longer one is still possible. | Configuration only: set `SMAC_PHASE_WINDOW_DAYS` to a number of days, counted back from the SMAC's latest reading. No code change. |
 | CL-18: legacy phases I, C, D | **Kept as they are.** The fault classification still accepts the I/C/D alphabet as its own alphabet, never mixed with or mapped to R/S/T. | Colbits put fuses with I, C, D phases out of scope. They are only in the seed (nodes `0000100001`, `0000100003`), so nothing new is built for them and nothing that works today is removed. | A code change in `backend/src/faults/fault-classification.ts` if the team later decides to exclude them. |
 
 ### 7.3 Still open

@@ -19,12 +19,13 @@ export const PHASE_DROP_EVENT_PATTERN = ALERT_TYPE_DEFINITIONS.PHASE_LOSS
   .eventCodePattern as string;
 
 /**
- * #CORRECTION TD-04 (2026-11-09): new configurable window, default 7 days; 0 switches to the latest-reading variant.
- * TD-04 (provisional, docs/decisions/client-clarifications-2026-11.md): a phase exists when its
- * voltage column was not NULL at least once in this many days up to the SMAC's latest reading.
- * Overridable with SMAC_PHASE_WINDOW_DAYS; 0 means "the latest reading only" (the other variant).
+ * #CORRECTION TD-04 (2026-11-09): new configurable window.
+ * #CORRECTION TD-04 (2026-11-11): default changed from 7 days to 0 (latest reading only), because Colbits confirmed (CL-24) that a failed phase always reports a number, so NULL only means the phase does not exist.
+ * TD-04 (docs/decisions/client-clarifications-2026-11.md): a phase exists when its voltage column
+ * was not NULL at least once in this many days up to the SMAC's latest reading. 0 means "the latest
+ * reading only". Overridable with SMAC_PHASE_WINDOW_DAYS; a longer window stays available as a setting.
  */
-export const DEFAULT_SMAC_PHASE_WINDOW_DAYS = 7;
+export const DEFAULT_SMAC_PHASE_WINDOW_DAYS = 0;
 
 export type Phase = 1 | 2 | 3;
 

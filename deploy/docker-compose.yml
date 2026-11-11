@@ -39,8 +39,9 @@ services:
       FALCON_INACTIVITY_HOURS: 9
       SMAC_INACTIVITY_HOURS: 3
       #CORRECTION TD-04 (2026-11-09): new setting.
-      # TD-04 (provisional): days of SMAC readings that decide which phases exist; 0 = latest only.
-      SMAC_PHASE_WINDOW_DAYS: 7
+      # #CORRECTION TD-04 (2026-11-11): default changed from 7 to 0 after Colbits confirmed (CL-24) that a failed phase always reports a value.
+      # Days of SMAC readings that decide which phases exist; 0 = latest reading only.
+      SMAC_PHASE_WINDOW_DAYS: 0
       # Test data older than this is regenerated, but only when the backend starts.
       DATA_REFRESH_HOURS: 1
     depends_on:

@@ -8,7 +8,7 @@ import {
 // US7 · F-19 to F-23 against a real database: the transformer-layer state of GET /nodes comes from
 // the SMAC phase-drop events in `alarms` (05xx21y, SET / CLEAR) and the SMAC inactivity rule.
 // CL-07 / TD-04: the phases a transformer has come from its non-NULL voltage columns within
-// SMAC_PHASE_WINDOW_DAYS (7 by default) up to its latest reading; without voltages, the identifier.
+// SMAC_PHASE_WINDOW_DAYS (0 by default = the latest reading only); without voltages, the identifier.
 // Uses the isolated database of the F-10 tests and removes every row it creates.
 
 const LABEL = 'US7';
@@ -146,7 +146,8 @@ const FIXTURES: Fixture[] = [
     ],
     expected: 'CRITICAL',
   },
-  // TD-04: a phase reported as NULL in the latest reading but present 3 days earlier still exists.
+  // #CORRECTION TD-04 (2026-11-11): replaces the 7-day cases. CL-24: a failed phase always reports a
+  // number, so a NULL in the latest reading means the phase does not exist, whatever older readings say.
   {
     node: 'TRE2E00013',
     phases: 3,
@@ -154,17 +155,16 @@ const FIXTURES: Fixture[] = [
     voltages: { va: 220, vb: 220, vc: null },
     olderReadings: [{ daysBefore: 3, voltages: { va: 220, vb: 220, vc: 221 } }],
     events: [{ channel: 'C', type: 'SET', minutesAgo: 30 }],
-    expected: 'WARNING',
+    expected: 'NORMAL',
   },
-  // TD-04: outside the 7-day window an old voltage no longer makes the phase exist.
+  // CL-24: a failed phase that still reports a (low) value exists, so its drop counts.
   {
     node: 'TRE2E00014',
     phases: 3,
     hoursSinceReading: 1,
-    voltages: { va: 220, vb: 220, vc: null },
-    olderReadings: [{ daysBefore: 8, voltages: { va: 220, vb: 220, vc: 221 } }],
+    voltages: { va: 220, vb: 220, vc: 85 },
     events: [{ channel: 'C', type: 'SET', minutesAgo: 30 }],
-    expected: 'NORMAL',
+    expected: 'WARNING',
   },
 ];
 

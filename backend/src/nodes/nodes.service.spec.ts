@@ -227,7 +227,7 @@ describe('NodesService.findAll transformer_state (US7)', () => {
       [N1.name, N2.name],
       3,
       '^05[0-9]{2}21[0-9A-Za-z]$',
-      7,
+      0,
     ]);
   });
 
@@ -248,7 +248,7 @@ describe('NodesService.findAll transformer_state (US7)', () => {
       [N1.name],
       6,
       expect.any(String),
-      7,
+      0,
     ]);
   });
 
@@ -274,10 +274,11 @@ describe('NodesService.findAll transformer_state (US7)', () => {
   it.each([
     ['0', 0],
     ['14', 14],
-    [undefined, 7],
-    ['', 7],
-    ['-1', 7],
-    ['abc', 7],
+    ['7', 7],
+    [undefined, 0],
+    ['', 0],
+    ['-1', 0],
+    ['abc', 0],
   ])(
     'reads the phase window from SMAC_PHASE_WINDOW_DAYS=%p as %p days (0 = latest reading only)',
     async (configured, expected) => {

@@ -324,9 +324,10 @@ export class NodesService {
   }
 
   /**
-   * #CORRECTION TD-04 (2026-11-09): new setting SMAC_PHASE_WINDOW_DAYS, provisional (decisions doc, section 7.2).
-   * TD-04 (provisional): days of SMAC readings that decide which phases exist. A number >= 0 from
-   * SMAC_PHASE_WINDOW_DAYS, 0 = latest reading only; the default (7) when missing or invalid.
+   * #CORRECTION TD-04 (2026-11-09): new setting SMAC_PHASE_WINDOW_DAYS (decisions doc, section 7.2).
+   * #CORRECTION TD-04 (2026-11-11): default changed from 7 days to 0 (latest reading only), because Colbits confirmed (CL-24) that a failed phase always reports a number, so NULL only means the phase does not exist.
+   * Days of SMAC readings that decide which phases exist. A number >= 0 from SMAC_PHASE_WINDOW_DAYS,
+   * 0 = latest reading only; the default (0) when missing or invalid.
    */
   private smacPhaseWindowDays(): number {
     const raw = this.configService.get<string | number>(
