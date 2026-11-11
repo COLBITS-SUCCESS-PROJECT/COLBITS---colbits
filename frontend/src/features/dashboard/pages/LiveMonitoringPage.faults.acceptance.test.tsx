@@ -6,7 +6,7 @@
  * start time and the duration of each fault are known.
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -128,15 +128,30 @@ describe('SCRUM-108 · US10 — active faults from the fault service', () => {
     expect(panel.queryByText(OUTSIDE_SCOPE)).not.toBeInTheDocument()
   })
 
-  it('AC6 — the panel shows no sample data: no node counters, and the resolved tab says the list is coming', async () => {
+  it('AC6 — the panel summary counts the nodes in alarm of the listed faults, and the resolved tab says the list is coming', async () => {
     const panel = openMapAs(MOCK_TOKENS.NORTH)
     await faultCard(panel, N1, 'B')
 
+    // Two faults on the same node count as one node with a fuse alarm
+    const summary = panel.getByRole('region', { name: 'Resumen de nodos con alarma' })
     expect(
-      panel.queryByRole('region', { name: 'Resumen de nodos con alarma' })
-    ).not.toBeInTheDocument()
+      within(summary).getByText('Nodos con alarma de fusible (Falcon)').previousSibling
+    ).toHaveTextContent('1')
+    expect(within(summary).getAllByText('0')).toHaveLength(3)
     await userEvent.click(panel.getByRole('tab', { name: 'Resueltas' }))
     expect(panel.getByText(/fallas resueltas llegará/)).toBeInTheDocument()
+    expect(panel.queryByRole('article')).not.toBeInTheDocument()
+  })
+
+  it('AC6 — the counters follow the map filter: searching a node leaves only its alarms counted', async () => {
+    const panel = openMapAs(MOCK_TOKENS.NORTH)
+    await faultCard(panel, N1, 'B')
+
+    // When the map filter matches no node, the list and every counter go to zero
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar nodo' }), 'XX')
+
+    const summary = panel.getByRole('region', { name: 'Resumen de nodos con alarma' })
+    await waitFor(() => expect(within(summary).getAllByText('0')).toHaveLength(4))
     expect(panel.queryByRole('article')).not.toBeInTheDocument()
   })
 
