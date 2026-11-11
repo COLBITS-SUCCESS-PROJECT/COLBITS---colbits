@@ -13,7 +13,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | `dashboard` | Live Monitoring · `/dashboard` | [FEATURE.md](./dashboard/FEATURE.md) | IN_PROGRESS | Sofia |
 | `analysis` | Historical Analysis · `/analysis` | [FEATURE.md](./analysis/FEATURE.md) | PLANNED | TBD |
 | `reports` | Reports · `/reports` | [FEATURE.md](./reports/FEATURE.md) | PLANNED | TBD |
-| `users` | User Management · `/users` (admin) | [FEATURE.md](./users/FEATURE.md) | PLANNED | TBD |
+| `users` | User Management · `/users` (admin) | [FEATURE.md](./users/FEATURE.md) | IN_PROGRESS | Monica |
 | `chatbot` | Floating assistant (every page) | [FEATURE.md](./chatbot/FEATURE.md) | PLANNED | TBD |
 
 ## Stories
@@ -33,6 +33,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | SCRUM-109 | `dashboard` | US11 · Node detail with fuse sets (F-27, F-29) | [SCRUM-109.md](./dashboard/SCRUM-109.md) | IN_REVIEW | Sofia |
 | SCRUM-63 | `dashboard` | [F-13] Group overlapping node markers into one cluster (US4) | [SCRUM-63.md](./dashboard/SCRUM-63.md) | IN_REVIEW | Paola |
 | SCRUM-110 | `dashboard` | US12 · Live node state updates: the map refreshes every 15 s (F-30, NF-01) | [SCRUM-110.md](./dashboard/SCRUM-110.md) | IN_REVIEW | Paola |
+| SCRUM-250 | `users` | [F-05] User list, deactivate action and create / edit drawer with scope (views only) | [SCRUM-250.md](./users/SCRUM-250.md) | IN_PROGRESS | Monica |
 | SCRUM-108 | `dashboard` | US10 · Active fault list from `GET /faults` (F-51, F-55) | [SCRUM-108.md](./dashboard/SCRUM-108.md) | IN_REVIEW | Paola |
 
 ## Shared foundation (no feature spec)
