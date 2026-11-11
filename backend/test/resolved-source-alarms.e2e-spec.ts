@@ -269,7 +269,7 @@ describe('Resolved source alarms (SCRUM-226 · F-59, F-60, e2e)', () => {
     if (!started) throw new Error(`${LABEL} app did not start`);
     return started.app.get(ActiveFaultsService);
   };
-  const resolved = async (since: Date, scope = UNRESTRICTED) =>
+  const resolved = async (since: Date, scope: ScopeContext = UNRESTRICTED) =>
     ours(await service().resolvedSourceAlarms(scope, since));
   const activeSourceAlarms = async () =>
     (await service().activeFaults(UNRESTRICTED)).faults.filter(
