@@ -75,7 +75,7 @@ describe('selectFaults', () => {
     const open = selectFaults(faults, NO_FILTERS, 'OPEN', NOW)
 
     // Assert
-    expect(open.map((fault) => fault.id)).toEqual(['f-1', 'f-2', 'f-3', 'f-4', 'f-5', 'f-6'])
+    expect(open.map((fault) => fault.id)).toEqual(['f-1', 'f-2', 'f-3', 'f-4', 'f-5', 'f-6', 'f-9'])
   })
 
   it('breaks ties by the oldest start', () => {
@@ -106,6 +106,31 @@ describe('countAlarmNodes', () => {
       voltageAlarmNodes: 1,
       phaseOutOfRangeNodes: 1,
       phaseDroppedNodes: 2,
+    })
+  })
+
+  it('counts PHASE_OUT_OF_RANGE as phase out of range and never OVERLOAD_UNBALANCE', () => {
+    const outOfRange = byId('f-9')
+    const overload = byId('f-6')
+
+    expect(countAlarmNodes([overload]).phaseOutOfRangeNodes).toBe(0)
+    expect(countAlarmNodes([outOfRange]).phaseOutOfRangeNodes).toBe(1)
+    expect(countAlarmNodes([overload, outOfRange])).toEqual({
+      fuseAlarmNodes: 0,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 1,
+      phaseDroppedNodes: 0,
+    })
+  })
+
+  it('counts a node with open fuses on two fuse sets once, and a dropped phase on its own counter', () => {
+    const twoSets = [byId('f-1'), { ...byId('f-1'), id: 'f-1b' }]
+
+    expect(countAlarmNodes([...twoSets, byId('f-4')])).toEqual({
+      fuseAlarmNodes: 1,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 1,
     })
   })
 

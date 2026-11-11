@@ -42,7 +42,7 @@ describe('FaultPanel', () => {
 
     // Assert
     const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
-    expect(within(panel).getByText('6 activas')).toBeInTheDocument()
+    expect(within(panel).getByText('7 activas')).toBeInTheDocument()
     const counters = within(panel).getByRole('region', { name: 'Resumen de nodos con alarma' })
     expect(within(counters).getByText('7')).toBeInTheDocument()
     const cards = within(panel).getAllByRole('article')

@@ -62,11 +62,19 @@ export function selectFaults(
     .sort(compareFaults)
 }
 
-/** Counter of the panel summary → the alert type whose nodes it counts (F-58). */
+/**
+ * Counter of the panel summary → the alert type whose nodes it counts. F-58 asks for exactly these
+ * four counters; no other alert type (e.g. OVERLOAD_UNBALANCE) adds to any of them.
+ *
+ * BACKEND EXPECTED: the counters are derived from GET /faults (no counters endpoint yet, US15), so
+ * each one only moves when the service lists its type, with `node` and `device`, and the mapper
+ * (api/faults.mapper.ts) keeps it. FUSE_OPENING is mapped today; NO_VOLTAGE, PHASE_LOSS and
+ * PHASE_OUT_OF_RANGE are already sent by the backend (SCRUM-225) but not read yet.
+ */
 const COUNTER_ALERT_TYPE: Record<keyof FaultCounters, AlertType> = {
   fuseAlarmNodes: 'FUSE_OPENING',
   voltageAlarmNodes: 'NO_VOLTAGE',
-  phaseOutOfRangeNodes: 'OVERLOAD_UNBALANCE',
+  phaseOutOfRangeNodes: 'PHASE_OUT_OF_RANGE',
   phaseDroppedNodes: 'PHASE_LOSS',
 }
 
