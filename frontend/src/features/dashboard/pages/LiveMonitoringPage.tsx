@@ -5,7 +5,7 @@ import { useNow } from '@/hooks/useNow'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { MapCanvas } from '../components/MapCanvas/MapCanvas'
 import { MapLegend } from '../components/MapLegend/MapLegend'
-import { MapRefreshTime } from '../components/MapRefreshTime/MapRefreshTime'
+import { MapRefreshStatus } from '../components/MapRefreshStatus/MapRefreshStatus'
 import { MapToolbar } from '../components/MapToolbar/MapToolbar'
 import { FaultPanel } from '../components/FaultPanel/FaultPanel'
 import { FaultPanelToggle } from '../components/FaultPanel/FaultPanelToggle'
@@ -25,6 +25,7 @@ export function LiveMonitoringPage() {
   const closeMobilePanel = useCallback(() => setMobilePanelOpen(false), [])
   const query = useLiveMonitoringQuery()
   const nodesQuery = useNodesQuery()
+  const retryMap = () => void nodesQuery.refetch()
   const { filters, updateFilters, toggleLayer, tab, setTab } = useLiveMonitoringFilters()
   const now = useNow()
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
@@ -51,10 +52,11 @@ export function LiveMonitoringPage() {
           nodes={nodesQuery.data ?? []}
           layers={filters.layers}
           isLoading={nodesQuery.isPending}
-          isError={nodesQuery.isError}
-          onRetry={() => void nodesQuery.refetch()}
+          // F-31: only a first load that fails hides the map; a failed refresh keeps the last nodes.
+          isError={nodesQuery.isLoadingError}
+          onRetry={retryMap}
           onSelectNode={setSelectedNodeId}
-          topOverlay={<MapRefreshTime />}
+          topOverlay={<MapRefreshStatus onRetry={retryMap} />}
         >
           <MapLegend layers={filters.layers} />
           <FaultPanelToggle

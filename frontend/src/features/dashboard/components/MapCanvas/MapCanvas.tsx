@@ -33,7 +33,11 @@ export interface MapCanvasProps {
   onSelectNode?: (nodeId: string) => void
   /** Overlay at the bottom-left corner (the legend). */
   children?: ReactNode
-  /** Overlay at the top-left corner, beside the zoom buttons (the last refresh time below lg, F-32). */
+  /**
+   * Overlays along the top edge, left of the zoom buttons, stacked from the top-left corner: the last
+   * refresh time below lg (F-32) and the warning when the map stops refreshing (F-31). Only the overlays
+   * take clicks; the space around them still drags the map.
+   */
   topOverlay?: ReactNode
 }
 
@@ -194,7 +198,11 @@ export function MapCanvas({
         </button>
       </div>
 
-      {topOverlay && <div className="absolute top-4 left-4 z-10">{topOverlay}</div>}
+      {topOverlay && (
+        <div className="pointer-events-none absolute top-4 right-18 left-4 z-10 flex flex-col items-start gap-2 *:pointer-events-auto">
+          {topOverlay}
+        </div>
+      )}
       {children && (
         <div className="absolute right-4 bottom-4 left-4 z-10 flex items-end justify-between gap-3">
           {children}

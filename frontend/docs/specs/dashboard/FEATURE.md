@@ -3,7 +3,7 @@ feature: dashboard
 title: Live Monitoring
 status: IN_PROGRESS
 owner: Sofia
-last_updated: 2026-11-03
+last_updated: 2026-11-11
 ---
 
 # Feature: Live Monitoring
@@ -21,7 +21,8 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - *Inactive devices* tab 🔲 (placeholder)
 - Node detail panel: live status (F-27, F-29) ✅ · time series and alarm history 🔲 (node view, F-28)
 - Time of the last successful map refresh (F-32): in the top bar with the *Live* / *Stale* state (shared, in `AppShell`), on the map below 1024 px ✅ ([SCRUM-111](./SCRUM-111.md))
-- Stale-data banner, alarm selection → map focus 🔲
+- Warning when the map stops refreshing (F-31): banner on the map (M10) and red dot in the top bar ✅ ([SCRUM-111](./SCRUM-111.md))
+- Alarm selection → map focus 🔲
 - Responsive layout: mobile navigation drawer, collapsible location filters and map legend, and fault panel bottom sheet below desktop width ✅
 
 ### Out of scope
@@ -43,7 +44,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | — | Inactive devices tab (M12, M14) | TBD | PLANNED |
 | [SCRUM-110](./SCRUM-110.md) | US12 · Live node state updates: the map refreshes every 15 s (F-25, F-26, F-30, NF-01) | Paola | IN_REVIEW |
 | [SCRUM-108](./SCRUM-108.md) | US10 · Active fault list from `GET /faults`: each fault with its classification and affected clients (F-51, F-55) | Paola | IN_REVIEW |
-| [SCRUM-111](./SCRUM-111.md) | US13 · Time of the last successful map refresh (F-32) and warning when the map stops updating (F-31) | Paola | IN_PROGRESS |
+| [SCRUM-111](./SCRUM-111.md) | US13 · Time of the last successful map refresh (F-32) and warning when the map stops updating (F-31) | Paola | IN_REVIEW |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
@@ -54,7 +55,7 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | M2 · Monitor / Transformers layer | `8-580` | ✅ (layer switch) |
 | M3 · Monitor / Both layers | `8-946` | ✅ (layer switch) |
 | M4–M9 · Node detail | `8-1876` … `8-3987` | 🔲 |
-| M10 · Stale data + min-duration filter | `8-4449` | Partly (top bar stale state, filter) |
+| M10 · Stale data + min-duration filter | `8-4449` | Partly (top bar stale state, banner, filter) |
 | M11 · Resolved alarms | `8-4841` | ✅ |
 | M12 / M14 · Inactive devices | `8-5197`, `2011-11763` | 🔲 |
 | M13 · Alarm selected → map focus | `2011-11123` | 🔲 |
@@ -69,6 +70,7 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | Fault Panel | `5-764` |
 | Fault List Item (F-51, F-55) | `3-131` |
 | Fault Counter Card | `3-96` |
+| Banner (Kind=Stale) | `3-270` |
 
 ## 5. Routes
 
@@ -81,14 +83,14 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | Component | Layer | Location |
 |---|---|---|
 | `TopBar`, `NavSidebar` | Organism | design-system (via `AppShell`) |
-| `Select`, `SearchField`, `Tabs`, `LegendItem`, `CounterCard`, `DataField`, `RefreshTimestamp` | Molecule | design-system |
+| `Select`, `SearchField`, `Tabs`, `LegendItem`, `CounterCard`, `DataField`, `RefreshTimestamp`, `Banner` | Molecule | design-system |
 | `ToggleChip`, `Badge`, `StatusDot`, `Toggle`, `Tooltip`, `Icon`, `Button`, `Skeleton` | Atom | design-system |
-| `MapMarker`, `PhaseChips`, `FaultListItem`, `FuseSetCard`, `TransformerCard`, `FaultPanelToggle`, `MapRefreshTime` | Molecule | `src/features/dashboard/components/` |
+| `MapMarker`, `PhaseChips`, `FaultListItem`, `FuseSetCard`, `TransformerCard`, `FaultPanelToggle`, `MapRefreshTime`, `MapRefreshStatus` | Molecule | `src/features/dashboard/components/` |
 | `MapToolbar`, `MapCanvas`, `MapLegend`, `FaultPanel` (+ `FaultFilters`, `FaultList`), `NodeDetailPanel` | Organism | `src/features/dashboard/components/` |
 
 Other code:
 - `model/` — types, constants, `faultRules.ts` (filters, sort: customers affected → oldest first), `scopeOptions.ts`
-- `hooks/` — `useNodesQuery` (`GET /nodes` every 15 s; each successful answer sets the last refresh time, F-32), `useLiveMonitoringQuery` (TanStack Query on `GET /faults`, polling every 15 s), `useLiveMonitoringFilters` (UI state)
+- `hooks/` — `useNodesQuery` (`GET /nodes` every 15 s; each successful answer sets the last refresh time, F-32; a failed refresh marks the map as interrupted, F-31), `useLiveMonitoringQuery` (TanStack Query on `GET /faults`, polling every 15 s), `useLiveMonitoringFilters` (UI state)
 - `api/` — node service: `nodes.dto.ts` (PROVISIONAL), `nodes.mapper.ts`, `nodes.api.ts`; hook `useNodesQuery`. Fault service: `faults.dto.ts`, `faults.mapper.ts`, `faults.api.ts` (SCRUM-108)
 - Sample fault-panel data for component tests (every alert type, resolved faults, counters): `src/mocks/data/liveMonitoring.fixtures.ts`
 - Map: Leaflet + OpenStreetMap inside `MapCanvas` only (ADR-0006). Sample nodes in Cali come from the MSW mock (`src/mocks/`)

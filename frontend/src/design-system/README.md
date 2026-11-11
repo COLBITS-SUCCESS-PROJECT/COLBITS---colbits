@@ -66,7 +66,7 @@ No hex/rgb colors and no `[13px]`-style arbitrary values in components. Use thes
 | Component          | Figma                 | Use it for                                                                                                   | Key props                                                                    |
 | ------------------ | --------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | `NavItem`          | Nav Item              | Sidebar link, highlights itself on the current route                                                         | `to`, `label`, `icon`                                                        |
-| `LanguageSwitch`   | — (SCRUM-158)         | One-click toggle pill (ES \| EN, active one filled); labels come by props                                     | `options`, `value`, `onChange`, `label`                                      |
+| `LanguageSwitch`   | — (SCRUM-158)         | One-click toggle pill (ES \| EN, active one filled); labels come by props                                    | `options`, `value`, `onChange`, `label`                                      |
 | `UserSummary`      | Sidebar → User        | Avatar + name + role + logout (navy background)                                                              | `name`, `roleLabel`, `onLogout`                                              |
 | `Select`           | Select                | Labelled dropdown (zone / substation / circuit, any filter)                                                  | `label`, `options`, native select props                                      |
 | `SearchField`      | Search Field          | Search box with icon                                                                                         | `label` (accessible), native input props                                     |
@@ -76,6 +76,7 @@ No hex/rgb colors and no `[13px]`-style arbitrary values in components. Use thes
 | `RefreshTimestamp` | Refresh Timestamp     | "Last update" pill with live / stale dot and refresh                                                         | `label`, `isStale`, `statusLabel`, `onRefresh`                               |
 | `CounterCard`      | Fault Counter Card    | Big number with accent bar and caption                                                                       | `value`, `label`, `tone` (`primary · info · warning · critical`)             |
 | `DataField`        | Fault List Item cells | Uppercase caption + value; shows "—" when empty. Inside a `<dl>`                                             | `label`, `value`                                                             |
+| `Banner`           | Banner · Kind=Stale   | Message strip with icon and optional text action, announced as an alert. Only Kind=Stale is built            | `kind`, `message`, `actionLabel`, `onAction`                                 |
 
 ## Organisms — `organisms/`
 
@@ -92,7 +93,7 @@ No hex/rgb colors and no `[13px]`-style arbitrary values in components. Use thes
 
 | Figma component                                                | Layer                | Where it should live                  |
 | -------------------------------------------------------------- | -------------------- | ------------------------------------- |
-| Banner / Alert (Stale · Filter active · Info)                  | Molecule             | design-system                         |
+| Banner kinds Filter active and Info (Stale is built)           | Molecule             | design-system (new `kind`)            |
 | KPI Card                                                       | Molecule             | design-system (`analysis`, `reports`) |
 | Scope Tag, Scope Tree Row                                      | Molecule             | design-system (`analysis`, `users`)   |
 | Level Bar                                                      | Atom (`ProgressBar`) | design-system                         |

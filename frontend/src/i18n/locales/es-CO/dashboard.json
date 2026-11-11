@@ -33,6 +33,7 @@
     "loading": "Cargando nodos",
     "empty": "No hay nodos dentro de tu alcance.",
     "error": "No se pudieron cargar los nodos.",
+    "interrupted": "Actualización en vivo interrumpida: el mapa dejó de actualizarse.",
     "retry": "Reintentar"
   },
   "fuseState": {

@@ -242,6 +242,13 @@ describe('MapCanvas', () => {
     expect(within(map).getByText('top-overlay')).toBeInTheDocument()
     expect(within(map).getByRole('alert')).toBeInTheDocument()
   })
+
+  it('lets the map be dragged around the top overlays: only the overlays take clicks (F-31)', () => {
+    renderMap({ topOverlay: <p>top-overlay</p> })
+
+    const slot = screen.getByText('top-overlay').parentElement
+    expect(slot).toHaveClass('pointer-events-none', '*:pointer-events-auto')
+  })
 })
 
 describe('MapCanvas — clusters (SCRUM-63 · F-13)', () => {

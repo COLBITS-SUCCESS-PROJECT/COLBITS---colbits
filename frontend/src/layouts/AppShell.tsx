@@ -42,6 +42,7 @@ export function AppShell() {
   const user = useAuthStore((state) => state.user)
   const { logout, isLoggingOut } = useLogout()
   const lastSyncedAt = useDataFreshnessStore((state) => state.lastSyncedAt)
+  const isInterrupted = useDataFreshnessStore((state) => state.isInterrupted)
   const now = useNow()
   const isMobileViewport = useMediaQuery('(max-width: 767px)')
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
@@ -59,6 +60,8 @@ export function AppShell() {
   )
   const section = visibleSections.find((entry) => matchPath(`${entry.to}/*`, pathname))
   const stale = lastSyncedAt !== null && isStale(lastSyncedAt, now)
+  // F-31: a failing map refresh turns the dot red at once, without waiting for the stale threshold.
+  const freshness = isInterrupted ? 'interrupted' : stale ? 'stale' : 'live'
 
   // F-11: invalidate the token, forget the session, then replace the history entry so "back" stays on login.
   async function handleLogout() {
@@ -97,8 +100,8 @@ export function AppShell() {
                   label: t('freshness.lastUpdate', {
                     time: formatDateTime(new Date(lastSyncedAt), i18n.language),
                   }),
-                  isStale: stale,
-                  statusLabel: t(stale ? 'freshness.stale' : 'freshness.live'),
+                  isStale: freshness !== 'live',
+                  statusLabel: t(`freshness.${freshness}`),
                   onRefresh: () => void queryClient.invalidateQueries(),
                   refreshLabel: t('freshness.refresh'),
                 }

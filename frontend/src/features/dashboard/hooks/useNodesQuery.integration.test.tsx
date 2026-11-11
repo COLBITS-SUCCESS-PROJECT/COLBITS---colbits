@@ -1,8 +1,8 @@
-/** Integration test — useNodesQuery + fetchNodes + httpClient + mapper against the mocked node service (MSW); map refresh time (F-32). */
+/** Integration test — useNodesQuery + fetchNodes + httpClient + mapper against the mocked node service (MSW); map refresh time (F-32) and interruption (F-31). */
 import type { ReactNode } from 'react'
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
 import { MOCK_TOKENS, NODE_FIXTURES } from '@/mocks/data/nodes.fixtures'
@@ -35,7 +35,10 @@ describe('useNodesQuery', () => {
     useAuthStore.getState().clearAuth()
     useDataFreshnessStore.getState().reset()
   })
-  afterEach(() => server.resetHandlers())
+  afterEach(() => {
+    server.resetHandlers()
+    onlineManager.setOnline(true)
+  })
   afterAll(() => server.close())
 
   it('returns only the nodes in the scope of the signed-in user (F-12 / AC1)', async () => {
@@ -120,5 +123,56 @@ describe('useNodesQuery', () => {
     // Assert
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(useDataFreshnessStore.getState().lastSyncedAt).toBe(lastSuccess)
+  })
+
+  it('reports the refresh as interrupted while it fails, until a refresh succeeds again (F-31)', async () => {
+    // Arrange: the map has its nodes
+    signInWith(MOCK_TOKENS.NORTH)
+    const { result } = renderHook(() => useNodesQuery(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(useDataFreshnessStore.getState().isInterrupted).toBe(false)
+
+    // Act: a refresh cannot reach the service
+    server.use(http.get(`*${NODES_ENDPOINT}`, () => HttpResponse.error()))
+    void result.current.refetch()
+
+    // Assert: interrupted, with the nodes of the last successful refresh still there
+    await waitFor(() => expect(useDataFreshnessStore.getState().isInterrupted).toBe(true))
+    expect(result.current.data).toHaveLength(4)
+
+    // And the next successful refresh ends the interruption
+    server.resetHandlers()
+    void result.current.refetch()
+    await waitFor(() => expect(useDataFreshnessStore.getState().isInterrupted).toBe(false))
+    expect(result.current.isSuccess).toBe(true)
+  })
+
+  it('does not report an interruption when the first load fails: the map shows its error state (F-31)', async () => {
+    signInWith(MOCK_TOKENS.NORTH)
+    server.use(http.get(`*${NODES_ENDPOINT}`, () => HttpResponse.error()))
+
+    const { result } = renderHook(() => useNodesQuery(), { wrapper })
+
+    await waitFor(() => expect(result.current.isLoadingError).toBe(true))
+    expect(useDataFreshnessStore.getState().isInterrupted).toBe(false)
+  })
+
+  it('reports the refresh as interrupted while the browser is offline (F-31)', async () => {
+    // Arrange
+    signInWith(MOCK_TOKENS.NORTH)
+    const { result } = renderHook(() => useNodesQuery(), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    // Act: the connection drops and a refresh is due; TanStack Query pauses it instead of failing
+    act(() => onlineManager.setOnline(false))
+    void result.current.refetch()
+
+    // Assert
+    await waitFor(() => expect(result.current.isPaused).toBe(true))
+    expect(useDataFreshnessStore.getState().isInterrupted).toBe(true)
+
+    // And when the connection is back, the paused refresh runs and the interruption ends
+    act(() => onlineManager.setOnline(true))
+    await waitFor(() => expect(useDataFreshnessStore.getState().isInterrupted).toBe(false))
   })
 })
