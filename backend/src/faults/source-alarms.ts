@@ -7,20 +7,6 @@ import {
 } from './fault-alert-types';
 import { canonicalPhases, classifyFault } from './fault-classification';
 
-/**
- * Source alarms of the active fault list (SCRUM-225 · F-47, US16): loss of voltage on a Falcon
- * fuse and the two SMAC transformer phase alarms. Unlike fuse openings (US10), they are never
- * grouped: each one belongs to a single source, a fuse or one transformer channel.
- *
- * Event codes (Technical Annex v1.1 §4.2, mapping doc rows 18-23):
- *   13xx21  NO_VOLTAGE          Falcon fuse, SET = voltage lost, CLEAR = restored
- *   05xx21y PHASE_LOSS          SMAC channel y, SET = phase dropped, CLEAR = recovered
- *   05xx20y PHASE_OUT_OF_RANGE  SMAC channel y, SET = out of range, CLEAR = back in range
- *
- * Only the `alarms` table makes them active (client answer Q22: the alarms table takes priority);
- * telemetry never creates one. ACTIVE_SOURCE_ALARMS_SQL selects the active ones; the functions
- * here are pure and map those rows to the fault-list format.
- */
 export const SOURCE_ALARM_TYPES = [
   'NO_VOLTAGE',
   'PHASE_LOSS',
@@ -28,17 +14,11 @@ export const SOURCE_ALARM_TYPES = [
 ] as const satisfies readonly AlertType[];
 export type SourceAlarmType = (typeof SOURCE_ALARM_TYPES)[number];
 
-/** Device that reports each source alarm (Scope v6.0 §3.2), taken from the registry. */
 export type SourceAlarmDevice = 'FALCON' | 'SMAC';
 
-/**
- * SMAC channels. They are transformer channels, not electrical phases: the client confirmed there
- * is no correspondence between A/B/C and R/S/T (Q7), so a channel is never reported as a phase.
- */
 export const SMAC_CHANNELS = ['A', 'B', 'C'] as const;
 export type SmacChannel = (typeof SMAC_CHANNELS)[number];
 
-/** Source alarm type of an `alarms.event_code`, or null for any other code (including fuse openings). */
 export function sourceAlarmTypeOf(eventCode: string): SourceAlarmType | null {
   const type = classifyEventCode(eventCode);
   return (SOURCE_ALARM_TYPES as readonly string[]).includes(type)
@@ -46,18 +26,10 @@ export function sourceAlarmTypeOf(eventCode: string): SourceAlarmType | null {
     : null;
 }
 
-/** Device of a source alarm type: each one has exactly one in the registry. */
 export function deviceOf(type: SourceAlarmType): SourceAlarmDevice {
   return ALERT_TYPE_DEFINITIONS[type].devices[0];
 }
 
-/**
- * Normalized channel of a SMAC phase event code (its last character, `y`). The Annex calls it a
- * digit and Q17 gives 1 = A, 2 = B, 3 = C, while the seed and the generator write letters, so
- * 1/A, 2/B and 3/C are the same channel (lower case is accepted, as in the transformer layer).
- * null when the code is not a SMAC phase code or its channel is none of those: such an alarm is
- * not listed, since mapping it to a channel would be a guess.
- */
 export function channelOf(eventCode: string): SmacChannel | null {
   const type = sourceAlarmTypeOf(eventCode);
   if (type === null || deviceOf(type) !== 'SMAC') return null;
@@ -65,7 +37,6 @@ export function channelOf(eventCode: string): SmacChannel | null {
   return phase === null ? null : SMAC_CHANNELS[phase - 1];
 }
 
-/** Registry patterns of the three types, in the order ACTIVE_SOURCE_ALARMS_SQL takes them ($2-$4). */
 export const SOURCE_ALARM_PATTERNS: readonly string[] = SOURCE_ALARM_TYPES.map(
   (type) => {
     const { eventCodePattern } = ALERT_TYPE_DEFINITIONS[type];
@@ -76,22 +47,6 @@ export const SOURCE_ALARM_PATTERNS: readonly string[] = SOURCE_ALARM_TYPES.map(
   },
 );
 
-/**
- * Active source alarms of the in-scope nodes, one row per source, in one statement.
- *
- * - Sources: every fuse of an in-scope fuse set (NO_VOLTAGE) and every in-scope transformer
- *   (PHASE_LOSS, PHASE_OUT_OF_RANGE). Alarms are joined by `custom_id` only (mapping doc row 80):
- *   an alarm with no `custom_id` cannot be placed and is not listed.
- * - Key: type + source + channel. The SMAC channel is normalized as channelOf does (1/A, 2/B,
- *   3/C, any case). An unknown channel keeps its raw character as its own key, so it never merges
- *   with a known one; such a row is returned and then skipped and logged by the service.
- * - Active: the key has a SET later than its last CLEAR. At the same instant a CLEAR wins.
- * - started_at: the first SET after the last CLEAR, so repeated SETs never restart an alarm.
- * - event_type: SET, set, CLEAR and clear, the same values the fuse-opening query accepts.
- *
- * There is no time lookback: an alarm stays listed until its CLEAR arrives. Telemetry is not read.
- * Parameters: $1 node names in scope, $2-$4 the registry patterns (SOURCE_ALARM_PATTERNS).
- */
 export const ACTIVE_SOURCE_ALARMS_SQL = `
   WITH events AS (
     SELECT 'NO_VOLTAGE'::text AS alert_type, f.custom_id AS source_id, ''::text AS channel_key,
@@ -142,30 +97,85 @@ export const ACTIVE_SOURCE_ALARMS_SQL = `
 `;
 
 /**
- * One active source alarm as a query returns it. For NO_VOLTAGE the source is a fuse and the
- * fuse-set columns are filled; for SMAC alarms the source is a transformer and they are null.
+ * US16 · F-62 / F-63: Resolved source alarms whose CLEAR fell inside [$5, $6].
+ * Each CLEAR resolves the episode started by the first SET after the previous CLEAR.
  */
+export const RESOLVED_SOURCE_ALARMS_SQL = `
+  WITH events AS (
+    SELECT 'NO_VOLTAGE'::text AS alert_type, f.custom_id AS source_id, ''::text AS channel_key,
+           fs.node_id, fs.id AS fuses_set_id, fs.set_id AS branch, f.phase,
+           a.event_code, (a.event_type IN ('SET', 'set')) AS is_set, a.recorded_at
+    FROM public.fuses_sets fs
+    JOIN public.fuses f ON f.fuses_set_id = fs.id
+    JOIN public.alarms a ON a.custom_id = f.custom_id
+    WHERE fs.node_id = ANY($1::text[])
+      AND a.event_code ~ $2::text
+      AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
+    UNION ALL
+    SELECT CASE WHEN a.event_code ~ $3::text THEN 'PHASE_LOSS' ELSE 'PHASE_OUT_OF_RANGE' END,
+           t.custom_id,
+           CASE upper(right(a.event_code, 1))
+             WHEN '1' THEN 'A' WHEN 'A' THEN 'A'
+             WHEN '2' THEN 'B' WHEN 'B' THEN 'B'
+             WHEN '3' THEN 'C' WHEN 'C' THEN 'C'
+             ELSE right(a.event_code, 1)
+           END,
+           t.node_id, NULL::integer, NULL::text, NULL::text,
+           a.event_code, (a.event_type IN ('SET', 'set')), a.recorded_at
+    FROM public.trafos t
+    JOIN public.alarms a ON a.custom_id = t.custom_id
+    WHERE t.node_id = ANY($1::text[])
+      AND (a.event_code ~ $3::text OR a.event_code ~ $4::text)
+      AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
+  ), clears AS (
+    SELECT e.*,
+           lag(e.recorded_at) OVER (
+             PARTITION BY e.alert_type, e.source_id, e.channel_key
+             ORDER BY e.recorded_at
+           ) AS prev_clear
+    FROM events e
+    WHERE NOT e.is_set
+  ), episodes AS (
+    SELECT cl.alert_type, cl.source_id, cl.channel_key, cl.node_id,
+           cl.fuses_set_id, cl.branch, cl.phase,
+           cl.recorded_at AS ended_at,
+           min(s.recorded_at) AS started_at,
+           (array_agg(s.event_code ORDER BY s.recorded_at, s.event_code))[1] AS event_code
+    FROM clears cl
+    JOIN events s
+      ON s.alert_type = cl.alert_type
+     AND s.source_id = cl.source_id
+     AND s.channel_key = cl.channel_key
+     AND s.is_set
+     AND s.recorded_at < cl.recorded_at
+     AND (cl.prev_clear IS NULL OR s.recorded_at > cl.prev_clear)
+    WHERE cl.recorded_at >= $5::timestamptz
+      AND cl.recorded_at <= $6::timestamptz
+    GROUP BY cl.alert_type, cl.source_id, cl.channel_key, cl.node_id,
+             cl.fuses_set_id, cl.branch, cl.phase, cl.recorded_at
+  )
+  SELECT ep.event_code, ep.started_at, ep.ended_at, ep.source_id, ep.node_id,
+         c.id AS circuit_id, c.name AS circuit_name,
+         ep.fuses_set_id, ep.branch, ep.phase
+  FROM episodes ep
+  JOIN public.nodes n ON n.name = ep.node_id
+  JOIN public.circuits c ON c.id = n.circuit_id
+  ORDER BY ep.ended_at DESC, ep.started_at DESC, ep.alert_type, ep.source_id, ep.channel_key
+`;
+
 export interface SourceAlarmRow {
-  /** Event code of the SET that started the alarm (the first SET after the last CLEAR). */
   event_code: string;
-  /** recorded_at of that SET. */
   started_at: Date | string;
-  /** fuses.custom_id or trafos.custom_id: the alarm's `alarms.custom_id`. */
+  ended_at?: Date | string | null;
   source_id: string;
   node_id: string;
   circuit_id: number | string;
   circuit_name: string;
   fuses_set_id: number | string | null;
   branch: string | null;
-  /** fuses.phase as stored; null for SMAC alarms. */
   phase: string | null;
 }
 
-/**
- * Fault-list entry of a source alarm. It has the same fields as a fuse-opening entry plus
- * `device`, `source_id` and `channel`; the fields that only make sense for grouped fuse faults
- * (`classification`, `openings`) are null or empty.
- */
 export interface SourceAlarmFault {
   id: string;
   node: string;
@@ -176,33 +186,36 @@ export interface SourceAlarmFault {
   device: SourceAlarmDevice;
   source_id: string;
   channel: SmacChannel | null;
-  state: 'OPEN';
+  state: 'OPEN' | 'RESOLVED';
   phases: string[] | null;
   classification: null;
   client_count: null;
   started_at: string;
-  ended_at: null;
+  ended_at: string | null;
   duration_seconds: number;
   openings: [];
   warnings: FaultWarning[];
 }
 
-/** Why a row was not turned into an entry; the caller logs it, nothing is guessed. */
 export type SourceAlarmSkipReason =
-  'NOT_A_SOURCE_ALARM' | 'UNKNOWN_CHANNEL' | 'MISSING_FUSE_SET';
+  | 'NOT_A_SOURCE_ALARM'
+  | 'UNKNOWN_CHANNEL'
+  | 'MISSING_FUSE_SET';
 
 export type SourceAlarmMapping =
-  { fault: SourceAlarmFault } | { skipped: SourceAlarmSkipReason };
+  | { fault: SourceAlarmFault }
+  | { skipped: SourceAlarmSkipReason };
 
-/** Whole seconds from `startedAt` to `now`, never negative (same rule as fuse-opening faults). */
-export function openDurationSeconds(startedAt: Date, now: Date): number {
-  return Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000));
+/** F-63: Whole seconds from `startedAt` to `endedAt` (when resolved) or `now` (while open), never negative. */
+export function openDurationSeconds(
+  startedAt: Date,
+  now: Date,
+  endedAt: Date | null = null,
+): number {
+  const end = endedAt ?? now;
+  return Math.max(0, Math.floor((end.getTime() - startedAt.getTime()) / 1000));
 }
 
-/**
- * Stable id while the alarm stays active, and distinct from fuse-opening ids (which start with
- * a number): `NO_VOLTAGE:<fuse>:<started_at>`, `<type>:<transformer>:<channel>:<started_at>`.
- */
 export function sourceAlarmId(
   type: SourceAlarmType,
   sourceId: string,
@@ -215,12 +228,6 @@ export function sourceAlarmId(
   return parts.join(':');
 }
 
-/**
- * Fault-list entry of one active source alarm. The type and the channel come from the event code,
- * never from the row's other columns. A NO_VOLTAGE entry carries its fuse's canonical phase, or
- * null plus PHASES_UNCLASSIFIED when the stored phase is not valid. SMAC entries carry a channel
- * and no phases. Whether the channel exists on the transformer is not checked (open question).
- */
 export function toSourceAlarmDto(
   row: SourceAlarmRow,
   now: Date,
@@ -246,6 +253,11 @@ export function toSourceAlarmDto(
   }
 
   const startedAt = new Date(row.started_at);
+  const endedAt =
+    row.ended_at !== undefined && row.ended_at !== null
+      ? new Date(row.ended_at)
+      : null;
+
   return {
     fault: {
       id: sourceAlarmId(type, row.source_id, channel, startedAt),
@@ -257,13 +269,13 @@ export function toSourceAlarmDto(
       device,
       source_id: row.source_id,
       channel,
-      state: 'OPEN',
+      state: endedAt === null ? 'OPEN' : 'RESOLVED',
       phases,
       classification: null,
       client_count: null,
       started_at: startedAt.toISOString(),
-      ended_at: null,
-      duration_seconds: openDurationSeconds(startedAt, now),
+      ended_at: endedAt === null ? null : endedAt.toISOString(),
+      duration_seconds: openDurationSeconds(startedAt, now, endedAt),
       openings: [],
       warnings,
     },

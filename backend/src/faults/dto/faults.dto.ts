@@ -22,6 +22,10 @@ export type ActiveFaultAlertType = 'FUSE_OPENING' | SourceAlarmType;
 export const FAULT_WARNINGS = ['PHASES_UNCLASSIFIED'] as const;
 export type FaultWarning = (typeof FAULT_WARNINGS)[number];
 
+/** US16 · F-62: windows for querying recently resolved alarms. */
+export const RESOLVED_WINDOWS = ['1h', '24h', '1d'] as const;
+export type ResolvedWindow = (typeof RESOLVED_WINDOWS)[number];
+
 export class FaultCircuitDto {
   @ApiProperty({ example: 1, description: 'Circuit identifier (circuits.id).' })
   id: number;
@@ -127,12 +131,12 @@ export class ActiveFaultDto {
   channel: SmacChannel | null;
 
   @ApiProperty({
-    enum: ['OPEN'],
+    enum: ['OPEN', 'RESOLVED'],
     example: 'OPEN',
     description:
-      'A fuse-opening fault is open while any of its phases has not reported a close; a source alarm while its last event is a SET. Only open entries are listed.',
+      'A fuse-opening fault is OPEN while any of its phases has not reported a close, and RESOLVED when every involved phase has closed (F-61); a source alarm is OPEN while its last event is a SET, and RESOLVED after a CLEAR.',
   })
-  state: 'OPEN';
+  state: 'OPEN' | 'RESOLVED';
 
   @ApiProperty({
     type: [String],
@@ -175,14 +179,15 @@ export class ActiveFaultDto {
     format: 'date-time',
     nullable: true,
     example: null,
-    description: 'Null while the fault is open (always, for now).',
+    description:
+      'Null while the fault is open; instant of resolution when every involved phase has closed or the source alarm cleared (F-61).',
   })
   ended_at: string | null;
 
   @ApiProperty({
     example: 900,
     description:
-      'Elapsed seconds from started_at to generated_at, since the entry is still open.',
+      'Elapsed seconds from started_at to ended_at (when resolved) or generated_at (while open) (F-63).',
   })
   duration_seconds: number;
 
@@ -217,7 +222,7 @@ export class ActiveFaultsResponseDto {
   @ApiProperty({
     type: () => [ActiveFaultDto],
     description:
-      'Ordered by severity (F-57): most affected clients first, a null client_count counting as 0 for the sort only; faults with the same count oldest first; then by alert type, source, channel and fuse set. Filtering and configurable ordering criteria are not part of this endpoint.',
+      'Ordered by severity (F-57) when active, or newest resolution first (F-62) when querying resolved alarms.',
   })
   faults: ActiveFaultDto[];
 }
