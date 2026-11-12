@@ -4,6 +4,7 @@ import { ScopeService } from '../scope/scope.service';
 import { DeviceController } from './device.controller';
 import { DeviceService } from './device.service';
 import { InactiveDevicesService } from './inactive-devices.service';
+import { LowEnergyAlertsService } from './low-energy-alerts.service';
 
 describe('DeviceController', () => {
   const checkInactivity = jest.fn().mockResolvedValue({ isInactive: false });
@@ -15,6 +16,7 @@ describe('DeviceController', () => {
     { checkInactivity } as unknown as DeviceService,
     { resolve } as unknown as ScopeService,
     { inactiveDevices } as unknown as InactiveDevicesService,
+    {} as unknown as LowEnergyAlertsService,
   );
   const mockReq = {
     user: { sub: 1, role: 'Colbits administrator' },
@@ -67,10 +69,12 @@ describe('DeviceController.getInactiveDevices (US17 · F-40)', () => {
   const inactiveDevices = jest
     .fn()
     .mockResolvedValue({ count: 0, devices: [] });
+  const activeAlerts = jest.fn().mockResolvedValue({ count: 0, alerts: [] });
   const controller = new DeviceController(
     {} as unknown as DeviceService,
     { resolve } as unknown as ScopeService,
     { inactiveDevices } as unknown as InactiveDevicesService,
+    { activeAlerts } as unknown as LowEnergyAlertsService,
   );
   const request = { user: { sub: 2 } } as unknown as Request;
 
@@ -101,6 +105,16 @@ describe('DeviceController.getInactiveDevices (US17 · F-40)', () => {
       expect(inactiveDevices).not.toHaveBeenCalled();
     },
   );
+
+  it('F-44/F-45: reads the low-energy alerts inside the user scope', async () => {
+    await controller.getLowEnergyAlerts(request);
+
+    expect(resolve).toHaveBeenCalledWith(2);
+    expect(activeAlerts).toHaveBeenCalledWith({
+      kind: 'restricted',
+      userId: 2,
+    });
+  });
 
   it('rejects a request without a valid user', async () => {
     await expect(

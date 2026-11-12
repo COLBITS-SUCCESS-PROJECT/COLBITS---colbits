@@ -9,6 +9,7 @@ import { ScopeModule } from '../scope/scope.module';
 import { DeviceController } from './device.controller';
 import { DeviceService } from './device.service';
 import { InactiveDevicesService } from './inactive-devices.service';
+import { LowEnergyAlertsService } from './low-energy-alerts.service';
 
 @Module({
   imports: [
@@ -25,6 +26,6 @@ import { InactiveDevicesService } from './inactive-devices.service';
     AuthModule,
   ],
   controllers: [DeviceController],
-  providers: [DeviceService, InactiveDevicesService],
+  providers: [DeviceService, InactiveDevicesService, LowEnergyAlertsService],
 })
 export class DeviceModule {}

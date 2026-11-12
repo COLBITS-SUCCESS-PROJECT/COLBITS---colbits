@@ -23,12 +23,14 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { ScopeService } from '../scope/scope.service';
 import { InactiveDevicesResponseDto } from './dto/inactive-devices.dto';
 import { InactivityResultDto } from './dto/inactivity-result.dto';
+import { LowEnergyAlertsResponseDto } from './dto/low-energy-alerts.dto';
 import { DeviceService } from './device.service';
 import {
   DEFAULT_WINDOW_HOURS,
   InactiveDevicesService,
   MAX_WINDOW_HOURS,
 } from './inactive-devices.service';
+import { LowEnergyAlertsService } from './low-energy-alerts.service';
 
 @Controller('device')
 @UseGuards(AuthGuard)
@@ -39,7 +41,26 @@ export class DeviceController {
     private readonly deviceService: DeviceService,
     private readonly scopeService: ScopeService,
     private readonly inactiveDevicesService: InactiveDevicesService,
+    private readonly lowEnergyAlertsService: LowEnergyAlertsService,
   ) {}
+
+  @Get('low-energy')
+  @ApiOperation({
+    summary:
+      'Active low-energy alerts of the user scope (F-44 Falcon supercapacitors, F-45 SMAC battery; NF-08).',
+    description:
+      'One alert per device whose latest stored reading is below its threshold: supercaps_per for a Falcon (FALCON_LOW_ENERGY_PERCENT) and battery_per for a SMAC (SMAC_LOW_ENERGY_PERCENT), 30 % by default (Colbits, CL-11). A reading below the threshold raises the alert and a reading at or above it clears it. `since` is the first reading of the current low streak. Lowest level first.',
+  })
+  @ApiOkResponse({ type: LowEnergyAlertsResponseDto })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, or expired.',
+  })
+  async getLowEnergyAlerts(@Req() request: Request) {
+    const scope = await this.scopeService.resolve(userIdOf(request));
+
+    return this.lowEnergyAlertsService.activeAlerts(scope);
+  }
 
   @Get('inactive')
   @ApiOperation({
