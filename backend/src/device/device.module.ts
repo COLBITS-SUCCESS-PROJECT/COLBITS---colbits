@@ -8,6 +8,7 @@ import { Node } from '../nodes/node.entity';
 import { ScopeModule } from '../scope/scope.module';
 import { DeviceController } from './device.controller';
 import { DeviceService } from './device.service';
+import { InactiveDevicesService } from './inactive-devices.service';
 
 @Module({
   imports: [
@@ -24,6 +25,6 @@ import { DeviceService } from './device.service';
     AuthModule,
   ],
   controllers: [DeviceController],
-  providers: [DeviceService],
+  providers: [DeviceService, InactiveDevicesService],
 })
 export class DeviceModule {}

@@ -61,6 +61,8 @@ services:
       # File events do not cross the Windows/macOS → Docker boundary; poll instead.
       TSC_WATCHFILE: DynamicPriorityPolling
       CHOKIDAR_USEPOLLING: 'true'
+      FALCON_LOW_ENERGY_PERCENT: ${FALCON_LOW_ENERGY_PERCENT:-30}
+      SMAC_LOW_ENERGY_PERCENT: ${SMAC_LOW_ENERGY_PERCENT:-30}
     volumes:
       - ./backend:/app
       # Keep the container's Linux node_modules; never mix them with the host's.
