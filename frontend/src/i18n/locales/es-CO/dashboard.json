@@ -65,6 +65,8 @@
     "closeMobile": "Cerrar panel de fallas",
     "activeCount_one": "{{count}} activa",
     "activeCount_other": "{{count}} activas",
+    "resize": "Ajustar el ancho del panel de fallas",
+    "resizeHint": "Arrastra o usa las flechas ← → para ensanchar el panel. Doble clic para restablecer.",
     "tabsLabel": "Tipo de alarmas",
     "tab": {
       "ACTIVE": "Activas",
@@ -102,6 +104,42 @@
     "loading": "Cargando fallas",
     "inactiveSoon": "La vista de dispositivos inactivos llegará en una próxima historia.",
     "resolvedSoon": "La lista de fallas resueltas llegará en una próxima historia."
+  },
+  "inactive": {
+    "title": "Dispositivos inactivos",
+    "nowCount_one": "{{count}} inactivo ahora",
+    "nowCount_other": "{{count}} inactivos ahora",
+    "summary_one": "{{count}} dispositivo · {{window}} · mayor silencio primero",
+    "summary_other": "{{count}} dispositivos · {{window}} · mayor silencio primero",
+    "level": {
+      "zone": "Zona",
+      "substation": "Subestación",
+      "circuit": "Circuito",
+      "node": "Nodo"
+    },
+    "all": {
+      "zone": "Todas las zonas",
+      "substation": "Todas las subestaciones",
+      "circuit": "Todos los circuitos",
+      "node": "Todos los nodos"
+    },
+    "empty": "No hay dispositivos inactivos en este periodo.",
+    "error": "No se pudieron cargar los dispositivos inactivos.",
+    "loading": "Cargando dispositivos inactivos",
+    "card": {
+      "label": "{{nodeId}} · {{state}}",
+      "now": "Inactivo ahora",
+      "inRange": "Inactivo en el periodo",
+      "silent": "Sin datos {{duration}}",
+      "reporting": "Reportando",
+      "location": "{{substation}} › {{circuit}} · {{deviceId}}",
+      "total": "Total inactivo en el periodo",
+      "periodsLabel": "Periodos de inactividad",
+      "period": "{{start}} → {{end}}",
+      "ongoing": "en curso",
+      "threshold_one": "Umbral {{hours}} h ({{device}}) · {{count}} periodo en el rango",
+      "threshold_other": "Umbral {{hours}} h ({{device}}) · {{count}} periodos en el rango"
+    }
   },
   "alertType": {
     "FUSE_OPENING": "Apertura de fusible",

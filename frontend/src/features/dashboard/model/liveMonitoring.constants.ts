@@ -29,6 +29,15 @@ export const ALERT_TYPES: AlertType[] = [
 ]
 export const PHASE_CLASSIFICATIONS: PhaseClassification[] = ['MONOPHASIC', 'BIPHASIC', 'TRIPHASIC']
 
+/** Fault panel width on desktop (px): the Figma width is the narrowest; the user can widen it. */
+export const FAULT_PANEL_DEFAULT_WIDTH_PX = 360
+export const FAULT_PANEL_MIN_WIDTH_PX = 360
+export const FAULT_PANEL_MAX_WIDTH_PX = 720
+/** The panel never takes more than this share of the window, so the map stays usable. */
+export const FAULT_PANEL_MAX_VIEWPORT_SHARE = 0.6
+/** Width change per arrow key press (px). */
+export const FAULT_PANEL_KEY_STEP_PX = 24
+
 /** Value of the "all" option in every filter select. */
 export const ALL = 'ALL'
 
