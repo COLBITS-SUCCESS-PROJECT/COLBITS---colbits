@@ -1,5 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { NODE_STATES, type NodeState } from '../fuse-state';
+import { CircuitRefDto, SubstationRefDto } from './node-detail.dto';
+
+/** US14 · F-33: the zone a node belongs to (nodes → circuits → substations → zones). */
+export class ZoneRefDto {
+  @ApiProperty({ example: 1, description: 'Zone identifier.' })
+  id: number;
+
+  @ApiProperty({ example: 'Zona Norte', description: 'Zone name.' })
+  name: string;
+}
 
 export class NodeViewDto {
   @ApiProperty({ example: 'ND04821A07', description: 'Node identifier.' })
@@ -49,6 +59,38 @@ export class NodeViewDto {
       "Transformer-layer state (US7). CRITICAL = two or more phases down, WARNING = exactly one, INACTIVE = none down and the SMAC inactive, NORMAL otherwise. Phases are counted against the transformer's own phases. Null when the node has no transformer.",
   })
   transformer_state: NodeState | null;
+
+  @ApiProperty({
+    type: () => ZoneRefDto,
+    nullable: true,
+    description:
+      'Zone of the node, to filter the map (US14 · F-33). Null only if the node is not linked to a zone.',
+  })
+  zone: ZoneRefDto | null;
+
+  @ApiProperty({
+    type: () => SubstationRefDto,
+    nullable: true,
+    description:
+      'Substation of the node, to filter the map (US14 · F-33). Null only if the node is not linked to one.',
+  })
+  substation: SubstationRefDto | null;
+
+  @ApiProperty({
+    type: () => CircuitRefDto,
+    nullable: true,
+    description:
+      'Circuit of the node, to filter the map (US14 · F-33). Circuit names repeat across substations, so filter by id.',
+  })
+  circuit: CircuitRefDto | null;
+
+  @ApiProperty({
+    type: [String],
+    example: ['13A1B2C3D4', '05F6E7D8C9'],
+    description:
+      'Devices currently installed on the node (Falcon of each fuse and SMAC of each transformer, current_hw_id), sorted, to find a node by device identifier (US14 · F-34). Empty when the node has none.',
+  })
+  device_ids: string[];
 }
 
 export class NodesResponseDto {

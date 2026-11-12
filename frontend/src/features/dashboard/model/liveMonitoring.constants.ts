@@ -36,6 +36,8 @@ export const ALL = 'ALL'
 export const MAP_DEFAULT_CENTER = { latitude: 3.4516, longitude: -76.532 } as const
 export const MAP_DEFAULT_ZOOM = 13
 export const MAP_MAX_ZOOM = 19
+/** Zoom used to center the map on a searched node (F-34): street level, where markers no longer cluster. */
+export const MAP_FOCUS_ZOOM = 17
 /** Farthest zoom out: a whole country stays in view, so the world never repeats or shows gray bands. */
 export const MAP_MIN_ZOOM = 5
 /** Panning stops at the world's edges (latitudes beyond ±85° are not drawn by the tile server). */

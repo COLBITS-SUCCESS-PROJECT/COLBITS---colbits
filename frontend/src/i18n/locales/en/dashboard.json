@@ -17,8 +17,11 @@
     "allZones": "All zones",
     "allSubstations": "All substations",
     "allCircuits": "All circuits",
-    "search": "Search node",
-    "searchPlaceholder": "Search node or device ID…"
+    "search": "Search node or device",
+    "searchPlaceholder": "Search node or device ID…",
+    "searchLabel": "Search the map",
+    "searchFound": "Map centered on node {{id}}",
+    "searchNotFound": "No node or device “{{query}}” in your scope"
   },
   "map": {
     "label": "Network map",

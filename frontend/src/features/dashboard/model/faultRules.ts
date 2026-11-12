@@ -28,13 +28,21 @@ function isInsideTimeWindow(fault: FaultAlert, timeWindow: TimeWindow, now: numb
   return fault.startedAt.getTime() >= now - TIME_WINDOWS[timeWindow] * MS_PER_MINUTE
 }
 
-export function matchesFilters(fault: FaultAlert, filters: FaultFilters, now: number): boolean {
+/**
+ * `nodesInLocation`: the nodes of the map's location filter (US14). The zone / substation / circuit
+ * filters hold ids and GET /faults sends only the circuit name, so a fault follows the map filter
+ * through its node. Undefined = no location filter.
+ */
+export function matchesFilters(
+  fault: FaultAlert,
+  filters: FaultFilters,
+  now: number,
+  nodesInLocation?: ReadonlySet<string>
+): boolean {
   const query = filters.search.trim().toLowerCase()
   return (
     filters.layers.some((layer) => LAYER_DEVICE[layer] === fault.device) &&
-    (filters.zone === ALL || fault.zone === filters.zone) &&
-    (filters.substation === ALL || fault.substation === filters.substation) &&
-    (filters.circuit === ALL || fault.circuit === filters.circuit) &&
+    (nodesInLocation === undefined || nodesInLocation.has(fault.nodeId)) &&
     (query === '' || fault.nodeId.toLowerCase().includes(query)) &&
     (filters.alertType === ALL || fault.type === filters.alertType) &&
     (filters.classification === ALL || fault.classification === filters.classification) &&
@@ -55,9 +63,12 @@ export function selectFaults(
   faults: FaultAlert[],
   filters: FaultFilters,
   status: FaultAlert['status'],
-  now: number
+  now: number,
+  nodesInLocation?: ReadonlySet<string>
 ): FaultAlert[] {
   return faults
-    .filter((fault) => fault.status === status && matchesFilters(fault, filters, now))
+    .filter(
+      (fault) => fault.status === status && matchesFilters(fault, filters, now, nodesInLocation)
+    )
     .sort(compareFaults)
 }
