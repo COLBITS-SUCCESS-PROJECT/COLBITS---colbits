@@ -2,9 +2,11 @@ import {
   PHASE_DROP_EVENT_PATTERN,
   TransformerSummary,
   deriveTransformerState,
+  ignoredChannels,
   phaseCountOf,
   phaseOfChannel,
   phasesDown,
+  phasesOf,
 } from './transformer-state';
 
 const three = (
@@ -103,5 +105,49 @@ describe('transformer identifiers and channels (Annex §3.3, §4.2)', () => {
     expect(pattern.test('051421C')).toBe(true);
     expect(pattern.test('051420A')).toBe(false);
     expect(pattern.test('131421')).toBe(false);
+  });
+});
+
+// #CORRECTION CL-07/TD-04/TD-05 (2026-11-09): new tests for B-C and A-C transformers and ignored channels.
+describe('existing phases from the voltage columns (CL-07 / TD-04 / TD-05)', () => {
+  const pair = (
+    existingPhases: (1 | 2 | 3)[] | null,
+    downChannels: string[],
+  ): TransformerSummary => ({
+    customId: '0000100005-T1-2',
+    inactive: false,
+    downChannels,
+    existingPhases,
+  });
+
+  it('a B-C transformer counts a drop on C and ignores one on A', () => {
+    expect(deriveTransformerState([pair([2, 3], ['C'])])).toBe('WARNING');
+    expect(deriveTransformerState([pair([2, 3], ['A'])])).toBe('NORMAL');
+    expect(deriveTransformerState([pair([2, 3], ['B', 'C'])])).toBe('CRITICAL');
+    expect(ignoredChannels(pair([2, 3], ['A', 'C']))).toEqual(['A']);
+  });
+
+  it('an A-C transformer ignores a drop on B', () => {
+    expect(deriveTransformerState([pair([1, 3], ['A', 'B'])])).toBe('WARNING');
+    expect(ignoredChannels(pair([1, 3], ['B']))).toEqual(['B']);
+  });
+
+  it('digits and letters name the same phase', () => {
+    expect(phasesDown(pair([2, 3], ['3']))).toBe(1);
+    expect(ignoredChannels(pair([2, 3], ['1']))).toEqual(['1']);
+  });
+
+  it('falls back to the identifier phase count when no voltage is known', () => {
+    expect(phasesOf(pair(null, []))).toEqual([1, 2]);
+    expect(phasesOf(pair([], []))).toEqual([1, 2]);
+    expect(
+      phasesOf({ customId: 'LEGACY-T1', inactive: false, downChannels: [] }),
+    ).toBeNull();
+    expect(ignoredChannels(pair(null, ['C']))).toEqual(['C']);
+  });
+
+  it('never lists an unknown channel as ignored', () => {
+    expect(ignoredChannels(pair([2, 3], ['X']))).toEqual([]);
+    expect(phasesDown(pair([2, 3], ['X']))).toBe(1);
   });
 });

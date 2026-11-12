@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// #CORRECTION TD-05 (2026-11-09): Logger added to log ignored phase-drop events.
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,7 +16,10 @@ import { CircuitRefDto, SubstationRefDto } from './dto/node-detail.dto';
 import {
   DEFAULT_FALCON_INACTIVITY_HOURS,
   FALCON_FUSE_OPEN,
+  // #CORRECTION CL-01/TD-01 (2026-11-09): event patterns for the fuse layer.
+  FUSE_OPENING_EVENT_PATTERN,
   FuseSummary,
+  NO_VOLTAGE_EVENT_PATTERN,
   NodeState,
   deriveFuseState,
 } from './fuse-state';
@@ -24,10 +28,14 @@ import {
   SMAC_INACTIVITY_SQL,
 } from './smac-state';
 import {
+  // #CORRECTION CL-07/TD-04/TD-05 (2026-11-09): phase window, Phase type and ignoredChannels.
+  DEFAULT_SMAC_PHASE_WINDOW_DAYS,
   PHASE_DROP_EVENT_PATTERN,
+  Phase,
   TRANSFORMER_SUMMARY_SQL,
   TransformerSummary,
   deriveTransformerState,
+  ignoredChannels,
 } from './transformer-state';
 
 interface FuseSummaryRow {
@@ -48,25 +56,73 @@ interface TransformerSummaryRow {
   custom_id: string;
   inactive: boolean;
   down_channels: string[] | null;
+  // #CORRECTION CL-07/TD-04 (2026-11-09): whether va / vb / vc were not NULL in the phase window.
+  has_a?: boolean | null;
+  has_b?: boolean | null;
+  has_c?: boolean | null;
+}
+
+// #CORRECTION TD-05 (2026-11-09): cap on the ignored channels written to the log.
+/** Distinct ignored phase-drop channels logged per process, so bad data cannot flood the log. */
+const MAX_REPORTED_IGNORED = 100;
+
+// #CORRECTION CL-07/TD-04 (2026-11-09): existing phases from has_a / has_b / has_c.
+/** Phases stated by the voltage columns; null when no reading in the window states any voltage. */
+function existingPhasesOf(row: TransformerSummaryRow): Phase[] | null {
+  const flags = [row.has_a, row.has_b, row.has_c];
+  const phases = flags.flatMap((flag, index) =>
+    flag === true ? [(index + 1) as Phase] : [],
+  );
+  return phases.length > 0 ? phases : null;
 }
 
 /**
- * One row per node with fuses: aggregates the last record of every Falcon installed on it
- * (nodes → fuses_sets → fuses → last_falcon_values). A Falcon with no record counts as inactive, and
- * so does one whose last record does not state the fuse or the voltage: green has to be confirmed (F-18).
+ * One row per node with fuses: aggregates every fuse installed on it
+ * (nodes → fuses_sets → fuses → alarms / last_falcon_values).
+ *
+ * #CORRECTION CL-01/TD-01 (2026-11-09): the query read last_falcon_values only; now the latest 13xx20 / 13xx21 event wins.
+ * CL-01 / TD-01: open and without-voltage come from the latest 13xx20 ($4) and 13xx21 ($5) event
+ * of the fuse (matched by `custom_id`, `current_hw_id` keeps no history); the telemetry columns are
+ * the fallback for a fuse with no event of that type. At the same instant a SET wins, as in the
+ * fault list (ACTIVE_FAULT_EVENTS_SQL), so an active condition is never hidden.
+ *
+ * A Falcon with no record, or older than the threshold, counts as inactive; so does one whose state
+ * is stated neither by an event nor by its last record: green has to be confirmed (F-18).
  */
-const FUSE_SUMMARY_SQL = `
+export const FUSE_SUMMARY_SQL = `
   SELECT fs.node_id,
-         COUNT(f.custom_id)                                              AS fuse_count,
-         COALESCE(BOOL_OR(l.fuse_state = $2), false)                     AS any_open,
-         COALESCE(BOOL_OR(l.is_voltage_present = false), false)          AS any_without_voltage,
+         COUNT(f.custom_id)                                                    AS fuse_count,
+         -- #CORRECTION CL-01/TD-01 (2026-11-09): event state first (fe / ve), telemetry only as the fallback.
+         COALESCE(BOOL_OR(COALESCE(fe.is_set, l.fuse_state = $2)), false)      AS any_open,
+         COALESCE(BOOL_OR(COALESCE(ve.is_set, l.is_voltage_present = false)), false)
+                                                                               AS any_without_voltage,
          COALESCE(BOOL_OR(l.recorded_at IS NULL
                   OR l.recorded_at < now() - $3 * interval '1 hour'
-                  OR l.fuse_state IS NULL
-                  OR l.is_voltage_present IS NULL), false)               AS any_inactive
+                  OR (fe.is_set IS NULL AND l.fuse_state IS NULL)
+                  OR (ve.is_set IS NULL AND l.is_voltage_present IS NULL)), false)
+                                                                               AS any_inactive
   FROM public.fuses_sets fs
   JOIN public.fuses f ON f.fuses_set_id = fs.id
   LEFT JOIN public.last_falcon_values l ON l.hw_id = f.current_hw_id
+  -- #CORRECTION CL-01/TD-01 (2026-11-09): latest fuse-alarm (fe) and voltage-alarm (ve) event of each fuse.
+  LEFT JOIN LATERAL (
+    SELECT upper(a.event_type) = 'SET' AS is_set
+    FROM public.alarms a
+    WHERE a.custom_id = f.custom_id
+      AND a.event_code ~ $4::text
+      AND upper(a.event_type) IN ('SET', 'CLEAR')
+    ORDER BY a.recorded_at DESC, (upper(a.event_type) = 'SET') DESC
+    LIMIT 1
+  ) fe ON true
+  LEFT JOIN LATERAL (
+    SELECT upper(a.event_type) = 'SET' AS is_set
+    FROM public.alarms a
+    WHERE a.custom_id = f.custom_id
+      AND a.event_code ~ $5::text
+      AND upper(a.event_type) IN ('SET', 'CLEAR')
+    ORDER BY a.recorded_at DESC, (upper(a.event_type) = 'SET') DESC
+    LIMIT 1
+  ) ve ON true
   WHERE fs.node_id = ANY($1)
   GROUP BY fs.node_id
 `;
@@ -136,6 +192,10 @@ export const NODE_FUSE_SETS_SQL = `
 
 @Injectable()
 export class NodesService {
+  // #CORRECTION TD-05 (2026-11-09): logger and de-duplication set for ignored phase-drop events.
+  private readonly logger = new Logger(NodesService.name);
+  private readonly reportedIgnored = new Set<string>();
+
   constructor(
     @InjectRepository(Node)
     private readonly nodesRepository: Repository<Node>,
@@ -224,7 +284,14 @@ export class NodesService {
 
     const rows: FuseSummaryRow[] = await this.nodesRepository.query(
       FUSE_SUMMARY_SQL,
-      [nodeNames, FALCON_FUSE_OPEN, this.falconInactivityHours()],
+      [
+        nodeNames,
+        FALCON_FUSE_OPEN,
+        this.falconInactivityHours(),
+        // #CORRECTION CL-01/TD-01 (2026-11-09): $4 and $5 of FUSE_SUMMARY_SQL.
+        FUSE_OPENING_EVENT_PATTERN,
+        NO_VOLTAGE_EVENT_PATTERN,
+      ],
     );
 
     return new Map(
@@ -262,17 +329,27 @@ export class NodesService {
 
     const rows: TransformerSummaryRow[] = await this.nodesRepository.query(
       TRANSFORMER_SUMMARY_SQL,
-      [nodeNames, this.smacInactivityHours(), PHASE_DROP_EVENT_PATTERN],
+      [
+        nodeNames,
+        this.smacInactivityHours(),
+        PHASE_DROP_EVENT_PATTERN,
+        // #CORRECTION CL-07/TD-04 (2026-11-09): $4 of TRANSFORMER_SUMMARY_SQL, the phase window in days.
+        this.smacPhaseWindowDays(),
+      ],
     );
 
     const byNode = new Map<string, TransformerSummary[]>();
     for (const row of rows) {
       const list = byNode.get(row.node_id) ?? [];
-      list.push({
+      // #CORRECTION CL-07/TD-04/TD-05 (2026-11-09): existing phases from the voltage columns; ignored drops are logged.
+      const summary: TransformerSummary = {
         customId: row.custom_id,
         inactive: row.inactive,
         downChannels: row.down_channels ?? [],
-      });
+        existingPhases: existingPhasesOf(row),
+      };
+      this.reportIgnored(summary);
+      list.push(summary);
       byNode.set(row.node_id, list);
     }
 
@@ -282,6 +359,41 @@ export class NodesService {
         deriveTransformerState(transformers),
       ]),
     );
+  }
+
+  // #CORRECTION TD-05 (2026-11-09): new method; drops on a missing phase were ignored without a trace.
+  /** TD-05: a drop event on a phase the transformer does not have is ignored and logged once. */
+  private reportIgnored(summary: TransformerSummary): void {
+    for (const channel of ignoredChannels(summary)) {
+      const key = `${summary.customId}:${channel}`;
+      if (
+        this.reportedIgnored.has(key) ||
+        this.reportedIgnored.size >= MAX_REPORTED_IGNORED
+      ) {
+        continue;
+      }
+      this.reportedIgnored.add(key);
+      this.logger.warn(
+        `Phase-drop event on channel ${JSON.stringify(channel)} of transformer ${JSON.stringify(summary.customId)} ignored: the transformer has no such phase`,
+      );
+    }
+  }
+
+  /**
+   * #CORRECTION TD-04 (2026-11-09): new setting SMAC_PHASE_WINDOW_DAYS (decisions doc, section 7.2).
+   * #CORRECTION TD-04 (2026-11-11): default changed from 7 days to 0 (latest reading only), because Colbits confirmed (CL-24) that a failed phase always reports a number, so NULL only means the phase does not exist.
+   * Days of SMAC readings that decide which phases exist. A number >= 0 from SMAC_PHASE_WINDOW_DAYS,
+   * 0 = latest reading only; the default (0) when missing or invalid.
+   */
+  private smacPhaseWindowDays(): number {
+    const raw = this.configService.get<string | number>(
+      'SMAC_PHASE_WINDOW_DAYS',
+    );
+    const configured =
+      raw === undefined || raw === null || raw === '' ? NaN : Number(raw);
+    return Number.isFinite(configured) && configured >= 0
+      ? configured
+      : DEFAULT_SMAC_PHASE_WINDOW_DAYS;
   }
 
   /** US14 · F-33, F-34: location and installed devices of each node. */

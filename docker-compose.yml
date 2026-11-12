@@ -58,6 +58,9 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       FALCON_INACTIVITY_HOURS: ${FALCON_INACTIVITY_HOURS:-9}
       SMAC_INACTIVITY_HOURS: ${SMAC_INACTIVITY_HOURS:-3}
+      #CORRECTION TD-04 (2026-11-09): new setting (decisions doc, section 7.2).
+      #CORRECTION TD-04 (2026-11-11): default changed from 7 to 0 after Colbits confirmed (CL-24) that a failed phase always reports a value.
+      SMAC_PHASE_WINDOW_DAYS: ${SMAC_PHASE_WINDOW_DAYS:-0}
       # File events do not cross the Windows/macOS → Docker boundary; poll instead.
       TSC_WATCHFILE: DynamicPriorityPolling
       CHOKIDAR_USEPOLLING: 'true'
