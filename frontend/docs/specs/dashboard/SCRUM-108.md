@@ -69,7 +69,7 @@ No new screens: the existing card now shows real data.
 ## 5. User flow
 1. The user opens **Monitoreo en vivo** (`/dashboard`); the panel requests `GET /faults` and lists the open faults in their scope.
 2. The list refreshes every 15 s, together with the map ([SCRUM-110](./SCRUM-110.md)).
-3. The user can still narrow the list by alert type, classification, minimum duration and node search.
+3. The user narrows the list with the filter at the top of the map and the node search. Since US15 the panel has no filters of its own (F-56, [SCRUM-113](./SCRUM-113.md)).
 
 ## 6. Data and endpoints
 `GET /faults` (backend `faults.controller.ts`, PR #59). Requires `Authorization: Bearer <token>`; the backend applies the user's scope.
