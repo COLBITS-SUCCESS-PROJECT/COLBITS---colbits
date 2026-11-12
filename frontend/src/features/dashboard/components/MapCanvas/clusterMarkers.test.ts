@@ -31,7 +31,14 @@ function pixelsFromOrigin(dx: number, dy = 0, zoom = ZOOM): MarkerPosition {
 function marker(id: string, position: MarkerPosition, variant = FUSE): NodeMarker {
   const [latitude, longitude] = position
   return {
-    node: { id, coordinates: { latitude, longitude }, fuseState: 'NORMAL', transformerState: null },
+    node: {
+      id,
+      coordinates: { latitude, longitude },
+      fuseState: 'NORMAL',
+      transformerState: null,
+      location: null,
+      deviceIds: [],
+    },
     position,
     variant,
   }

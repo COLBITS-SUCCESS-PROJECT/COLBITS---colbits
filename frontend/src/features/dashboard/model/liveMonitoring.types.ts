@@ -15,6 +15,19 @@ export interface GeoCoordinates {
   longitude: number
 }
 
+/** One element of the network hierarchy (zone, substation or circuit). The id is the database id as text. */
+export interface NetworkPlace {
+  id: string
+  name: string
+}
+
+/** Where a node sits in the network: zone › substation › circuit (F-33). */
+export interface NodeLocation {
+  zone: NetworkPlace
+  substation: NetworkPlace
+  circuit: NetworkPlace
+}
+
 /** A network node (pole) within the user's scope, with its recorded coordinates (F-12). */
 export interface NetworkNode {
   /** 10-character node ID, e.g. ND04821A07. */
@@ -24,6 +37,10 @@ export interface NetworkNode {
   fuseState: NetworkState | null
   /** null when the node has no transformer. */
   transformerState: NetworkState | null
+  /** null when the service does not report it. */
+  location: NodeLocation | null
+  /** Devices installed on the node now (Falcons and SMACs), to find it by device identifier (F-34). */
+  deviceIds: string[]
 }
 
 export type PhaseState = 'CRITICAL' | 'WARNING' | 'OK'
