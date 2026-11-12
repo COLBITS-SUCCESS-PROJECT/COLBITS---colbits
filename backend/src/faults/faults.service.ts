@@ -10,7 +10,17 @@ export class FaultsService {
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
-  /**  Window for grouping faults without code changes */
+  /** US15 / NF-11: Severity criteria configurable without code changes */
+  getSeverityWeights() {
+    return {
+      fuseAlarm: Number(this.configService.get('SEVERITY_WEIGHT_FUSE_ALARM')) || 100,
+      voltageAlarm: Number(this.configService.get('SEVERITY_WEIGHT_VOLTAGE_ALARM')) || 75,
+      droppedPhase: Number(this.configService.get('SEVERITY_WEIGHT_DROPPED_PHASE')) || 50,
+      phaseOutOfRange: Number(this.configService.get('SEVERITY_WEIGHT_PHASE_OUT_OF_RANGE')) || 25,
+    };
+  }
+
+  /** Window for grouping faults without code changes */
   getGroupingWindowMinutes(): number {
     const configured = Number(this.configService.get('FAULT_GROUPING_WINDOW_MINUTES'));
     return Number.isFinite(configured) && configured > 0 ? configured : 5;
@@ -19,6 +29,9 @@ export class FaultsService {
   /** Report openings in different fuse sets as separate faults */
   async getActiveFaults() {
     const windowMinutes = this.getGroupingWindowMinutes();
+    
+    // The configurable weights are now available for your F-57 SQL sorting logic
+    const severityWeights = this.getSeverityWeights(); 
 
     // Grouping by f.fuses_set_id guarantees faults on different branches of the same node are kept separate
     const sql = `
