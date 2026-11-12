@@ -17,8 +17,11 @@
     "allZones": "Todas",
     "allSubstations": "Todas",
     "allCircuits": "Todos",
-    "search": "Buscar nodo",
-    "searchPlaceholder": "Buscar nodo o ID…"
+    "search": "Buscar nodo o dispositivo",
+    "searchPlaceholder": "Buscar nodo o ID…",
+    "searchLabel": "Buscar en el mapa",
+    "searchFound": "Mapa centrado en el nodo {{id}}",
+    "searchNotFound": "No hay ningún nodo ni dispositivo «{{query}}» en tu alcance"
   },
   "map": {
     "label": "Mapa de la red",

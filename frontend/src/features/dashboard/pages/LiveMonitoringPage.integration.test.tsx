@@ -81,7 +81,10 @@ describe('LiveMonitoringPage', () => {
     renderPage()
     await screen.findByText('3 activas')
 
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar nodo' }), 'ND05510')
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Buscar nodo o dispositivo' }),
+      'ND05510'
+    )
 
     const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
     expect(within(panel).getAllByRole('article')).toHaveLength(1)
@@ -92,7 +95,10 @@ describe('LiveMonitoringPage', () => {
     renderPage()
     await screen.findByText('3 activas')
 
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar nodo' }), 'zzz')
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Buscar nodo o dispositivo' }),
+      'zzz'
+    )
 
     expect(screen.getByText('No hay fallas que coincidan con los filtros.')).toBeInTheDocument()
   })

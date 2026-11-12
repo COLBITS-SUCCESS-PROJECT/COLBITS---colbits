@@ -3,16 +3,24 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNow } from '@/hooks/useNow'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
-import { MapCanvas } from '../components/MapCanvas/MapCanvas'
+import { MapCanvas, type FocusRequest } from '../components/MapCanvas/MapCanvas'
 import { MapLegend } from '../components/MapLegend/MapLegend'
-import { MapToolbar } from '../components/MapToolbar/MapToolbar'
+import { MapToolbar, type SearchResult } from '../components/MapToolbar/MapToolbar'
 import { FaultPanel } from '../components/FaultPanel/FaultPanel'
 import { FaultPanelToggle } from '../components/FaultPanel/FaultPanelToggle'
 import { NodeDetailPanel } from '../components/NodeDetailPanel/NodeDetailPanel'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
-import { selectFaults } from '../model/faultRules'
+import { selectFaults, type FaultFilters } from '../model/faultRules'
+import { ALL } from '../model/liveMonitoring.constants'
+import {
+  filterNodesByLocation,
+  findNodeByIdentifier,
+  hasLocationFilter,
+  isInLocation,
+  layersOf,
+} from '../model/mapFilters'
 import { deriveScopeOptions } from '../model/scopeOptions'
 
 export function LiveMonitoringPage() {
@@ -27,11 +35,51 @@ export function LiveMonitoringPage() {
   const { filters, updateFilters, toggleLayer, tab, setTab } = useLiveMonitoringFilters()
   const now = useNow()
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
-  const scope = useMemo(() => deriveScopeOptions(faults), [faults])
-  const activeFaults = useMemo(
-    () => selectFaults(faults, filters, 'OPEN', now),
-    [faults, filters, now]
+  const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null)
+  const allNodes = useMemo(() => nodesQuery.data ?? [], [nodesQuery.data])
+  const { zone, substation, circuit } = filters
+  const location = useMemo(() => ({ zone, substation, circuit }), [zone, substation, circuit])
+  // F-33: the map shows only the nodes of the selected zone / substation / circuit.
+  const visibleNodes = useMemo(
+    () => filterNodesByLocation(allNodes, location),
+    [allNodes, location]
   )
+  const scope = useMemo(() => deriveScopeOptions(allNodes, location), [allNodes, location])
+  // The fault panel follows the same area through each fault's node (US14 · SCRUM-112 §9).
+  const nodesInLocation = useMemo(
+    () => (hasLocationFilter(location) ? new Set(visibleNodes.map((node) => node.id)) : undefined),
+    [location, visibleNodes]
+  )
+  const activeFaults = useMemo(
+    () => selectFaults(faults, filters, 'OPEN', now, nodesInLocation),
+    [faults, filters, now, nodesInLocation]
+  )
+
+  function handleFiltersChange(patch: Partial<FaultFilters>) {
+    if (patch.search !== undefined) setSearchResult(null)
+    updateFilters(patch)
+  }
+
+  /** F-34: center on the node with that identifier, or on the node where that device is installed. */
+  function handleSearch(query: string) {
+    if (query.trim() === '') return setSearchResult(null)
+    const node = findNodeByIdentifier(allNodes, query)
+    if (!node) return setSearchResult({ found: false, query: query.trim() })
+
+    // Make the node visible: clear a location filter that hides it and turn on a layer that draws it.
+    const patch: Partial<FaultFilters> = {}
+    if (!isInLocation(node, location))
+      Object.assign(patch, { zone: ALL, substation: ALL, circuit: ALL })
+    const nodeLayers = layersOf(node)
+    const firstLayer = nodeLayers[0]
+    if (firstLayer && !nodeLayers.some((layer) => filters.layers.includes(layer))) {
+      patch.layers = [...filters.layers, firstLayer]
+    }
+    if (Object.keys(patch).length > 0) updateFilters(patch)
+    setFocusRequest((current) => ({ nodeId: node.id, requestId: (current?.requestId ?? 0) + 1 }))
+    setSearchResult({ found: true, nodeId: node.id })
+  }
 
   useEffect(() => {
     if (isDesktopViewport) setMobilePanelOpen(false)
@@ -43,16 +91,19 @@ export function LiveMonitoringPage() {
         filters={filters}
         scope={scope}
         onToggleLayer={toggleLayer}
-        onChange={updateFilters}
+        onChange={handleFiltersChange}
+        onSearch={handleSearch}
+        searchResult={searchResult}
       />
       <div className="relative flex min-h-0 flex-1">
         <MapCanvas
-          nodes={nodesQuery.data ?? []}
+          nodes={visibleNodes}
           layers={filters.layers}
           isLoading={nodesQuery.isPending}
           isError={nodesQuery.isError}
           onRetry={() => void nodesQuery.refetch()}
           onSelectNode={setSelectedNodeId}
+          focusRequest={focusRequest}
         >
           <MapLegend layers={filters.layers} />
           <FaultPanelToggle

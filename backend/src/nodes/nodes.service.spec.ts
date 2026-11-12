@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { Node } from './node.entity';
-import { NodesService } from './nodes.service';
+import { NODE_LOCATIONS_SQL, NodesService } from './nodes.service';
 import { SMAC_INACTIVITY_SQL } from './smac-state';
 import { TRANSFORMER_SUMMARY_SQL } from './transformer-state';
 
@@ -12,6 +12,7 @@ function serviceWith(
   smacRows: unknown[] = [],
   smacHours?: string,
   transformerRows: unknown[] = [],
+  locationRows: unknown[] = [],
 ) {
   const builder = {
     select: jest.fn().mockReturnThis(),
@@ -24,6 +25,7 @@ function serviceWith(
     createQueryBuilder: jest.fn().mockReturnValue(builder),
     query: jest.fn((sql: string) => {
       if (sql === SMAC_INACTIVITY_SQL) return Promise.resolve(smacRows);
+      if (sql === NODE_LOCATIONS_SQL) return Promise.resolve(locationRows);
       if (sql === TRANSFORMER_SUMMARY_SQL) {
         return Promise.resolve(transformerRows);
       }
@@ -80,12 +82,20 @@ describe('NodesService.findAll (US4 + US6)', () => {
           fuse_state: 'NORMAL',
           smac_inactive: null,
           transformer_state: null,
+          zone: null,
+          substation: null,
+          circuit: null,
+          device_ids: [],
         },
         {
           ...N2,
           fuse_state: 'CRITICAL',
           smac_inactive: null,
           transformer_state: null,
+          zone: null,
+          substation: null,
+          circuit: null,
+          device_ids: [],
         },
       ],
     });
@@ -244,5 +254,63 @@ describe('NodesService.findAll transformer_state (US7)', () => {
       6,
       expect.any(String),
     ]);
+  });
+});
+
+describe('NodesService.findAll · location and devices (US14 · F-33, F-34)', () => {
+  const N1_LOCATION = {
+    node_id: N1.name,
+    zone_id: '2',
+    zone_name: 'Zona Norte',
+    substation_id: '3',
+    substation_code: 'SUB-N-001',
+    substation_name: 'S/E NORTE 1',
+    circuit_id: '7',
+    circuit_name: 'CTO 1',
+    device_ids: ['0512345678', '1311111111'],
+  };
+
+  it('returns the zone, substation, circuit and installed devices of each node', async () => {
+    // Arrange
+    const { service } = serviceWith([N1], [], undefined, [], undefined, [], [
+      N1_LOCATION,
+    ]);
+
+    // Act
+    const result = await service.findAll({ kind: 'unrestricted' });
+
+    // Assert
+    expect(result.nodes[0]).toMatchObject({
+      zone: { id: 2, name: 'Zona Norte' },
+      substation: { id: 3, code: 'SUB-N-001', name: 'S/E NORTE 1' },
+      circuit: { id: 7, name: 'CTO 1' },
+      device_ids: ['0512345678', '1311111111'],
+    });
+  });
+
+  it('gives an empty device list to a node without installed devices', async () => {
+    const { service } = serviceWith([N1], [], undefined, [], undefined, [], [
+      { ...N1_LOCATION, device_ids: null },
+    ]);
+
+    const result = await service.findAll({ kind: 'unrestricted' });
+
+    expect(result.nodes[0].device_ids).toEqual([]);
+  });
+
+  it('asks for the location of exactly the nodes in scope', async () => {
+    const { service, repository } = serviceWith([N1, N2], []);
+
+    await service.findAll({ kind: 'unrestricted' });
+
+    expect(repository.query).toHaveBeenCalledWith(NODE_LOCATIONS_SQL, [
+      [N1.name, N2.name],
+    ]);
+  });
+
+  it('only lists the current devices of fuses and transformers of each node', () => {
+    expect(NODE_LOCATIONS_SQL).toMatch(/f\.current_hw_id/);
+    expect(NODE_LOCATIONS_SQL).toMatch(/t\.current_hw_id/);
+    expect(NODE_LOCATIONS_SQL).toMatch(/WHERE n\.name = ANY\(\$1\)/);
   });
 });
