@@ -394,6 +394,8 @@ export class NodesService {
     return Number.isFinite(configured) && configured >= 0
       ? configured
       : DEFAULT_SMAC_PHASE_WINDOW_DAYS;
+  }
+
   /** US14 · F-33, F-34: location and installed devices of each node. */
   private async locationsFor(
     nodeNames: string[],

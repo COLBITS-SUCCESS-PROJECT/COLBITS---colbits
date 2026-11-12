@@ -329,7 +329,7 @@ describe('NodesService.findAll · location and devices (US14 · F-33, F-34)', ()
 
   it('returns the zone, substation, circuit and installed devices of each node', async () => {
     // Arrange
-    const { service } = serviceWith([N1], [], undefined, [], undefined, [], [
+    const { service } = serviceWith([N1], [], undefined, [], undefined, [], undefined, [
       N1_LOCATION,
     ]);
 
@@ -346,7 +346,7 @@ describe('NodesService.findAll · location and devices (US14 · F-33, F-34)', ()
   });
 
   it('gives an empty device list to a node without installed devices', async () => {
-    const { service } = serviceWith([N1], [], undefined, [], undefined, [], [
+    const { service } = serviceWith([N1], [], undefined, [], undefined, [], undefined, [
       { ...N1_LOCATION, device_ids: null },
     ]);
 
