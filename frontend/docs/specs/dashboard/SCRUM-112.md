@@ -2,15 +2,15 @@
 feature: dashboard
 story: SCRUM-112
 title: 'US14 - Map filter and search'
-status: IN_PROGRESS
+status: IN_REVIEW
 owner: Sofia
-last_updated: 2026-11-06
+last_updated: 2026-11-11
 ---
 
 # SCRUM-112 — US14 · Map filter and search
 
 Jira: <https://colbits-success.atlassian.net/browse/SCRUM-112>
-Requirements: F-33 ([SCRUM-221](https://colbits-success.atlassian.net/browse/SCRUM-221)), F-34 ([SCRUM-222](https://colbits-success.atlassian.net/browse/SCRUM-222)), both Sofia
+Requirements: F-33 ([SCRUM-221](https://colbits-success.atlassian.net/browse/SCRUM-221)), F-34 ([SCRUM-222](https://colbits-success.atlassian.net/browse/SCRUM-222)), backend [SCRUM-267](https://colbits-success.atlassian.net/browse/SCRUM-267), all Sofia
 Feature: [FEATURE.md](./FEATURE.md)
 
 ## 1. User story
@@ -30,7 +30,7 @@ Feature: [FEATURE.md](./FEATURE.md)
 
 ## 2. Acceptance criteria
 
-### Part 1 — backend `GET /nodes` (no Jira subtask existed: added to SCRUM-221 / SCRUM-222)
+### Part 1 — backend `GET /nodes` ([SCRUM-267](https://colbits-success.atlassian.net/browse/SCRUM-267), added during the sprint)
 
 | ID | Criterion (Given / When / Then) | Test type | Test |
 |---|---|---|---|
@@ -98,7 +98,7 @@ interface NodeDto {
 
 | ID | Question | Owner | Blocking | Answer |
 |---|---|---|---|---|
-| Q1 | No backend subtask existed for US14 although F-33 and F-34 need the location and devices of each node | Sofia (SM) | No | Done in this story (Part 1); reviewed by backend |
+| Q1 | No backend subtask existed for US14 although F-33 and F-34 need the location and devices of each node | Sofia (SM) | No | Done in this story (Part 1); approved by the PO and tracked as SCRUM-267 |
 | Q2 | Does the search match part of an identifier? | Paola (PO) | No | Exact identifier only (F-34 speaks of "the matching node"); case and spaces ignored. The fault panel keeps its own partial match on node id |
 | Q3 | A device previously installed on a node (not `current_hw_id`)? | Paola (PO) | No | OPEN — only current devices are searched |
 
@@ -106,7 +106,14 @@ interface NodeDto {
 
 | Date | Criterion | Result | Tested by | Action taken |
 |---|---|---|---|---|
-| YYYY-MM-DD | AC1 | PASS / FAIL | <Name> | — |
+| 2026-11-06 | AC1–AC3 | PASS | Automated: `nodes.service.spec.ts` (4 new tests); backend suite 397/397 on Node 24 | — |
+| 2026-11-06 | AC1, AC2 | PASS | Manual against the database (Docker, `02_dummy_inserts.sql`, AI-assisted run on Sofia's machine) | 8 nodes, 32 fields (zone, substation, circuit, devices) compared with an independent SQL query: 0 differences |
+| 2026-11-06 | AC4–AC11 | PASS | Automated: `LiveMonitoringPage.filterSearch.acceptance.test.tsx` (7), `scopeOptions.test.ts`, `mapFilters.test.ts`, `MapToolbar.test.tsx`; frontend suite 531/531, coverage 99.24 % | — |
+| 2026-11-11 | AC3 | PASS | Manual, generator data (50 nodes, 5 circuits, `--scenarios demo`) | `client@colbits.com` receives 10 nodes of circuit 1 only; no location or device of other circuits in the response |
+| 2026-11-11 | AC4 | PASS | Manual in the browser, same data | Circuit "CTO 1 · S/E SUR 3" → its 10 nodes only; the map frames them and the fault panel drops to its 1 fault |
+| 2026-11-11 | AC5, AC6 | PASS | Manual in the browser | Lists offer only the 2 zones, 3 substations and 5 circuits of the data; zone 1 narrows substations to S/E NORTE 1 and 2; the three "CTO 1" are shown with their substation |
+| 2026-11-11 | AC7–AC10 | PASS | Manual in the browser | " 1301000001 " (Falcon) with circuit 5 selected → filter cleared, map centered on node 0000100001 at street level; "0000500002" → centered; "ZZZ999" → "no results" message |
+| 2026-11-11 | AC11 | PASS | Manual in the browser at 375, 768 and 1024 px | No horizontal page scroll; on mobile the location filters open from the *Location* control and the result message fits the screen |
 
 ## 9. Implementation notes
 - Filter values are **ids**, not names: circuit names repeat across substations (`CTO 1` in several), so a name cannot identify one circuit.
