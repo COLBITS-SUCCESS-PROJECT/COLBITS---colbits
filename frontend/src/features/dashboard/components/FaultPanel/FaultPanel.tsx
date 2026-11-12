@@ -1,4 +1,4 @@
-/** FaultPanel organism — fault management side panel: tabs, node counters, filters and alarm list (Figma: Fault Panel). */
+/** FaultPanel organism — fault management side panel: tabs, node counters, last hour / last day selector and alarm list (Figma: Fault Panel; no filters of its own, F-56). */
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'

@@ -83,32 +83,24 @@ describe('FaultPanel', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('reports every filter change', async () => {
+  it('reports a change of the last hour / last day selector', async () => {
     const props = renderPanel()
 
     await userEvent.click(screen.getByRole('button', { name: 'Última hora' }))
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Tipo de alerta' }),
-      'NO_VOLTAGE'
-    )
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Clasificación' }),
-      'TRIPHASIC'
-    )
-    await userEvent.click(screen.getByRole('switch', { name: 'Duración mínima ≥ 5 min' }))
 
     expect(props.onFiltersChange).toHaveBeenCalledWith({ timeWindow: 'LAST_HOUR' })
-    expect(props.onFiltersChange).toHaveBeenCalledWith({ alertType: 'NO_VOLTAGE' })
-    expect(props.onFiltersChange).toHaveBeenCalledWith({ classification: 'TRIPHASIC' })
-    expect(props.onFiltersChange).toHaveBeenCalledWith({ onlyLongFaults: true })
   })
 
-  it('explains the minimum-duration filter in a tooltip', () => {
+  it('has no filter of its own apart from its tabs and the last hour / last day selector (F-56)', () => {
+    // Arrange & Act
     renderPanel()
 
-    expect(
-      screen.getByRole('button', { name: 'Qué hace el filtro de duración mínima' })
-    ).toHaveAccessibleDescription(/se ocultan las fallas más cortas/)
+    // Assert: it follows the filter at the top of the map, so it offers no select or switch
+    const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
+    expect(within(panel).queryAllByRole('combobox')).toHaveLength(0)
+    expect(within(panel).queryAllByRole('switch')).toHaveLength(0)
+    expect(within(panel).getAllByRole('tab')).toHaveLength(3)
+    expect(within(panel).getByRole('group', { name: 'Mostrar' })).toBeInTheDocument()
   })
 
   it('shows skeletons while loading and hides the counters without data', () => {
