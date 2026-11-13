@@ -13,8 +13,7 @@ import { useInactiveDevicesPanel } from '../hooks/useInactiveDevicesPanel'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
-import { countAlarmNodes} from '../model/faultRules'
-import { selectFaults, type FaultFilters } from '../model/faultRules'
+import { countAlarmNodes, selectFaults, type FaultFilters } from '../model/faultRules'
 import { ALL } from '../model/liveMonitoring.constants'
 import {
   filterNodesByLocation,
@@ -138,7 +137,6 @@ export function LiveMonitoringPage() {
           // GET /faults lists open faults only: resolved faults (US16) come later.
           resolvedFaults={null}
           counters={query.isSuccess ? counters : null}
-          counters={query.data?.counters ?? null}
           inactive={inactive}
           filters={filters}
           onFiltersChange={updateFilters}
