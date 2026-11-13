@@ -111,18 +111,6 @@
     "nowCount_other": "{{count}} inactive now",
     "summary_one": "{{count}} device · {{window}} · longest silence first",
     "summary_other": "{{count}} devices · {{window}} · longest silence first",
-    "level": {
-      "zone": "Zone",
-      "substation": "Substation",
-      "circuit": "Circuit",
-      "node": "Node"
-    },
-    "all": {
-      "zone": "All zones",
-      "substation": "All substations",
-      "circuit": "All circuits",
-      "node": "All nodes"
-    },
     "empty": "No inactive devices in this period.",
     "error": "The inactive devices could not be loaded.",
     "loading": "Loading inactive devices",
@@ -131,6 +119,7 @@
       "now": "Inactive now",
       "inRange": "Inactive in range",
       "silent": "Silent {{duration}}",
+      "neverReported": "Never reported",
       "reporting": "Reporting",
       "location": "{{substation}} › {{circuit}} · {{deviceId}}",
       "total": "Total inactive in range",
