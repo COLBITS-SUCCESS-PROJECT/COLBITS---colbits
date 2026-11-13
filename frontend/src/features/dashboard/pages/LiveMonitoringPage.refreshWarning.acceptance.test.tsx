@@ -9,10 +9,10 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } 
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query'
-import { http, HttpResponse } from 'msw'
 import '@/i18n'
 import { server } from '@/mocks/server'
 import { resetMockMap } from '@/mocks/leafletMap.mock'
+import { cutService, letTimePass, startSimulatedTime, STEP_MS } from '@/mocks/liveRefresh'
 import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
 import { queryClient as appQueryClient } from '@/services/queryClient'
 import { useAuthStore, type AuthUser } from '@/stores/auth.store'
@@ -30,8 +30,6 @@ const USER: AuthUser = { id: 'u1', name: 'Consulta', email: 'c@colbits.test', ro
 const WARNING = 'Actualización en vivo interrumpida: el mapa dejó de actualizarse.'
 const MAP_ERROR = 'No se pudieron cargar los nodos.'
 const TIME_ON_MAP = /^Última actualización: \d{2}:\d{2}:\d{2}$/
-/** Simulated time advances in steps of this size, so each request is answered before the next step. */
-const STEP_MS = 1_000
 /** The next refresh, its retry 1 s later, and one step to show the result. */
 const NEXT_FAILED_REFRESH_MS = LIVE_REFETCH_INTERVAL_MS + 2 * STEP_MS
 
@@ -63,39 +61,17 @@ const warning = () => within(mapRegion()).queryByText(WARNING)
 const shownTime = () => within(mapRegion()).getByText(TIME_ON_MAP).textContent
 const freshnessDot = (name: string) => screen.queryByRole('img', { name })
 
-/** From now on the service cannot be reached (network error), as when the API is cut. Counts the attempts. */
-function cutService(endpoint: string) {
-  const attempts = { count: 0 }
-  server.use(
-    http.get(`*${endpoint}`, () => {
-      attempts.count += 1
-      return HttpResponse.error()
-    })
-  )
-  return attempts
-}
-
+/** Cuts both services the page uses. Counts the requests for the nodes. */
 function cutApi() {
   const nodeRequests = cutService(NODES_ENDPOINT)
   cutService(FAULTS_ENDPOINT)
   return nodeRequests
 }
 
-async function letTimePass(ms: number) {
-  for (let elapsed = 0; elapsed < ms; elapsed += STEP_MS) {
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(STEP_MS)
-    })
-  }
-}
-
 describe('SCRUM-111 · US13 — warning when the map stops refreshing (F-31)', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
   beforeEach(() => {
-    vi.useFakeTimers({
-      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
-      shouldAdvanceTime: true,
-    })
+    startSimulatedTime()
     useAuthStore.getState().clearAuth()
     useDataFreshnessStore.getState().reset()
     resetMockMap()
