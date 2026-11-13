@@ -131,6 +131,7 @@
       "now": "Inactivo ahora",
       "inRange": "Inactivo en el periodo",
       "silent": "Sin datos {{duration}}",
+      "neverReported": "Nunca ha reportado",
       "reporting": "Reportando",
       "location": "{{substation}} › {{circuit}} · {{deviceId}}",
       "total": "Total inactivo en el periodo",

@@ -109,19 +109,20 @@ describe('FaultPanel', () => {
       return inactive
     }
 
-    it('lists the devices longest silence first and counts those silent now', () => {
+    it('lists the devices in the backend order (F-40) and counts those silent now', () => {
       renderInactive()
 
       const cards = screen.getAllByRole('article')
       expect(cards.map((card) => card.getAttribute('aria-label'))).toEqual([
-        'ND03090C04 · Inactivo ahora',
-        'ND08812B05 · Inactivo ahora',
-        'ND07311A06 · Inactivo en el periodo',
+        'ND04410C07 · Inactivo ahora',
+        'ND08890C04 · Inactivo ahora',
+        'ND06420A08 · Inactivo ahora',
+        'ND07120D05 · Inactivo en el periodo',
         'ND02218B09 · Inactivo en el periodo',
       ])
-      expect(screen.getByText('2 inactivos ahora')).toBeInTheDocument()
+      expect(screen.getByText('3 inactivos ahora')).toBeInTheDocument()
       expect(
-        screen.getByText('4 dispositivos · último día · mayor silencio primero')
+        screen.getByText('5 dispositivos · último día · mayor silencio primero')
       ).toBeInTheDocument()
       expect(screen.getByRole('link', { name: /Alarmas anteriores/ })).toHaveAttribute(
         'href',
@@ -133,16 +134,19 @@ describe('FaultPanel', () => {
       const inactive = renderInactive()
 
       await userEvent.click(screen.getByRole('button', { name: 'Última hora' }))
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Zona' }), 'Sur')
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Subestación' }), 'SE-Sur')
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Circuito' }), 'CR-25')
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Nodo' }), 'ND03090C04')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Zona' }), 'Zona Norte')
+      await userEvent.selectOptions(
+        screen.getByRole('combobox', { name: 'Subestación' }),
+        'S/E CENTRO 1'
+      )
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Circuito' }), 'CTO 3')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Nodo' }), 'ND08890C04')
 
       expect(inactive.onFiltersChange).toHaveBeenCalledWith({ timeWindow: 'LAST_HOUR' })
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ zone: 'Sur' })
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ substation: 'SE-Sur' })
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ circuit: 'CR-25' })
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ node: 'ND03090C04' })
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ zone: 'Zona Norte' })
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ substation: 'S/E CENTRO 1' })
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ circuit: 'CTO 3' })
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ node: 'ND08890C04' })
     })
 
     it('shows the empty state when no device is inactive', () => {

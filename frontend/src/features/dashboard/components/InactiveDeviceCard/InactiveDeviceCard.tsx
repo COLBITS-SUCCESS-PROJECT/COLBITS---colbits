@@ -14,6 +14,10 @@ export function InactiveDeviceCard({ view }: InactiveDeviceCardProps) {
   const { device, isInactiveNow, silentMinutes, totalMinutes, periods } = view
   const duration = (minutes: number) => formatDuration(minutes, i18n.language)
   const state = t(isInactiveNow ? 'inactive.card.now' : 'inactive.card.inRange')
+  const silence =
+    silentMinutes === null
+      ? t('inactive.card.neverReported')
+      : t('inactive.card.silent', { duration: duration(silentMinutes) })
 
   return (
     <article
@@ -32,11 +36,7 @@ export function InactiveDeviceCard({ view }: InactiveDeviceCardProps) {
         </span>
         <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">{state}</h3>
         <Badge
-          label={
-            isInactiveNow
-              ? t('inactive.card.silent', { duration: duration(silentMinutes ?? 0) })
-              : t('inactive.card.reporting')
-          }
+          label={isInactiveNow ? silence : t('inactive.card.reporting')}
           tone={isInactiveNow ? 'neutral' : 'success'}
           isOutlined
         />

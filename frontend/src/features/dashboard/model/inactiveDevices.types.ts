@@ -19,6 +19,10 @@ export interface InactiveDevice {
   circuit: string
   /** Hours without data after which the device counts as inactive (9 Falcon, 3 SMAC). */
   thresholdHours: number
+  /** Inactive right now, as the backend says (F-36 / F-37). True for a device that never reported. */
+  inactiveNow: boolean
+  /** Latest stored record; null when the device never reported (it then has no period). */
+  lastRecordAt: Date | null
   periods: InactivePeriod[]
 }
 
@@ -33,9 +37,9 @@ export interface InactivePeriodInRange {
 /** What the card shows: a device with its inactivity inside the selected time window. */
 export interface InactiveDeviceView {
   device: InactiveDevice
-  /** True while the device is still silent (an open period). */
+  /** True while the device is still silent (backend `inactive_now`). */
   isInactiveNow: boolean
-  /** Minutes since the open period started (whole silence, not only the window); null if reporting. */
+  /** Minutes since the last record (whole silence, not only the window); null if reporting or if it never reported. */
   silentMinutes: number | null
   totalMinutes: number
   periods: InactivePeriodInRange[]
