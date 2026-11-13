@@ -16,12 +16,12 @@ describe('useLiveMonitoringFilters', () => {
     const { result } = renderHook(() => useLiveMonitoringFilters())
 
     // Act
-    act(() => result.current.updateFilters({ substation: 'SE-Norte', onlyLongFaults: true }))
+    act(() => result.current.updateFilters({ substation: 'SE-Norte', timeWindow: 'LAST_HOUR' }))
 
     // Assert
     expect(result.current.filters).toMatchObject({
       substation: 'SE-Norte',
-      onlyLongFaults: true,
+      timeWindow: 'LAST_HOUR',
       zone: 'ALL',
     })
   })

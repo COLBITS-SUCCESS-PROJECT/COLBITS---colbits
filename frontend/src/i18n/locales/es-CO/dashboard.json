@@ -91,13 +91,6 @@
       "LAST_HOUR": "Última hora",
       "LAST_DAY": "Último día"
     },
-    "alertType": "Tipo de alerta",
-    "allTypes": "Todos los tipos",
-    "classification": "Clasificación",
-    "allClassifications": "Todas",
-    "minDuration": "Duración mínima ≥ {{minutes}} min",
-    "minDurationHint": "Filtro de duración mínima: se ocultan las fallas más cortas que el umbral.",
-    "minDurationInfo": "Qué hace el filtro de duración mínima",
     "sortNote": "Ordenadas por clientes afectados y luego por la más antigua",
     "empty": "No hay fallas que coincidan con los filtros.",
     "error": "No se pudieron cargar las fallas.",
@@ -112,18 +105,6 @@
     "nowCount_other": "{{count}} inactivos ahora",
     "summary_one": "{{count}} dispositivo · {{window}} · mayor silencio primero",
     "summary_other": "{{count}} dispositivos · {{window}} · mayor silencio primero",
-    "level": {
-      "zone": "Zona",
-      "substation": "Subestación",
-      "circuit": "Circuito",
-      "node": "Nodo"
-    },
-    "all": {
-      "zone": "Todas las zonas",
-      "substation": "Todas las subestaciones",
-      "circuit": "Todos los circuitos",
-      "node": "Todos los nodos"
-    },
     "empty": "No hay dispositivos inactivos en este periodo.",
     "error": "No se pudieron cargar los dispositivos inactivos.",
     "loading": "Cargando dispositivos inactivos",
@@ -132,6 +113,7 @@
       "now": "Inactivo ahora",
       "inRange": "Inactivo en el periodo",
       "silent": "Sin datos {{duration}}",
+      "neverReported": "Nunca ha reportado",
       "reporting": "Reportando",
       "location": "{{substation}} › {{circuit}} · {{deviceId}}",
       "total": "Total inactivo en el periodo",
