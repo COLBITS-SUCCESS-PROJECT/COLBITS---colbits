@@ -218,7 +218,11 @@ export class ActiveFaultsService {
       else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Active');
     }
 
-    return responseOf(now, orderFaults([...fuseFaults, ...sourceAlarms]));
+    const weights = this.faultsService.getSeverityWeights?.();
+    return responseOf(
+      now,
+      orderFaults([...fuseFaults, ...sourceAlarms], weights),
+    );
   }
 
   /**
