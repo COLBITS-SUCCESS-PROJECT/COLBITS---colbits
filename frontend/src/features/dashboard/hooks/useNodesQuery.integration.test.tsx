@@ -73,6 +73,12 @@ describe('useNodesQuery', () => {
       coordinates: { latitude: 3.469, longitude: -76.529 },
       fuseState: 'CRITICAL',
       transformerState: 'NORMAL',
+      location: {
+        zone: { id: '1', name: 'Zona Norte' },
+        substation: { id: '1', name: 'S/E NORTE 1' },
+        circuit: { id: '1', name: 'CTO 1' },
+      },
+      deviceIds: ['0504821A07', '1304821A07'],
     })
   })
 

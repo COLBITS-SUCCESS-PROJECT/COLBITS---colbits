@@ -1,5 +1,5 @@
 /** Fault DTO → domain model. The only place that knows the backend field names of GET /faults. */
-import type { FaultAlert, PhaseStates } from '../model/liveMonitoring.types'
+import type { FaultAlert, FaultSeverity, PhaseStates } from '../model/liveMonitoring.types'
 import type { ActiveFaultDto, ActiveFaultsResponseDto } from './faults.dto'
 
 const SECONDS_PER_MINUTE = 60
@@ -19,13 +19,22 @@ function toPhaseStates(phases: string[] | null): PhaseStates | null {
   }
 }
 
-/** An open fuse is a Falcon fault and always critical, the same red as its node on the map (F-15). */
+/**
+ * Accent of the card (Figma "Fault List Item"): an open fuse is red, the same red as its node on the
+ * map (F-15). The other alarms are amber: no voltage, phase out of range and one SMAC channel down.
+ * "2+ SMAC phases down = red" is not applied: a SMAC channel is not a phase, so the backend sends
+ * one entry per channel and the frontend does not add them up.
+ */
+function severityOf(dto: ActiveFaultDto): FaultSeverity {
+  return dto.alert_type === 'FUSE_OPENING' ? 'CRITICAL' : 'WARNING'
+}
+
 export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
   return {
     id: dto.id,
-    device: 'FALCON',
+    device: dto.device,
     type: dto.alert_type,
-    severity: 'CRITICAL',
+    severity: severityOf(dto),
     status: dto.state,
     nodeId: dto.node,
     zone: null,

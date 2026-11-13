@@ -15,6 +15,19 @@ export interface GeoCoordinates {
   longitude: number
 }
 
+/** One element of the network hierarchy (zone, substation or circuit). The id is the database id as text. */
+export interface NetworkPlace {
+  id: string
+  name: string
+}
+
+/** Where a node sits in the network: zone › substation › circuit (F-33). */
+export interface NodeLocation {
+  zone: NetworkPlace
+  substation: NetworkPlace
+  circuit: NetworkPlace
+}
+
 /** A network node (pole) within the user's scope, with its recorded coordinates (F-12). */
 export interface NetworkNode {
   /** 10-character node ID, e.g. ND04821A07. */
@@ -24,6 +37,10 @@ export interface NetworkNode {
   fuseState: NetworkState | null
   /** null when the node has no transformer. */
   transformerState: NetworkState | null
+  /** null when the service does not report it. */
+  location: NodeLocation | null
+  /** Devices installed on the node now (Falcons and SMACs), to find it by device identifier (F-34). */
+  deviceIds: string[]
 }
 
 export type PhaseState = 'CRITICAL' | 'WARNING' | 'OK'
@@ -37,7 +54,17 @@ export interface PhaseStates {
 
 export type PhaseClassification = 'MONOPHASIC' | 'BIPHASIC' | 'TRIPHASIC'
 
-export type AlertType = 'FUSE_OPENING' | 'NO_VOLTAGE' | 'PHASE_LOSS' | 'OVERLOAD_UNBALANCE'
+/** Closed list of F-47 (Scope v6.0 §3.2): same identifiers as backend/src/faults/fault-alert-types.ts, the source of truth. */
+export type AlertType =
+  | 'FUSE_OPENING'
+  | 'NO_VOLTAGE'
+  | 'FREE_FALL'
+  | 'SOLAR_PANEL_FAILURE'
+  | 'PHASE_LOSS'
+  | 'PHASE_OUT_OF_RANGE'
+  | 'OVERLOAD_UNBALANCE'
+  | 'LOW_ENERGY'
+  | 'DEVICE_INACTIVITY'
 
 export type FaultSeverity = 'CRITICAL' | 'WARNING' | 'INACTIVE'
 

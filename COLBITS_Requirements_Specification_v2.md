@@ -26,7 +26,7 @@ Version 2.0 applies the corrections from the client review to F-27, F-41, F-56, 
 | 1.8 Conversational assistant | F-81 to F-89 | 9 |
 | 1.9 Synthetic data generator | F-90 to F-98 | 9 |
 | 1.10 Interface language | F-99 | 1 |
-| 2 Non-functional requirements | NF-01 to NF-21 | 21 |
+| 2 Non-functional requirements | NF-01 to NF-22 | 22 |
 
 
 ## 1. Functional requirements
@@ -109,7 +109,7 @@ F-12 to F-35
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | F-44 | If a Falcon's supercapacitor level falls below the low-energy threshold, then the system shall raise a low-energy alert for that device. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Low energy can explain, and anticipate, a device going silent. | Validated High |   | Acceptance test |
 | F-45 | If a SMAC's battery level falls below the low- energy threshold, then the system shall raise a low-energy alert for that device. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Low energy can explain, and anticipate, a device going silent. | Validated High |   | Acceptance test |
-| F-46 | The system shall take the time of every event from the timestamp stored in its record, not from when the system received or processed it. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Data can reach the database late; calculations must reflect when things happened. | Validated High |   | Acceptance test |
+| F-46 | The system shall take the time of every event from the timestamp stored in its record, not from when the system received or processed it. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | `recorded_at` is assigned by the server when the record is received (CL-21, Colbits, 3 Nov 2026). Calculations use that stored timestamp, not the time of the query. | Validated High |   | Acceptance test |
 
 ## 1.4 Alarms and fault classification
 
@@ -252,7 +252,7 @@ Grouped by ISO/IEC 25010:2023 quality characteristic. Performance, security and 
 | NF-04 | The system shall store user passwords only as salted hashes produced by an adaptive algorithm such as bcrypt or Argon2. | Non-functional: Security | Team | Prevents credential exposure if the database is breached. | Validated High |   | Code and database inspection |
 | NF-05 | If a user submits invalid credentials 5 consecutive times, then the system shall lock the account for 15 minutes. | Non-functional: Security | Team | Prevents brute-force authentication attacks. | Validated High |   | Automated security test |
 | NF-06 | If a user session has been inactive for 15 minutes, then the system shall invalidate its authentication token. | Non-functional: Security | Team | Prevents others from using an unattended session. | Validated High |   | Acceptance test |
-|   | Flexibility · NF-07 to NF-12 |   |   |   |   |   |   |
+|   | Flexibility · NF-07 to NF-12 and NF-22 |   |   |   |   |   |   |
 | NF-07 | The system shall let the Falcon and SMAC inactivity thresholds be changed without modifying code. | Non-functional: Flexibility | Colbits Scope, Requirements and Use Cases Specification v6.0 | Colbits requires both values to be configurable, not hard- coded. | Validated High |   | Configuration test |
 | NF-08 | The system shall let the low-energy thresholds be changed without modifying code. | Non-functional: Flexibility | Colbits Scope, Requirements and Use Cases Specification v6.0 | Colbits requires a configurable threshold. | Validated High |   | Configuration test |
 | NF-09 | The system shall let the fault grouping window be changed without modifying code. | Non-functional: Flexibility | Colbits Scope, Requirements and Use Cases Specification v6.0 | Colbits requires the window to be configurable, starting at 5 minutes. | Validated High |   | Configuration test |
@@ -262,7 +262,8 @@ Grouped by ISO/IEC 25010:2023 quality characteristic. Performance, security and 
 | ID | Requirement statement | Type | Source | Rationale | Status |   | Priority Verification |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | NF-11 | The system shall let the severity criterion of the fault listing be changed without modifying code. | Non-functional: Flexibility | Colbits Scope, Requirements and Use Cases Specification v6.0 | Colbits requires the severity criterion to be configurable. | Validated High |   | Configuration test |
-| NF-12 | The system shall let the time tolerance used to align SMAC records be changed without modifying code. | Non-functional: Flexibility | Colbits Scope, Requirements and Use Cases Specification v6.0 | Colbits requires a configurable alignment tolerance. | Validated High |   | Configuration test |
+| NF-12 | The system shall let the time tolerance used to align SMAC records be changed without modifying code. | Non-functional: Flexibility | Colbits Scope, Requirements and Use Cases Specification v6.0 | Colbits requires a configurable alignment tolerance. Initial value 2 minutes (Colbits, 3 Nov 2026; CL-22). | Validated High |   | Configuration test |
+| NF-22 | The system shall let the overload and imbalance thresholds be changed without modifying code. | Non-functional: Flexibility | Colbits answers, 3 Nov 2026 (docs/decisions/client-clarifications-2026-11.md) | Colbits sets overload above 90 % of rated power, configurable (CL-05), and asks for changeable predefined imbalance thresholds (CL-06). Numbered after NF-21 so existing references keep their numbers. | Validated High |   | Configuration test |
 |   | Maintainability (testability) · NF-13 to NF-21 |   |   |   |   |   |   |
 | NF-13 | The repository shall include an automated API test suite covering the authentication, data scope, node state, faults and history services. | Non-functional: Maintainability | Colbits Scope, Requirements and Use Cases Specification v6.0 | Requested by the academic supervision to keep the core services verifiable. | Validated High |   | Inspection of the test suite |
 | NF-14 | The API test suite shall include an explicit test that a user obtains no data for devices outside their scope from any service, aggregates included. | Non-functional: Maintainability | Colbits Scope, Requirements and Use Cases Specification v6.0 | Checks the most critical rule of a platform shared by several clients. | Validated High |   | Inspection of the test suite |
@@ -398,7 +399,7 @@ Every requirement has at least one pass-or-fail check. Functional criteria use G
 | ID | Acceptance criteria |
 | --- | --- |
 | F-72 | Given a node with fuse sets A and B and one SMAC, when the user opens its node view, then it shows time-series charts for every listed Falcon and SMAC variable over the active time window, with fuse state and voltage presence in two separate charts, each broken down into fuse set A and fuse set B. |
-| F-73 | Given SMAC telemetry split across three tables with timestamps 12 seconds apart and a tolerance of 30 seconds, when the node view is requested, then the records are joined into one data point without dropping rows. |
+| F-73 | Given SMAC telemetry split across three tables with timestamps 12 seconds apart and a tolerance of 30 seconds, when the node view is requested, then the records are joined into one data point without dropping rows. The initial tolerance is 2 minutes (CL-22); the 30-second value is only this test case. |
 | F-74 | Given a pole with two fuse openings and 18 hours of Falcon inactivity in the past week, when the node view is opened for that week, then it lists both openings with their start and end times and shows a total inactivity of 18 hours. |
 | F-75 | Given a transformer whose SMAC was replaced on 15 June while keeping its custom_id, when a user queries its voltage history from 1 to 30 June, then the chart is continuous across the whole month. |
 
@@ -466,13 +467,14 @@ Every requirement has at least one pass-or-fail check. Functional criteria use G
 | NF-04 | Method: inspect the user table and the authentication code. Pass if no password is stored in plain text or reversible form and every hash is salted and produced by bcrypt or Argon2. |
 | NF-05 | Method: fail the login 5 times in a row with a script, then try the correct password. Pass if the account stays locked for 15 minutes and accepts the correct password afterwards. |
 | NF-06 | Method: leave an active session idle for 15 minutes, then make any request. Pass if the token is rejected and the user has to log in again. |
-|   | Flexibility · NF-07 to NF-12 |
+|   | Flexibility · NF-07 to NF-12 and NF-22 |
 | NF-07 | Method: change the Falcon threshold from 9 to 6 hours through the configuration. Pass if a Falcon silent for 7 hours becomes inactive with no code change. |
 | NF-08 | Method: raise the Falcon threshold through the configuration. Pass if a reading between the old and the new value now raises the alert, with no code change. |
 | NF-09 | Method: change the grouping window from 5 to 10 minutes through the configuration. Pass if two openings 8 minutes apart on the same fuse set are then grouped into one fault, with no code change. |
 | NF-10 | Method: change the minimum duration from 1 to 5 minutes through the configuration. Pass if a 3-minute fault is then excluded while the filter is on, with no code change. |
 | NF-11 | Method: change the severity criterion through the configuration. Pass if the fault listing follows the new criterion, with no code change. |
 | NF-12 | Method: change the tolerance from 30 to 5 seconds through the configuration. Pass if records 12 seconds apart are no longer joined into one point, with no code change. |
+| NF-22 | Method: change the overload threshold from 90 % to 80 % through the configuration. Pass if a transformer at 85 % load then raises the overload alert, with no code change; repeat with the voltage and current imbalance thresholds. |
 |   | Maintainability (testability) · NF-13 to NF-21 |
 | NF-13 | Method: run the API suite in a clean environment and review its test list. Pass if it runs to completion and contains tests for authentication, data scope, node state, faults and history. |
 | NF-14 | Method: remove the scope filter from one service in a test branch and run the suite. Pass if the scope test fails. |

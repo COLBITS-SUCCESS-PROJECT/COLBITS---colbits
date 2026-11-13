@@ -16,12 +16,16 @@ const N1: NetworkNode = {
   coordinates: { latitude: 3.469, longitude: -76.529 },
   fuseState: 'CRITICAL',
   transformerState: 'NORMAL',
+  location: null,
+  deviceIds: [],
 }
 const N2: NetworkNode = {
   id: 'ND06102B03',
   coordinates: { latitude: 3.4655, longitude: -76.512 },
   fuseState: null,
   transformerState: 'CRITICAL',
+  location: null,
+  deviceIds: [],
 }
 
 function renderMap(overrides: Partial<MapCanvasProps> = {}) {
@@ -256,6 +260,8 @@ describe('MapCanvas — clusters (SCRUM-63 · F-13)', () => {
     coordinates: { latitude: 3.469, longitude: -76.5324 },
     fuseState: 'WARNING',
     transformerState: null,
+    location: null,
+    deviceIds: [],
   }
   const CLUSTER = { name: '2 nodos agrupados' }
 
