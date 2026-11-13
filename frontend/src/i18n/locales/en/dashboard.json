@@ -144,8 +144,13 @@
   "alertType": {
     "FUSE_OPENING": "Fuse opening",
     "NO_VOLTAGE": "No voltage",
+    "FREE_FALL": "Free fall or abnormal movement",
+    "SOLAR_PANEL_FAILURE": "Solar panel failure",
     "PHASE_LOSS": "Phase loss",
-    "OVERLOAD_UNBALANCE": "Overload & unbalance"
+    "PHASE_OUT_OF_RANGE": "Phase out of range",
+    "OVERLOAD_UNBALANCE": "Overload & unbalance",
+    "LOW_ENERGY": "Low energy",
+    "DEVICE_INACTIVITY": "Device inactivity"
   },
   "classification": {
     "MONOPHASIC": "Monophasic",

@@ -21,11 +21,17 @@ export type TimeWindow = keyof typeof TIME_WINDOWS
 export const LIVE_REFETCH_INTERVAL_MS = 15_000
 
 export const MAP_LAYERS: MapLayer[] = ['FUSES', 'TRANSFORMERS']
+/** Same list and order as ALERT_TYPES in backend/src/faults/fault-alert-types.ts. */
 export const ALERT_TYPES: AlertType[] = [
   'FUSE_OPENING',
   'NO_VOLTAGE',
+  'FREE_FALL',
+  'SOLAR_PANEL_FAILURE',
   'PHASE_LOSS',
+  'PHASE_OUT_OF_RANGE',
   'OVERLOAD_UNBALANCE',
+  'LOW_ENERGY',
+  'DEVICE_INACTIVITY',
 ]
 export const PHASE_CLASSIFICATIONS: PhaseClassification[] = ['MONOPHASIC', 'BIPHASIC', 'TRIPHASIC']
 

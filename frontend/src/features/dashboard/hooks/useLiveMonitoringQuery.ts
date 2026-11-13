@@ -8,7 +8,7 @@ import type { LiveMonitoringData } from '../model/liveMonitoring.types'
 
 export const LIVE_MONITORING_QUERY_KEY = ['live-monitoring'] as const
 
-/** Open faults from GET /faults (US10). The node counters have no endpoint yet (US15). */
+/** Open faults and alarms from GET /faults (US10, SCRUM-225). The node counters have no endpoint (US15): the page derives them from these faults. */
 async function fetchLiveMonitoring(signal?: AbortSignal): Promise<LiveMonitoringData> {
   return { faults: await fetchActiveFaults(signal), counters: null }
 }

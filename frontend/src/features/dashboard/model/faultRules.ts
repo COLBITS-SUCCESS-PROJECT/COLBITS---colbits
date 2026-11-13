@@ -6,7 +6,7 @@ import {
   TIME_WINDOWS,
   type TimeWindow,
 } from './liveMonitoring.constants'
-import type { FaultAlert, MapLayer } from './liveMonitoring.types'
+import type { AlertType, FaultAlert, FaultCounters, MapLayer } from './liveMonitoring.types'
 
 export interface FaultFilters {
   layers: MapLayer[]
@@ -71,4 +71,36 @@ export function selectFaults(
       (fault) => fault.status === status && matchesFilters(fault, filters, now, nodesInLocation)
     )
     .sort(compareFaults)
+}
+
+/**
+ * Counter of the panel summary → the alert type whose nodes it counts. F-58 asks for exactly these
+ * four counters; no other alert type (e.g. OVERLOAD_UNBALANCE) adds to any of them.
+ *
+ * BACKEND EXPECTED: the counters are derived from GET /faults (no counters endpoint yet, US15), so
+ * each one only moves when the service lists its type, with `node` and `device`, and the mapper
+ * (api/faults.mapper.ts) keeps it. FUSE_OPENING is mapped today; NO_VOLTAGE, PHASE_LOSS and
+ * PHASE_OUT_OF_RANGE are already sent by the backend (SCRUM-225) but not read yet.
+ */
+const COUNTER_ALERT_TYPE: Record<keyof FaultCounters, AlertType> = {
+  fuseAlarmNodes: 'FUSE_OPENING',
+  voltageAlarmNodes: 'NO_VOLTAGE',
+  phaseOutOfRangeNodes: 'PHASE_OUT_OF_RANGE',
+  phaseDroppedNodes: 'PHASE_LOSS',
+}
+
+/**
+ * Nodes in alarm per alert type, over the faults the panel lists, so the counters follow the map
+ * filter. A node counts once per type however many faults it has (e.g. two fuse sets).
+ */
+export function countAlarmNodes(faults: FaultAlert[]): FaultCounters {
+  const count = (type: AlertType) =>
+    new Set(faults.filter((fault) => fault.type === type).map((fault) => fault.nodeId)).size
+
+  return {
+    fuseAlarmNodes: count(COUNTER_ALERT_TYPE.fuseAlarmNodes),
+    voltageAlarmNodes: count(COUNTER_ALERT_TYPE.voltageAlarmNodes),
+    phaseOutOfRangeNodes: count(COUNTER_ALERT_TYPE.phaseOutOfRangeNodes),
+    phaseDroppedNodes: count(COUNTER_ALERT_TYPE.phaseDroppedNodes),
+  }
 }

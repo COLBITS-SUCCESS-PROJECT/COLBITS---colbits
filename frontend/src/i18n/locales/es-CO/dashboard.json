@@ -144,8 +144,13 @@
   "alertType": {
     "FUSE_OPENING": "Apertura de fusible",
     "NO_VOLTAGE": "Sin tensión",
+    "FREE_FALL": "Caída libre o movimiento anormal",
+    "SOLAR_PANEL_FAILURE": "Falla de panel solar",
     "PHASE_LOSS": "Pérdida de fase",
-    "OVERLOAD_UNBALANCE": "Sobrecarga y desbalance"
+    "PHASE_OUT_OF_RANGE": "Fase fuera de rango",
+    "OVERLOAD_UNBALANCE": "Sobrecarga y desbalance",
+    "LOW_ENERGY": "Baja energía",
+    "DEVICE_INACTIVITY": "Inactividad de dispositivo"
   },
   "classification": {
     "MONOPHASIC": "Monofásica",

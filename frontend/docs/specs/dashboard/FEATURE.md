@@ -96,7 +96,8 @@ Other code:
 ## 7. API contract
 - **Map:** `GET /nodes` (SCRUM-77, SCRUM-65) and `GET /nodes/:name/detail` (SCRUM-109).
 - **Fault panel, active tab:** `GET /faults` — open fuse-opening faults in the user's scope (US10, [SCRUM-108](./SCRUM-108.md)). The page reads `LiveMonitoringData` (`model/liveMonitoring.types.ts`) through `faults.mapper.ts`.
-- **Not available yet:** node counters (US15) and resolved faults (US16). Until then the counters are hidden and the Resolved tab says the list is coming (PO decision, 2026-10-31).
+- **Node counters (US15, F-58):** derived in the frontend from `GET /faults` over the faults the list shows, so they follow the map filter (`countAlarmNodes` in `model/faultRules.ts`). The 2026-10-31 decision to hide them (no endpoint, no made-up data) is **superseded by US15**: they are now shown with real data.
+- **Not available yet:** resolved faults (US16). The Resolved tab says the list is coming (PO decision, 2026-10-31, still valid).
 
 ## 8. Open questions and decisions
 

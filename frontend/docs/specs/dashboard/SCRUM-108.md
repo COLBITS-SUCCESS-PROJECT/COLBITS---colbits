@@ -32,7 +32,7 @@ This spec covers the frontend part (F-51, F-55): the fault panel stops showing s
 | What | Where |
 |---|---|
 | Alert types other than fuse openings (voltage loss, phase drop, overload…) | `GET /faults` lists fuse openings only for now |
-| Node counters in the panel summary (F-58) | US15 (Sprint 5) |
+| Node counters in the panel summary (F-58) | US15 (Sprint 5) — done there, see AC6 |
 | The panel following the map filter, with no filters of its own (F-56) | US15 (Sprint 5) |
 | Resolved faults and their last hour / last day list (F-59 to F-63) | US16 (Sprint 5) |
 
@@ -45,7 +45,7 @@ This spec covers the frontend part (F-51, F-55): the fault panel stops showing s
 | AC3 | **Given** a fault whose fuse set has no client count recorded, **when** the list is shown, **then** the card says the number is missing instead of showing 0. | Automated | Same file |
 | AC4 | **Given** a fault active for two days, **when** the user selects the last hour or the last day, **then** it stays in the active list: the selector only limits resolved faults. *(F-62, client review)* | Automated | Same file + `model/faultRules.test.ts` |
 | AC5 | **Given** a consultation user, **when** the list loads, **then** it shows only the faults of nodes in their scope. *(F-10, applied by the backend)* | Automated + end-to-end | Same file · Section 8 |
-| AC6 | **Given** the panel, **then** it shows no sample data: the node counters are hidden and the Resolved tab says the list is coming. *(PO decision, 2026-10-31)* | Automated + end-to-end | Same file · Section 8 |
+| AC6 | **Given** the panel, **then** it shows no sample data: the node counters are hidden and the Resolved tab says the list is coming. *(PO decision, 2026-10-31)* — **the counters part is superseded by US15 (F-58): the counters are now shown, derived from the faults the list shows (`LiveMonitoringPage.faults.acceptance.test.tsx`, AC6). The Resolved tab placeholder still applies.** | Automated + end-to-end | Same file · Section 8 |
 | AC7 | **Given** the fault service fails, **when** the panel loads, **then** it shows the error with a retry, and retrying asks the service again. | Automated | Same file |
 
 ## 3. Design (Figma)
@@ -90,7 +90,7 @@ No new screens: the existing card now shows real data.
 
 | ID | Question | Owner | Blocking | Answer |
 |---|---|---|---|---|
-| Q1 | Counters and resolved faults have no endpoint yet: hide them or keep the sample data? | Paola (PO) | No | **Hide them** (2026-10-31): no made-up data on screen |
+| Q1 | Counters and resolved faults have no endpoint yet: hide them or keep the sample data? | Paola (PO) | No | **Hide them** (2026-10-31): no made-up data on screen. *Counters part superseded by US15 (Sprint 5): they are now shown with real data derived from `GET /faults`; the resolved list stays hidden until US16.* |
 | Q2 | A node can have one fault per fuse set (F-50), so two cards can have the same accessible name ("Apertura de fusible · node"). Add the branch to the name? | Paola (PO) | No | OPEN |
 
 ## 8. Acceptance test results
@@ -111,7 +111,7 @@ No new screens: the existing card now shows real data.
 - The classification comes from the backend (F-49). `PhaseChips` receives it and the classification filter uses it; the frontend no longer works it out from the phases (`classifyPhases` removed).
 - The last hour / last day selector only limits resolved faults (F-62, client review). Before, an active fault older than a day disappeared from the list.
 - `FaultAlert`: `zone` and `substation` can be `null` (the service sends only the circuit), `classification` is new and `customersAffected` can be `null`. A fault without a client count sorts as 0.
-- `FaultPanel`: `resolvedFaults: null` shows the coming-soon text; `counters: null` already hid the counters.
+- `FaultPanel`: `resolvedFaults: null` shows the coming-soon text; `counters: null` hid the counters (SCRUM-108); US15 now passes them, derived from the listed faults.
 - The sample data moved from `model/liveMonitoring.mock.ts` to `src/mocks/data/liveMonitoring.fixtures.ts`: component tests still use it for every alert type, resolved faults and counters.
 - Mock service: `src/mocks/handlers/faults.handlers.ts` and `src/mocks/data/faults.fixtures.ts`, with the same scope rule as the node service.
 - "1 activa" instead of "1 activas": the count now has singular and plural texts.
