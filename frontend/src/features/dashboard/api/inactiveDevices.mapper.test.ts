@@ -23,14 +23,16 @@ const DTO: InactiveDeviceDto = {
 }
 
 describe('toInactiveDevice', () => {
-  it('maps the device, its location names and its periods', () => {
+  it('maps the device, its location (ids as text, like the map) and its periods', () => {
     expect(toInactiveDevice(DTO)).toEqual({
       id: '1301000004',
       kind: 'FALCON',
       nodeId: '0000100002',
-      zone: 'Zona Norte',
-      substation: 'S/E NORTE 1',
-      circuit: 'CTO 1',
+      location: {
+        zone: { id: '1', name: 'Zona Norte' },
+        substation: { id: '2', name: 'S/E NORTE 1' },
+        circuit: { id: '3', name: 'CTO 1' },
+      },
       thresholdHours: 9,
       inactiveNow: false,
       lastRecordAt: new Date('2026-11-11T00:00:00.000Z'),

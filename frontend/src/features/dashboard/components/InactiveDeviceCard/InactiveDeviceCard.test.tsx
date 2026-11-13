@@ -8,14 +8,8 @@ import { ALL } from '../../model/liveMonitoring.constants'
 import { InactiveDeviceCard } from './InactiveDeviceCard'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
-const FILTERS = {
-  timeWindow: 'LAST_DAY',
-  zone: ALL,
-  substation: ALL,
-  circuit: ALL,
-  node: ALL,
-} as const
-const views = selectInactiveDevices(buildInactiveDevicesMock(NOW), FILTERS, NOW)
+const EVERYWHERE = { zone: ALL, substation: ALL, circuit: ALL }
+const views = selectInactiveDevices(buildInactiveDevicesMock(NOW), 'LAST_DAY', EVERYWHERE, NOW)
 const byId = (id: string) => {
   const view = views.find((candidate) => candidate.device.id === id)
   if (!view) throw new Error(`No sample device ${id}`)

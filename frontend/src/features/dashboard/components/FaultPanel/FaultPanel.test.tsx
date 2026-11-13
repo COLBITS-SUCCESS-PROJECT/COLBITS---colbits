@@ -8,8 +8,8 @@ import { DEFAULT_FILTERS } from '../../hooks/useLiveMonitoringFilters'
 import { selectFaults, type FaultFilters } from '../../model/faultRules'
 import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
 import { buildInactiveDevicesMock } from '@/mocks/data/inactiveDevices.fixtures'
-import { DEFAULT_INACTIVE_FILTERS as INACTIVE_FILTERS } from '../../hooks/useInactiveDevicesFilters'
-import { deriveInactiveScope, selectInactiveDevices } from '../../model/inactiveDevices.rules'
+import { selectInactiveDevices } from '../../model/inactiveDevices.rules'
+import { ALL } from '../../model/liveMonitoring.constants'
 import { FaultPanel, type FaultPanelProps } from './FaultPanel'
 import type { InactiveDevicesTabProps } from './InactiveDevicesTab'
 
@@ -91,15 +91,14 @@ describe('FaultPanel', () => {
   })
 
   describe('inactive devices tab', () => {
-    const views = selectInactiveDevices(buildInactiveDevicesMock(NOW), INACTIVE_FILTERS, NOW)
-    const scope = deriveInactiveScope(buildInactiveDevicesMock(NOW), INACTIVE_FILTERS)
+    const everywhere = { zone: ALL, substation: ALL, circuit: ALL }
+    const views = selectInactiveDevices(buildInactiveDevicesMock(NOW), 'LAST_DAY', everywhere, NOW)
 
     function renderInactive(overrides: Partial<InactiveDevicesTabProps> = {}) {
       const inactive: InactiveDevicesTabProps = {
         devices: views,
-        filters: INACTIVE_FILTERS,
-        scope,
-        onFiltersChange: vi.fn(),
+        timeWindow: 'LAST_DAY',
+        onTimeWindowChange: vi.fn(),
         isLoading: false,
         isError: false,
         onRetry: vi.fn(),
@@ -130,23 +129,18 @@ describe('FaultPanel', () => {
       )
     })
 
-    it('reports the time window and every location filter', async () => {
+    it('reports the time window', async () => {
       const inactive = renderInactive()
 
       await userEvent.click(screen.getByRole('button', { name: 'Última hora' }))
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Zona' }), 'Zona Norte')
-      await userEvent.selectOptions(
-        screen.getByRole('combobox', { name: 'Subestación' }),
-        'S/E CENTRO 1'
-      )
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Circuito' }), 'CTO 3')
-      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Nodo' }), 'ND08890C04')
 
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ timeWindow: 'LAST_HOUR' })
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ zone: 'Zona Norte' })
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ substation: 'S/E CENTRO 1' })
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ circuit: 'CTO 3' })
-      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ node: 'ND08890C04' })
+      expect(inactive.onTimeWindowChange).toHaveBeenCalledWith('LAST_HOUR')
+    })
+
+    it('offers no location filter of its own: it follows the map filter (F-41)', () => {
+      renderInactive()
+
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     })
 
     it('shows the empty state when no device is inactive', () => {

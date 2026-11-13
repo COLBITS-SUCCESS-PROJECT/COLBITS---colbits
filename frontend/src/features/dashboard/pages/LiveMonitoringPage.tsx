@@ -35,13 +35,14 @@ export function LiveMonitoringPage() {
   const nodesQuery = useNodesQuery()
   const { filters, updateFilters, toggleLayer, tab, setTab } = useLiveMonitoringFilters()
   const now = useNow()
-  const inactive = useInactiveDevicesPanel(now)
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null)
   const allNodes = useMemo(() => nodesQuery.data ?? [], [nodesQuery.data])
   const { zone, substation, circuit } = filters
   const location = useMemo(() => ({ zone, substation, circuit }), [zone, substation, circuit])
+  // F-41: the inactive-device list follows the same map filter; it has no location filter of its own.
+  const inactive = useInactiveDevicesPanel(now, location)
   // F-33: the map shows only the nodes of the selected zone / substation / circuit.
   const visibleNodes = useMemo(
     () => filterNodesByLocation(allNodes, location),

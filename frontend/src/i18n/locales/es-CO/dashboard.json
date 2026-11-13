@@ -111,18 +111,6 @@
     "nowCount_other": "{{count}} inactivos ahora",
     "summary_one": "{{count}} dispositivo · {{window}} · mayor silencio primero",
     "summary_other": "{{count}} dispositivos · {{window}} · mayor silencio primero",
-    "level": {
-      "zone": "Zona",
-      "substation": "Subestación",
-      "circuit": "Circuito",
-      "node": "Nodo"
-    },
-    "all": {
-      "zone": "Todas las zonas",
-      "substation": "Todas las subestaciones",
-      "circuit": "Todos los circuitos",
-      "node": "Todos los nodos"
-    },
     "empty": "No hay dispositivos inactivos en este periodo.",
     "error": "No se pudieron cargar los dispositivos inactivos.",
     "loading": "Cargando dispositivos inactivos",

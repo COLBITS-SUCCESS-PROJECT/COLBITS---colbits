@@ -48,8 +48,8 @@ export function InactiveDeviceCard({ view }: InactiveDeviceCardProps) {
         </span>
         <span className="truncate text-xs text-text-secondary">
           {t('inactive.card.location', {
-            substation: device.substation,
-            circuit: device.circuit,
+            substation: device.location.substation.name,
+            circuit: device.location.circuit.name,
             deviceId: device.id,
           })}
         </span>
