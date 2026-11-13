@@ -24,9 +24,12 @@ import {
   ACTIVE_SOURCE_ALARMS_SQL,
   RESOLVED_SOURCE_ALARMS_SQL,
   SOURCE_ALARM_PATTERNS,
+  SourceAlarmEpisode,
+  SourceAlarmEpisodeRow,
   SourceAlarmRow,
   SourceAlarmSkipReason,
   toSourceAlarmDto,
+  toSourceAlarmEpisode,
 } from './source-alarms';
 
 const FUSE_OPENING_PATTERN = requiredPattern('FUSE_OPENING');
@@ -80,10 +83,6 @@ export const ACTIVE_FAULT_EVENTS_SQL = `
   ORDER BY fs.id, a.recorded_at, a.event_type, f.custom_id
 `;
 
-/**
- * US16 · F-61 / F-62: Events of every in-scope fuse set that had a CLEAR in [$4, $5],
- * so groupFuseFaults can resolve faults whose last involved phase closed in that window.
- */
 export const RESOLVED_FAULT_EVENTS_SQL = `
   WITH candidate_sets AS (
     SELECT DISTINCT fs.id AS fuses_set_id
@@ -144,7 +143,6 @@ export class ActiveFaultsService {
     private readonly faultsService: FaultsService,
   ) {}
 
-  /** `now` is injectable so open durations are exact in tests. */
   async activeFaults(
     scope: ScopeContext,
     now: Date = new Date(),
@@ -152,18 +150,17 @@ export class ActiveFaultsService {
     const nodes = await this.nodesInScope(scope);
     if (nodes.length === 0) return responseOf(now, []);
 
-    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] =
-      await Promise.all([
-        this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
-          nodes,
-          FUSE_OPENING_PATTERN,
-          DOCUMENTED_PATTERNS,
-        ]),
-        this.nodesRepository.query(ACTIVE_SOURCE_ALARMS_SQL, [
-          nodes,
-          ...SOURCE_ALARM_PATTERNS,
-        ]),
-      ]);
+    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] = await Promise.all([
+      this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
+        nodes,
+        FUSE_OPENING_PATTERN,
+        DOCUMENTED_PATTERNS,
+      ]),
+      this.nodesRepository.query(ACTIVE_SOURCE_ALARMS_SQL, [
+        nodes,
+        ...SOURCE_ALARM_PATTERNS,
+      ]),
+    ]);
 
     const { sets, events } = this.collectEvents(rows);
 
@@ -175,14 +172,14 @@ export class ActiveFaultsService {
       .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
 
     const sourceAlarms = this.collectSourceAlarms(sourceRows, now);
+    const weights = this.faultsService.getSeverityWeights?.();
 
-    return responseOf(now, orderFaults([...fuseFaults, ...sourceAlarms]));
+    return responseOf(
+      now,
+      orderFaults([...fuseFaults, ...sourceAlarms], weights),
+    );
   }
 
-  /**
-   * US16 · F-61 / F-62 / F-63: Alarms resolved in the last hour ('1h') or last day ('24h' / '1d'),
-   * ordered newest resolution first.
-   */
   async resolvedFaults(
     scope: ScopeContext,
     window: ResolvedWindow = '24h',
@@ -194,22 +191,21 @@ export class ActiveFaultsService {
     const hours = window === '1h' ? 1 : 24;
     const cutoff = new Date(now.getTime() - hours * HOUR_MS);
 
-    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] =
-      await Promise.all([
-        this.nodesRepository.query(RESOLVED_FAULT_EVENTS_SQL, [
-          nodes,
-          FUSE_OPENING_PATTERN,
-          DOCUMENTED_PATTERNS,
-          cutoff.toISOString(),
-          now.toISOString(),
-        ]),
-        this.nodesRepository.query(RESOLVED_SOURCE_ALARMS_SQL, [
-          nodes,
-          ...SOURCE_ALARM_PATTERNS,
-          cutoff.toISOString(),
-          now.toISOString(),
-        ]),
-      ]);
+    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] = await Promise.all([
+      this.nodesRepository.query(RESOLVED_FAULT_EVENTS_SQL, [
+        nodes,
+        FUSE_OPENING_PATTERN,
+        DOCUMENTED_PATTERNS,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+      this.nodesRepository.query(RESOLVED_SOURCE_ALARMS_SQL, [
+        nodes,
+        ...SOURCE_ALARM_PATTERNS,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+    ]);
 
     const { sets, events } = this.collectEvents(rows);
 
@@ -248,6 +244,34 @@ export class ActiveFaultsService {
     return responseOf(now, allResolved);
   }
 
+  async resolvedSourceAlarms(
+    scope: ScopeContext,
+    resolvedSince: Date,
+  ): Promise<SourceAlarmEpisode[]> {
+    if (
+      !(resolvedSince instanceof Date) ||
+      Number.isNaN(resolvedSince.getTime())
+    ) {
+      throw new RangeError('resolvedSince must be a valid Date');
+    }
+
+    const nodes = await this.nodesInScope(scope);
+    if (nodes.length === 0) return [];
+
+    const rows: SourceAlarmEpisodeRow[] = await this.nodesRepository.query(
+      RESOLVED_SOURCE_ALARMS_SQL,
+      [nodes, ...SOURCE_ALARM_PATTERNS, resolvedSince],
+    );
+
+    const episodes: SourceAlarmEpisode[] = [];
+    for (const row of rows) {
+      const mapped = toSourceAlarmEpisode(row);
+      if ('episode' in mapped) episodes.push(mapped.episode);
+      else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Resolved');
+    }
+    return episodes;
+  }
+
   private collectEvents(rows: EventRow[]): {
     sets: Map<number, SetInfo>;
     events: FuseEvent[];
@@ -284,7 +308,7 @@ export class ActiveFaultsService {
     for (const row of sourceRows) {
       const mapped = toSourceAlarmDto(row, now);
       if ('fault' in mapped) sourceAlarms.push(mapped.fault);
-      else this.reportSkippedSourceAlarm(row, mapped.skipped);
+      else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Active');
     }
     return sourceAlarms;
   }
@@ -316,8 +340,9 @@ export class ActiveFaultsService {
   private reportSkippedSourceAlarm(
     row: SourceAlarmRow,
     reason: SourceAlarmSkipReason,
+    list: 'Active' | 'Resolved',
   ): void {
-    const key = `${reason}:${row.source_id}:${row.event_code}`;
+    const key = `${list}:${reason}:${row.source_id}:${row.event_code}`;
     if (
       this.reportedSourceAlarms.has(key) ||
       this.reportedSourceAlarms.size >= MAX_REPORTED_CODES
@@ -326,7 +351,7 @@ export class ActiveFaultsService {
     }
     this.reportedSourceAlarms.add(key);
     this.logger.warn(
-      `Active alarm event_code ${JSON.stringify(row.event_code)} on ${JSON.stringify(row.source_id)} not listed: ${reason}`,
+      `${list} alarm event_code ${JSON.stringify(row.event_code)} on ${JSON.stringify(row.source_id)} not listed: ${reason}`,
     );
   }
 }
@@ -348,11 +373,6 @@ function setInfoOf(row: EventRow): SetInfo {
   };
 }
 
-/**
- * F-61 & F-63: Maps a grouped FuseFault to its DTO.
- * When every involved phase has closed, state is 'RESOLVED', ended_at is the last close,
- * and duration_seconds runs from started_at to ended_at (instead of now).
- */
 export function toDto(
   fault: FuseFault,
   info: SetInfo,

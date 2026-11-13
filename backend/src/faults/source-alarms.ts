@@ -47,8 +47,7 @@ export const SOURCE_ALARM_PATTERNS: readonly string[] = SOURCE_ALARM_TYPES.map(
   },
 );
 
-export const ACTIVE_SOURCE_ALARMS_SQL = `
-  WITH events AS (
+export const SOURCE_ALARM_EVENTS_CTE = `events AS (
     SELECT 'NO_VOLTAGE'::text AS alert_type, f.custom_id AS source_id, ''::text AS channel_key,
            fs.node_id, fs.id AS fuses_set_id, fs.set_id AS branch, f.phase,
            a.event_code, (a.event_type IN ('SET', 'set')) AS is_set, a.recorded_at
@@ -74,7 +73,10 @@ export const ACTIVE_SOURCE_ALARMS_SQL = `
     WHERE t.node_id = ANY($1::text[])
       AND (a.event_code ~ $3::text OR a.event_code ~ $4::text)
       AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
-  ), marked AS (
+  )`;
+
+export const ACTIVE_SOURCE_ALARMS_SQL = `
+  WITH ${SOURCE_ALARM_EVENTS_CTE}, marked AS (
     SELECT e.*,
            max(e.recorded_at) FILTER (WHERE NOT e.is_set)
              OVER (PARTITION BY e.alert_type, e.source_id, e.channel_key) AS last_clear
@@ -96,63 +98,29 @@ export const ACTIVE_SOURCE_ALARMS_SQL = `
   ORDER BY ac.started_at, ac.alert_type, ac.source_id, ac.channel_key
 `;
 
-/**
- * US16 · F-62 / F-63: Resolved source alarms whose CLEAR fell inside [$5, $6].
- * Each CLEAR resolves the episode started by the first SET after the previous CLEAR.
- */
 export const RESOLVED_SOURCE_ALARMS_SQL = `
-  WITH events AS (
-    SELECT 'NO_VOLTAGE'::text AS alert_type, f.custom_id AS source_id, ''::text AS channel_key,
-           fs.node_id, fs.id AS fuses_set_id, fs.set_id AS branch, f.phase,
-           a.event_code, (a.event_type IN ('SET', 'set')) AS is_set, a.recorded_at
-    FROM public.fuses_sets fs
-    JOIN public.fuses f ON f.fuses_set_id = fs.id
-    JOIN public.alarms a ON a.custom_id = f.custom_id
-    WHERE fs.node_id = ANY($1::text[])
-      AND a.event_code ~ $2::text
-      AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
-    UNION ALL
-    SELECT CASE WHEN a.event_code ~ $3::text THEN 'PHASE_LOSS' ELSE 'PHASE_OUT_OF_RANGE' END,
-           t.custom_id,
-           CASE upper(right(a.event_code, 1))
-             WHEN '1' THEN 'A' WHEN 'A' THEN 'A'
-             WHEN '2' THEN 'B' WHEN 'B' THEN 'B'
-             WHEN '3' THEN 'C' WHEN 'C' THEN 'C'
-             ELSE right(a.event_code, 1)
-           END,
-           t.node_id, NULL::integer, NULL::text, NULL::text,
-           a.event_code, (a.event_type IN ('SET', 'set')), a.recorded_at
-    FROM public.trafos t
-    JOIN public.alarms a ON a.custom_id = t.custom_id
-    WHERE t.node_id = ANY($1::text[])
-      AND (a.event_code ~ $3::text OR a.event_code ~ $4::text)
-      AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
-  ), clears AS (
+  WITH ${SOURCE_ALARM_EVENTS_CTE}, marked AS (
     SELECT e.*,
-           lag(e.recorded_at) OVER (
-             PARTITION BY e.alert_type, e.source_id, e.channel_key
-             ORDER BY e.recorded_at
-           ) AS prev_clear
+           min(e.recorded_at) FILTER (WHERE NOT e.is_set)
+             OVER (PARTITION BY e.alert_type, e.source_id, e.channel_key
+                   ORDER BY e.recorded_at DESC
+                   RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS next_clear
     FROM events e
-    WHERE NOT e.is_set
+    WHERE EXISTS (
+      SELECT 1
+      FROM public.alarms r
+      WHERE r.custom_id = e.source_id
+        AND r.recorded_at >= $5::timestamptz
+        AND r.event_type IN ('CLEAR', 'clear')
+        AND (r.event_code ~ $2::text OR r.event_code ~ $3::text OR r.event_code ~ $4::text)
+    )
   ), episodes AS (
-    SELECT cl.alert_type, cl.source_id, cl.channel_key, cl.node_id,
-           cl.fuses_set_id, cl.branch, cl.phase,
-           cl.recorded_at AS ended_at,
-           min(s.recorded_at) AS started_at,
-           (array_agg(s.event_code ORDER BY s.recorded_at, s.event_code))[1] AS event_code
-    FROM clears cl
-    JOIN events s
-      ON s.alert_type = cl.alert_type
-     AND s.source_id = cl.source_id
-     AND s.channel_key = cl.channel_key
-     AND s.is_set
-     AND s.recorded_at < cl.recorded_at
-     AND (cl.prev_clear IS NULL OR s.recorded_at > cl.prev_clear)
-    WHERE cl.recorded_at >= $5::timestamptz
-      AND cl.recorded_at <= $6::timestamptz
-    GROUP BY cl.alert_type, cl.source_id, cl.channel_key, cl.node_id,
-             cl.fuses_set_id, cl.branch, cl.phase, cl.recorded_at
+    SELECT alert_type, source_id, channel_key, node_id, fuses_set_id, branch, phase,
+           min(recorded_at) AS started_at, next_clear AS ended_at,
+           (array_agg(event_code ORDER BY recorded_at, event_code))[1] AS event_code
+    FROM marked
+    WHERE is_set AND next_clear IS NOT NULL
+    GROUP BY alert_type, source_id, channel_key, node_id, fuses_set_id, branch, phase, next_clear
   )
   SELECT ep.event_code, ep.started_at, ep.ended_at, ep.source_id, ep.node_id,
          c.id AS circuit_id, c.name AS circuit_name,
@@ -160,7 +128,9 @@ export const RESOLVED_SOURCE_ALARMS_SQL = `
   FROM episodes ep
   JOIN public.nodes n ON n.name = ep.node_id
   JOIN public.circuits c ON c.id = n.circuit_id
-  ORDER BY ep.ended_at DESC, ep.started_at DESC, ep.alert_type, ep.source_id, ep.channel_key
+  WHERE ep.ended_at >= $5::timestamptz
+    AND ep.ended_at > ep.started_at
+  ORDER BY ep.ended_at, ep.alert_type, ep.source_id, ep.channel_key, ep.started_at
 `;
 
 export interface SourceAlarmRow {
@@ -206,7 +176,54 @@ export type SourceAlarmMapping =
   | { fault: SourceAlarmFault }
   | { skipped: SourceAlarmSkipReason };
 
-/** F-63: Whole seconds from `startedAt` to `endedAt` (when resolved) or `now` (while open), never negative. */
+export interface SourceAlarmEpisodeRow extends SourceAlarmRow {
+  ended_at: Date | string | null;
+}
+
+export interface SourceAlarmEpisode {
+  id: string;
+  alertType: SourceAlarmType;
+  sourceId: string;
+  channel: SmacChannel | null;
+  node: string;
+  circuit: { id: number; name: string };
+  fuse: {
+    fusesSetId: number;
+    branch: string | null;
+    phase: string | null;
+  } | null;
+  state: 'OPEN' | 'RESOLVED';
+  startedAt: Date;
+  endedAt: Date | null;
+}
+
+export type SourceAlarmEpisodeMapping =
+  | { episode: SourceAlarmEpisode }
+  | { skipped: SourceAlarmSkipReason };
+
+interface SourceAlarmIdentity {
+  type: SourceAlarmType;
+  device: SourceAlarmDevice;
+  channel: SmacChannel | null;
+}
+
+function identityOf(
+  row: SourceAlarmRow,
+): SourceAlarmIdentity | { skipped: SourceAlarmSkipReason } {
+  const type = sourceAlarmTypeOf(row.event_code);
+  if (type === null) return { skipped: 'NOT_A_SOURCE_ALARM' };
+
+  const device = deviceOf(type);
+  const channel = device === 'SMAC' ? channelOf(row.event_code) : null;
+  if (device === 'SMAC' && channel === null) {
+    return { skipped: 'UNKNOWN_CHANNEL' };
+  }
+  if (device === 'FALCON' && row.fuses_set_id === null) {
+    return { skipped: 'MISSING_FUSE_SET' };
+  }
+  return { type, device, channel };
+}
+
 export function openDurationSeconds(
   startedAt: Date,
   now: Date,
@@ -232,17 +249,9 @@ export function toSourceAlarmDto(
   row: SourceAlarmRow,
   now: Date,
 ): SourceAlarmMapping {
-  const type = sourceAlarmTypeOf(row.event_code);
-  if (type === null) return { skipped: 'NOT_A_SOURCE_ALARM' };
-
-  const device = deviceOf(type);
-  const channel = device === 'SMAC' ? channelOf(row.event_code) : null;
-  if (device === 'SMAC' && channel === null) {
-    return { skipped: 'UNKNOWN_CHANNEL' };
-  }
-  if (device === 'FALCON' && row.fuses_set_id === null) {
-    return { skipped: 'MISSING_FUSE_SET' };
-  }
+  const identity = identityOf(row);
+  if ('skipped' in identity) return identity;
+  const { type, device, channel } = identity;
 
   let phases: string[] | null = null;
   const warnings: FaultWarning[] = [];
@@ -278,6 +287,37 @@ export function toSourceAlarmDto(
       duration_seconds: openDurationSeconds(startedAt, now, endedAt),
       openings: [],
       warnings,
+    },
+  };
+}
+
+export function toSourceAlarmEpisode(
+  row: SourceAlarmEpisodeRow,
+): SourceAlarmEpisodeMapping {
+  const identity = identityOf(row);
+  if ('skipped' in identity) return identity;
+  const { type, device, channel } = identity;
+
+  const startedAt = new Date(row.started_at);
+  return {
+    episode: {
+      id: sourceAlarmId(type, row.source_id, channel, startedAt),
+      alertType: type,
+      sourceId: row.source_id,
+      channel,
+      node: row.node_id,
+      circuit: { id: Number(row.circuit_id), name: row.circuit_name },
+      fuse:
+        device === 'FALCON'
+          ? {
+              fusesSetId: Number(row.fuses_set_id),
+              branch: row.branch,
+              phase: row.phase,
+            }
+          : null,
+      state: row.ended_at === null ? 'OPEN' : 'RESOLVED',
+      startedAt,
+      endedAt: row.ended_at === null ? null : new Date(row.ended_at),
     },
   };
 }

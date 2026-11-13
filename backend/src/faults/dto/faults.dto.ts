@@ -11,18 +11,15 @@ import {
   type SourceAlarmType,
 } from '../source-alarms';
 
-/** Alert types the active list can hold: fuse openings (US10) and source alarms (SCRUM-225). */
 export const ACTIVE_FAULT_ALERT_TYPES = [
   'FUSE_OPENING',
   ...SOURCE_ALARM_TYPES,
 ] as const;
 export type ActiveFaultAlertType = 'FUSE_OPENING' | SourceAlarmType;
 
-/** Warnings a fault can carry. The list can grow; each one says what the consumer should not assume. */
 export const FAULT_WARNINGS = ['PHASES_UNCLASSIFIED'] as const;
 export type FaultWarning = (typeof FAULT_WARNINGS)[number];
 
-/** US16 · F-62: windows for querying recently resolved alarms. */
 export const RESOLVED_WINDOWS = ['1h', '24h', '1d'] as const;
 export type ResolvedWindow = (typeof RESOLVED_WINDOWS)[number];
 
@@ -100,7 +97,7 @@ export class ActiveFaultDto {
     enum: [...ACTIVE_FAULT_ALERT_TYPES],
     example: 'FUSE_OPENING',
     description:
-      'FUSE_OPENING: grouped fuse openings (US10). NO_VOLTAGE: loss of voltage on one Falcon fuse (13xx21). PHASE_LOSS / PHASE_OUT_OF_RANGE: one SMAC transformer channel (05xx21y / 05xx20y). Only the alarms table makes an entry active; telemetry never does.',
+      'FUSE_OPENING: grouped fuse openings (US10). NO_VOLTAGE: loss of voltage on one Falcon fuse (13xx21). PHASE_LOSS / PHASE_OUT_OF_RANGE: one SMAC transformer channel (05xx21y / 05xx20y).',
   })
   alert_type: ActiveFaultAlertType;
 
@@ -143,7 +140,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: ['R', 'S'],
     description:
-      'Distinct canonical phases (repetition digit removed) in natural order; for NO_VOLTAGE, the phase of its fuse. Null when they cannot be classified (see the PHASES_UNCLASSIFIED warning), and always null for SMAC alarms.',
+      'Distinct canonical phases (repetition digit removed) in natural order; for NO_VOLTAGE, the phase of its fuse. Null when they cannot be classified (see the PHASES_UNCLASSIFIED warning), and for SMAC alarms.',
   })
   phases: string[] | null;
 
