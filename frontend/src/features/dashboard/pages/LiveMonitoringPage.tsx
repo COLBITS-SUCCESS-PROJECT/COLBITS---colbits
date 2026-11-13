@@ -5,6 +5,7 @@ import { useNow } from '@/hooks/useNow'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { MapCanvas, type FocusRequest } from '../components/MapCanvas/MapCanvas'
 import { MapLegend } from '../components/MapLegend/MapLegend'
+import { MapRefreshTime } from '../components/MapRefreshTime/MapRefreshTime'
 import { MapToolbar, type SearchResult } from '../components/MapToolbar/MapToolbar'
 import { FaultPanel } from '../components/FaultPanel/FaultPanel'
 import { FaultPanelToggle } from '../components/FaultPanel/FaultPanelToggle'
@@ -112,6 +113,7 @@ export function LiveMonitoringPage() {
           isError={nodesQuery.isError}
           onRetry={() => void nodesQuery.refetch()}
           onSelectNode={setSelectedNodeId}
+          topOverlay={<MapRefreshTime />}
           focusRequest={focusRequest}
         >
           <MapLegend layers={filters.layers} />

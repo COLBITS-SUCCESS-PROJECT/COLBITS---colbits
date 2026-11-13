@@ -1,7 +1,5 @@
-/** useLiveMonitoringQuery — faults and counters for the Live Monitoring page; reports data freshness. */
-import { useEffect } from 'react'
+/** useLiveMonitoringQuery — faults and counters for the Live Monitoring page. */
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
-import { useDataFreshnessStore } from '@/stores/dataFreshness.store'
 import { fetchActiveFaults } from '../api/faults.api'
 import { LIVE_REFETCH_INTERVAL_MS } from '../model/liveMonitoring.constants'
 import type { LiveMonitoringData } from '../model/liveMonitoring.types'
@@ -13,20 +11,14 @@ async function fetchLiveMonitoring(signal?: AbortSignal): Promise<LiveMonitoring
   return { faults: await fetchActiveFaults(signal), counters: null }
 }
 
+/** Refreshes with the map. The "last update" time follows the map's own request (`useNodesQuery`, F-32). */
 export function useLiveMonitoringQuery(
   queryFn: (signal?: AbortSignal) => Promise<LiveMonitoringData> = fetchLiveMonitoring
 ): UseQueryResult<LiveMonitoringData> {
-  const markSynced = useDataFreshnessStore((state) => state.markSynced)
-  const query = useQuery({
+  return useQuery({
     queryKey: LIVE_MONITORING_QUERY_KEY,
     queryFn: ({ signal }) => queryFn(signal),
     refetchInterval: LIVE_REFETCH_INTERVAL_MS,
     staleTime: 0,
   })
-
-  useEffect(() => {
-    if (query.isSuccess) markSynced(query.dataUpdatedAt)
-  }, [query.isSuccess, query.dataUpdatedAt, markSynced])
-
-  return query
 }

@@ -107,7 +107,7 @@ No new screens: the existing card now shows real data.
 **How to run the automated tests:** `pnpm exec vitest run src/features/dashboard/pages/LiveMonitoringPage.faults.acceptance.test.tsx src/features/dashboard/api/faults.mapper.test.ts`. The suite also runs in CI on every push.
 
 ## 9. Implementation notes
-- `api/faults.dto.ts`, `faults.mapper.ts` and `faults.api.ts` read the service; `useLiveMonitoringQuery` now calls `GET /faults` and returns `counters: null`. The "last update" time follows this query, so it now reflects real data.
+- `api/faults.dto.ts`, `faults.mapper.ts` and `faults.api.ts` read the service; `useLiveMonitoringQuery` now calls `GET /faults` and returns `counters: null`. The "last update" time follows this query, so it now reflects real data. (Since [SCRUM-111](./SCRUM-111.md), F-32, it follows the map's `GET /nodes` instead.)
 - The classification comes from the backend (F-49). `PhaseChips` receives it and the classification filter uses it; the frontend no longer works it out from the phases (`classifyPhases` removed).
 - The last hour / last day selector only limits resolved faults (F-62, client review). Before, an active fault older than a day disappeared from the list.
 - `FaultAlert`: `zone` and `substation` can be `null` (the service sends only the circuit), `classification` is new and `customersAffected` can be `null`. A fault without a client count sorts as 0.

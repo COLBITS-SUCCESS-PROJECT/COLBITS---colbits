@@ -238,6 +238,14 @@ describe('MapCanvas', () => {
     expect(screen.getByRole('region', { name: 'Mapa de la red' })).toBeInTheDocument()
     expect(screen.getByText('overlay')).toBeInTheDocument()
   })
+
+  it('renders the top overlay (last refresh time) inside the map, also when the map fails', () => {
+    renderMap({ isError: true, topOverlay: <p>top-overlay</p> })
+
+    const map = screen.getByRole('region', { name: 'Mapa de la red' })
+    expect(within(map).getByText('top-overlay')).toBeInTheDocument()
+    expect(within(map).getByRole('alert')).toBeInTheDocument()
+  })
 })
 
 describe('MapCanvas — clusters (SCRUM-63 · F-13)', () => {
