@@ -17,7 +17,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - Map with fuse / transformer / combined markers coloured by state, grouped into clusters where they overlap (F-13) ✅
 - Layer switch (fuses, transformers, both), hierarchical filters (zone › substation › circuit) and node search ✅
 - Map legend ✅
-- Active faults panel: counters, *Active* / *Resolved* tabs, time window, alert type, classification, minimum-duration filter ✅
+- Active faults panel: counters, *Active* / *Resolved* tabs and the last hour / last day selector; it follows the map filter and has no filters of its own (F-56) ✅ ([SCRUM-113](./SCRUM-113.md))
 - *Inactive devices* tab 🔲 (placeholder)
 - Node detail panel: live status (F-27, F-29) ✅ · time series and alarm history 🔲 (node view, F-28)
 - Time of the last successful map refresh (F-32): in the top bar with the *Live* / *Stale* state (shared, in `AppShell`), on the map below 1024 px ✅ ([SCRUM-111](./SCRUM-111.md))
@@ -45,6 +45,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | [SCRUM-108](./SCRUM-108.md) | US10 · Active fault list from `GET /faults`: each fault with its classification and affected clients (F-51, F-55) | Paola | IN_REVIEW |
 | [SCRUM-111](./SCRUM-111.md) | US13 · Time of the last successful map refresh (F-32) and warning when the map stops updating (F-31) | Paola | IN_PROGRESS |
 | [SCRUM-112](./SCRUM-112.md) | US14 · Map filter (zone / substation / circuit) and node or device search; `GET /nodes` sends location and devices (F-33, F-34) | Sofia | IN_REVIEW |
+| [SCRUM-113](./SCRUM-113.md) | US15 · The panel follows the map filter with no filters of its own (F-56), fault ordering (F-57), node counters (F-58) | Paola · Javier · Mónica · Mahmoud | IN_PROGRESS |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
@@ -109,3 +110,4 @@ Other code:
 | Q3 | After how long without data is the view *Stale*? | Paola (PO) | OPEN — 5 min meanwhile (`STALE_AFTER_MS`) | — |
 | Q4 | Spanish copy for toolbar options ("Todas" instead of "Todas las subestaciones") to fit Figma widths | Paola (PO) | Proposed | 2026-10-07 |
 | Q5 | Minimum viewport and mobile fault-panel presentation | Paola (PO) | **360 px minimum; panel opens as a bottom sheet over the map on mobile.** | 2026-10-18 |
+| Q6 | The fault panel loses its own filters (F-56). Where does the minimum-duration filter (F-53, F-54) go? | Paola (PO) | **Historical analysis and reports**, where faults and averages are counted (F-69). The live panel follows only the map ([SCRUM-113](./SCRUM-113.md) Q1) | 2026-11-12 |

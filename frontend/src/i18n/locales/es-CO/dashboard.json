@@ -90,13 +90,6 @@
       "LAST_HOUR": "Última hora",
       "LAST_DAY": "Último día"
     },
-    "alertType": "Tipo de alerta",
-    "allTypes": "Todos los tipos",
-    "classification": "Clasificación",
-    "allClassifications": "Todas",
-    "minDuration": "Duración mínima ≥ {{minutes}} min",
-    "minDurationHint": "Filtro de duración mínima: se ocultan las fallas más cortas que el umbral.",
-    "minDurationInfo": "Qué hace el filtro de duración mínima",
     "sortNote": "Ordenadas por clientes afectados y luego por la más antigua",
     "empty": "No hay fallas que coincidan con los filtros.",
     "error": "No se pudieron cargar las fallas.",

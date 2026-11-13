@@ -90,13 +90,6 @@
       "LAST_HOUR": "Last hour",
       "LAST_DAY": "Last day"
     },
-    "alertType": "Alert type",
-    "allTypes": "All types",
-    "classification": "Classification",
-    "allClassifications": "All",
-    "minDuration": "Minimum duration ≥ {{minutes}} min",
-    "minDurationHint": "Minimum-duration filter: faults shorter than the threshold are hidden.",
-    "minDurationInfo": "What the minimum-duration filter does",
     "sortNote": "Sorted by customers affected, then oldest first",
     "empty": "No faults match the filters.",
     "error": "Faults could not be loaded.",

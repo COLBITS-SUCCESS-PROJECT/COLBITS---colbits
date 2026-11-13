@@ -21,10 +21,7 @@ const NO_FILTERS: FaultFilters = {
   substation: ALL,
   circuit: ALL,
   search: '',
-  alertType: ALL,
-  classification: ALL,
   timeWindow: 'LAST_DAY',
-  onlyLongFaults: false,
 }
 
 describe('matchesFilters', () => {
@@ -39,23 +36,21 @@ describe('matchesFilters', () => {
     expect(matchesFilters(fuse, NO_FILTERS, NOW, new Set())).toBe(false)
   })
 
-  it('filters by layer, search, type, classification and minimum duration', () => {
+  it('filters by the layers and the search of the map toolbar', () => {
     const fuse = byId('f-1')
     expect(matchesFilters(fuse, { ...NO_FILTERS, layers: ['TRANSFORMERS'] }, NOW)).toBe(false)
     expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'nd0482' }, NOW)).toBe(true)
     expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'XX' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, alertType: 'NO_VOLTAGE' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, classification: 'BIPHASIC' }, NOW)).toBe(true)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, classification: 'TRIPHASIC' }, NOW)).toBe(false)
-    expect(matchesFilters(byId('f-8'), { ...NO_FILTERS, onlyLongFaults: true }, NOW)).toBe(false)
   })
 
-  it('uses the classification sent by the backend, so an unclassified fault matches no class', () => {
+  it('keeps short, unclassified and any type of fault: the panel has no filters of its own (F-56)', () => {
+    const shortFault = byId('f-8')
     const unclassified = { ...byId('f-1'), classification: null }
+    const noVoltage = byId('f-3')
 
-    expect(matchesFilters(unclassified, { ...NO_FILTERS, classification: 'BIPHASIC' }, NOW)).toBe(
-      false
-    )
+    expect(matchesFilters(shortFault, NO_FILTERS, NOW)).toBe(true)
+    expect(matchesFilters(unclassified, NO_FILTERS, NOW)).toBe(true)
+    expect(matchesFilters(noVoltage, NO_FILTERS, NOW)).toBe(true)
   })
 
   it('keeps an active fault listed however long ago it started (F-62)', () => {

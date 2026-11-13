@@ -1,23 +1,19 @@
 /** Pure business rules of the fault panel: filtering and sorting (Figma: Fault Panel). */
-import {
-  ALL,
-  MIN_FAULT_DURATION_MINUTES,
-  MS_PER_MINUTE,
-  TIME_WINDOWS,
-  type TimeWindow,
-} from './liveMonitoring.constants'
+import { MS_PER_MINUTE, TIME_WINDOWS, type TimeWindow } from './liveMonitoring.constants'
 import type { AlertType, FaultAlert, FaultCounters, MapLayer } from './liveMonitoring.types'
 
+/**
+ * Filters of the live view. Layers, location and search belong to the toolbar at the top of the map;
+ * the time window is the panel's "last hour / last day" selector. The panel has no other filter of its
+ * own: it follows the map (F-56, client review).
+ */
 export interface FaultFilters {
   layers: MapLayer[]
   zone: string
   substation: string
   circuit: string
   search: string
-  alertType: string
-  classification: string
   timeWindow: TimeWindow
-  onlyLongFaults: boolean
 }
 
 const LAYER_DEVICE = { FUSES: 'FALCON', TRANSFORMERS: 'SMAC' } as const
@@ -44,10 +40,7 @@ export function matchesFilters(
     filters.layers.some((layer) => LAYER_DEVICE[layer] === fault.device) &&
     (nodesInLocation === undefined || nodesInLocation.has(fault.nodeId)) &&
     (query === '' || fault.nodeId.toLowerCase().includes(query)) &&
-    (filters.alertType === ALL || fault.type === filters.alertType) &&
-    (filters.classification === ALL || fault.classification === filters.classification) &&
-    isInsideTimeWindow(fault, filters.timeWindow, now) &&
-    (!filters.onlyLongFaults || fault.durationMinutes >= MIN_FAULT_DURATION_MINUTES)
+    isInsideTimeWindow(fault, filters.timeWindow, now)
   )
 }
 
