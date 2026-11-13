@@ -21,8 +21,16 @@ import {
 import { AuthGuard } from '../auth/auth.guard';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { ScopeService } from '../scope/scope.service';
+import { InactiveDevicesResponseDto } from './dto/inactive-devices.dto';
 import { InactivityResultDto } from './dto/inactivity-result.dto';
+import { LowEnergyAlertsResponseDto } from './dto/low-energy-alerts.dto';
 import { DeviceService } from './device.service';
+import {
+  DEFAULT_WINDOW_HOURS,
+  InactiveDevicesService,
+  MAX_WINDOW_HOURS,
+} from './inactive-devices.service';
+import { LowEnergyAlertsService } from './low-energy-alerts.service';
 
 @Controller('device')
 @UseGuards(AuthGuard)
@@ -32,7 +40,60 @@ export class DeviceController {
   constructor(
     private readonly deviceService: DeviceService,
     private readonly scopeService: ScopeService,
+    private readonly inactiveDevicesService: InactiveDevicesService,
+    private readonly lowEnergyAlertsService: LowEnergyAlertsService,
   ) {}
+
+  @Get('low-energy')
+  @ApiOperation({
+    summary:
+      'Active low-energy alerts of the user scope (F-44 Falcon supercapacitors, F-45 SMAC battery; NF-08).',
+    description:
+      'One alert per device whose latest stored reading is below its threshold: supercaps_per for a Falcon (FALCON_LOW_ENERGY_PERCENT) and battery_per for a SMAC (SMAC_LOW_ENERGY_PERCENT), 30 % by default (Colbits, CL-11). A reading below the threshold raises the alert and a reading at or above it clears it. `since` is the first reading of the current low streak. Lowest level first.',
+  })
+  @ApiOkResponse({ type: LowEnergyAlertsResponseDto })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, or expired.',
+  })
+  async getLowEnergyAlerts(@Req() request: Request) {
+    const scope = await this.scopeService.resolve(userIdOf(request));
+
+    return this.lowEnergyAlertsService.activeAlerts(scope);
+  }
+
+  @Get('inactive')
+  @ApiOperation({
+    summary:
+      'Inactive devices of the user scope with their inactivity alarms (US17: F-38, F-39, F-40, F-46; NF-07, NF-08).',
+    description:
+      'A device is inactive when its next record comes more than its threshold after the previous one (FALCON_INACTIVITY_HOURS 9, SMAC_INACTIVITY_HOURS 3), or when it has not reported for longer than that. Each such silence is an inactivity alarm: it opens at "previous record + threshold" (F-38) and resolves by itself at the next stored record (F-39); end is null while it is open. Lists the devices of the user scope inactive at any moment of the last `hours` (or that never reported): inactive now first, oldest last record first (F-40), then the ones that reported again, most recently resolved first. low_energy flags an energy level below FALCON_LOW_ENERGY_PERCENT / SMAC_LOW_ENERGY_PERCENT (30 % by default, NF-08), which can explain the silence.',
+  })
+  @ApiQuery({
+    name: 'hours',
+    required: false,
+    type: Number,
+    example: DEFAULT_WINDOW_HOURS,
+    description: `Window in hours up to now (default ${DEFAULT_WINDOW_HOURS}, at most ${MAX_WINDOW_HOURS}).`,
+  })
+  @ApiOkResponse({ type: InactiveDevicesResponseDto })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDto,
+    description: `hours must be a number greater than 0 and at most ${MAX_WINDOW_HOURS}.`,
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, or expired.',
+  })
+  async getInactiveDevices(
+    @Query('hours') hours: string | undefined,
+    @Req() request: Request,
+  ) {
+    const windowHours = parseWindowHours(hours);
+    const scope = await this.scopeService.resolve(userIdOf(request));
+
+    return this.inactiveDevicesService.inactiveDevices(scope, windowHours);
+  }
 
   @Get('inactivity-status')
   @ApiOperation({
@@ -99,4 +160,30 @@ export class DeviceController {
 
     return this.deviceService.checkInactivity(deviceId.trim(), type, scope);
   }
+}
+
+/** Window of GET /device/inactive: the default when absent, otherwise a number in (0, MAX_WINDOW_HOURS]. */
+function parseWindowHours(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return DEFAULT_WINDOW_HOURS;
+  const hours = Number(raw);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > MAX_WINDOW_HOURS) {
+    throw new BadRequestException(
+      `hours must be a number greater than 0 and at most ${MAX_WINDOW_HOURS}`,
+    );
+  }
+  return hours;
+}
+
+/** User id from the verified token, or 401 (the guard already checked the signature). */
+function userIdOf(request: Request): number {
+  const userId: unknown = (request as Request & { user?: { sub?: unknown } })
+    .user?.sub;
+  if (
+    typeof userId !== 'number' ||
+    !Number.isSafeInteger(userId) ||
+    userId <= 0
+  ) {
+    throw new UnauthorizedException('Invalid user identity');
+  }
+  return userId;
 }

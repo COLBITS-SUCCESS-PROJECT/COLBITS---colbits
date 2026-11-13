@@ -44,6 +44,8 @@ services:
       SMAC_PHASE_WINDOW_DAYS: 0
       # Test data older than this is regenerated, but only when the backend starts.
       DATA_REFRESH_HOURS: 1
+      FALCON_LOW_ENERGY_PERCENT: 30
+      SMAC_LOW_ENERGY_PERCENT: 30
     depends_on:
       db:
         condition: service_healthy
