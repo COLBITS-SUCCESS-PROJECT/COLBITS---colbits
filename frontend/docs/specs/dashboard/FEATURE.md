@@ -3,7 +3,7 @@ feature: dashboard
 title: Live Monitoring
 status: IN_PROGRESS
 owner: Sofia
-last_updated: 2026-11-11
+last_updated: 2026-11-12
 ---
 
 # Feature: Live Monitoring
@@ -41,10 +41,11 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | [SCRUM-65](./SCRUM-65.md) | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18) | Sofia | DONE |
 | [SCRUM-106](./SCRUM-106.md) | US8 · Layer toggles and dual-state nodes (F-14, F-24) | Sofia | IN_REVIEW |
 | [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M6): `GET /nodes/:name/detail` + panel over the map (F-27, F-29) | Sofia | IN_REVIEW |
-| — | Inactive devices tab (M12, M14) | TBD | PLANNED |
+| [SCRUM-115](./SCRUM-115.md) | US17 · Inactive devices tab (M12, M14): list ordered by time without data — UI with sample data, no endpoint yet | Monica | IN_PROGRESS |
 | [SCRUM-110](./SCRUM-110.md) | US12 · Live node state updates: the map refreshes every 15 s (F-25, F-26, F-30, NF-01) | Paola | IN_REVIEW |
 | [SCRUM-108](./SCRUM-108.md) | US10 · Active fault list from `GET /faults`: each fault with its classification and affected clients (F-51, F-55) | Paola | IN_REVIEW |
 | [SCRUM-111](./SCRUM-111.md) | US13 · Time of the last successful map refresh (F-32) and warning when the map stops updating (F-31) | Paola | IN_REVIEW |
+| [SCRUM-112](./SCRUM-112.md) | US14 · Map filter (zone / substation / circuit) and node or device search; `GET /nodes` sends location and devices (F-33, F-34) | Sofia | IN_REVIEW |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
@@ -98,7 +99,8 @@ Other code:
 ## 7. API contract
 - **Map:** `GET /nodes` (SCRUM-77, SCRUM-65) and `GET /nodes/:name/detail` (SCRUM-109).
 - **Fault panel, active tab:** `GET /faults` — open fuse-opening faults in the user's scope (US10, [SCRUM-108](./SCRUM-108.md)). The page reads `LiveMonitoringData` (`model/liveMonitoring.types.ts`) through `faults.mapper.ts`.
-- **Not available yet:** node counters (US15) and resolved faults (US16). Until then the counters are hidden and the Resolved tab says the list is coming (PO decision, 2026-10-31).
+- **Node counters (US15, F-58):** derived in the frontend from `GET /faults` over the faults the list shows, so they follow the map filter (`countAlarmNodes` in `model/faultRules.ts`). The 2026-10-31 decision to hide them (no endpoint, no made-up data) is **superseded by US15**: they are now shown with real data.
+- **Not available yet:** resolved faults (US16). The Resolved tab says the list is coming (PO decision, 2026-10-31, still valid).
 
 ## 8. Open questions and decisions
 

@@ -21,13 +21,28 @@ export type TimeWindow = keyof typeof TIME_WINDOWS
 export const LIVE_REFETCH_INTERVAL_MS = 15_000
 
 export const MAP_LAYERS: MapLayer[] = ['FUSES', 'TRANSFORMERS']
+/** Same list and order as ALERT_TYPES in backend/src/faults/fault-alert-types.ts. */
 export const ALERT_TYPES: AlertType[] = [
   'FUSE_OPENING',
   'NO_VOLTAGE',
+  'FREE_FALL',
+  'SOLAR_PANEL_FAILURE',
   'PHASE_LOSS',
+  'PHASE_OUT_OF_RANGE',
   'OVERLOAD_UNBALANCE',
+  'LOW_ENERGY',
+  'DEVICE_INACTIVITY',
 ]
 export const PHASE_CLASSIFICATIONS: PhaseClassification[] = ['MONOPHASIC', 'BIPHASIC', 'TRIPHASIC']
+
+/** Fault panel width on desktop (px): the Figma width is the narrowest; the user can widen it. */
+export const FAULT_PANEL_DEFAULT_WIDTH_PX = 360
+export const FAULT_PANEL_MIN_WIDTH_PX = 360
+export const FAULT_PANEL_MAX_WIDTH_PX = 720
+/** The panel never takes more than this share of the window, so the map stays usable. */
+export const FAULT_PANEL_MAX_VIEWPORT_SHARE = 0.6
+/** Width change per arrow key press (px). */
+export const FAULT_PANEL_KEY_STEP_PX = 24
 
 /** Value of the "all" option in every filter select. */
 export const ALL = 'ALL'
@@ -36,6 +51,8 @@ export const ALL = 'ALL'
 export const MAP_DEFAULT_CENTER = { latitude: 3.4516, longitude: -76.532 } as const
 export const MAP_DEFAULT_ZOOM = 13
 export const MAP_MAX_ZOOM = 19
+/** Zoom used to center the map on a searched node (F-34): street level, where markers no longer cluster. */
+export const MAP_FOCUS_ZOOM = 17
 /** Farthest zoom out: a whole country stays in view, so the world never repeats or shows gray bands. */
 export const MAP_MIN_ZOOM = 5
 /** Panning stops at the world's edges (latitudes beyond ±85° are not drawn by the tile server). */

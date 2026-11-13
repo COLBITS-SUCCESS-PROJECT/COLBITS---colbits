@@ -16,6 +16,12 @@ export interface NodeDto {
   transformer_state?: NodeStateDto | null
   /** Sent since US5 (SCRUM-80): true = a SMAC is inactive · null = the node has no transformer. */
   smac_inactive?: boolean | null
+  /** Sent since US14 (SCRUM-112): where the node sits, to filter the map (F-33). */
+  zone?: { id: number; name: string } | null
+  substation?: { id: number; code: string; name: string } | null
+  circuit?: { id: number; name: string } | null
+  /** Sent since US14: current Falcon and SMAC ids installed on the node (F-34). */
+  device_ids?: string[]
 }
 
 /** GET /nodes — only the nodes within the authenticated user's scope (F-10). */

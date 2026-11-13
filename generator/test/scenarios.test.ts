@@ -143,12 +143,15 @@ describe('F-93 · voltage, transformer and device scenarios', () => {
     assert.equal(sets(r, '131421').length, 3);
   });
 
-  it('transformer phase drop: phase A below 100 V and SET 05xx21A', () => {
+  // #CORRECTION CL-07/TD-22 (2026-11-09): the test assumed phase A; it now uses the transformer's own phases.
+  it('transformer phase drop: the first phase the transformer has is below 100 V and gets one SET 05xx21y', () => {
     const s = byType('phase-drop');
-    const { vc } = lastSmac(r, s.devices[0] as string);
-    assert.ok(vc[5] < 100, `va = ${vc[5]}`);
-    assert.ok(vc[6] > 200, 'phase B untouched');
-    assert.equal(sets(r, '051421A').length, 1);
+    const trafo = r.network.trafos.find((t) => t.customId === s.devices[0]) as (typeof r.network.trafos)[number];
+    const [dropped, kept] = trafo.phaseIndexes as [number, number];
+    const { vc } = lastSmac(r, trafo.customId);
+    assert.ok((vc[5 + dropped] as number) < 100, `phase ${dropped} = ${vc[5 + dropped]}`);
+    assert.ok((vc[5 + kept] as number) > 200, 'the next phase is untouched');
+    assert.equal(sets(r, `051421${'ABC'[dropped]}`).length, 1);
   });
 
   it('overload: load_percent above 100 % and currents scaled with it', () => {

@@ -109,3 +109,31 @@ describe('toNetworkNodes', () => {
     expect(toNetworkNodes(response([]))).toEqual([])
   })
 })
+
+describe('toNetworkNode · location and devices (US14 · F-33, F-34)', () => {
+  const LOCATED: NodeDto = {
+    ...BACKEND_NODE,
+    zone: { id: 2, name: 'Zona Norte' },
+    substation: { id: 3, code: 'SUB-N-001', name: 'S/E NORTE 1' },
+    circuit: { id: 7, name: 'CTO 1' },
+    device_ids: ['0512345678', '1311111111'],
+  }
+
+  it('keeps the zone, substation and circuit with their ids as text', () => {
+    const node = toNetworkNode(LOCATED)
+
+    expect(node.location).toEqual({
+      zone: { id: '2', name: 'Zona Norte' },
+      substation: { id: '3', name: 'S/E NORTE 1' },
+      circuit: { id: '7', name: 'CTO 1' },
+    })
+    expect(node.deviceIds).toEqual(['0512345678', '1311111111'])
+  })
+
+  it('has no location when a level is missing, and no devices when none are sent', () => {
+    const node = toNetworkNode({ ...LOCATED, circuit: null, device_ids: undefined })
+
+    expect(node.location).toBeNull()
+    expect(node.deviceIds).toEqual([])
+  })
+})
