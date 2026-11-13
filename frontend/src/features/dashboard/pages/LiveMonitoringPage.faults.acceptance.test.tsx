@@ -148,7 +148,7 @@ describe('SCRUM-108 · US10 — active faults from the fault service', () => {
     await faultCard(panel, N1, 'B')
 
     // When the map filter matches no node, the list and every counter go to zero
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar nodo' }), 'XX')
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar nodo o dispositivo' }), 'XX')
 
     const summary = panel.getByRole('region', { name: 'Resumen de nodos con alarma' })
     await waitFor(() => expect(within(summary).getAllByText('0')).toHaveLength(4))
