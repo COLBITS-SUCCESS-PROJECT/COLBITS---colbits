@@ -7,6 +7,7 @@ import {
   ActiveFaultsService,
 } from './active-faults.service';
 import { ALERT_TYPE_DEFINITIONS, ALERT_TYPES } from './fault-alert-types';
+import { DEFAULT_SEVERITY_WEIGHTS, SeverityWeights } from './fault-ordering';
 import { FaultsService } from './faults.service';
 import {
   ACTIVE_SOURCE_ALARMS_SQL,
@@ -85,6 +86,7 @@ function serviceWith(
   options: {
     nodes?: string[];
     window?: number;
+    weights?: SeverityWeights;
     sourceRows?: SourceAlarmRow[];
   } = {},
 ) {
@@ -106,6 +108,9 @@ function serviceWith(
   };
   const faults = {
     getGroupingWindowMinutes: jest.fn().mockReturnValue(options.window ?? 5),
+    getSeverityWeights: jest
+      .fn()
+      .mockReturnValue(options.weights ?? DEFAULT_SEVERITY_WEIGHTS),
   };
   const service = new ActiveFaultsService(
     repository as unknown as Repository<Node>,
@@ -479,6 +484,34 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
 
       expect(sets(faults)).toEqual([12, 11]);
       expect(faults.map((fault) => fault.client_count)).toEqual([10, 9]);
+    });
+
+    it('takes the severity weights from FaultsService so changing them reorders the active list (NF-11 / SCRUM-238)', async () => {
+      const customWeights: SeverityWeights = {
+        fuseAlarm: 10,
+        voltageAlarm: 200,
+        droppedPhase: 300,
+        phaseOutOfRange: 25,
+      };
+      const { service, faults: faultsService } = serviceWith(
+        [row({ recorded_at: minutesAgo(15) })],
+        {
+          weights: customWeights,
+          sourceRows: [
+            sourceRow({ started_at: minutesAgo(10) }),
+            smacRow({ started_at: minutesAgo(5) }),
+          ],
+        },
+      );
+
+      const result = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(faultsService.getSeverityWeights).toHaveBeenCalled();
+      expect(result.faults.map((fault) => fault.alert_type)).toEqual([
+        'PHASE_LOSS',
+        'NO_VOLTAGE',
+        'FUSE_OPENING',
+      ]);
     });
   });
 

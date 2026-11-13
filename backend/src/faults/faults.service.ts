@@ -1,53 +1,51 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DEFAULT_SEVERITY_WEIGHTS, SeverityWeights } from './fault-ordering';
+
+export const DEFAULT_FAULT_GROUPING_WINDOW_MINUTES = 5;
 
 @Injectable()
 export class FaultsService {
-  constructor(
-    private readonly configService: ConfigService,
-    @InjectDataSource() private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly configService: ConfigService) {}
 
-  /** US15 / NF-11: Severity criteria configurable without code changes */
-  getSeverityWeights() {
+  /** US10 · NF-09: grouping window in minutes, configurable without code changes. */
+  getGroupingWindowMinutes(): number {
+    const configured = Number(
+      this.configService.get('FAULT_GROUPING_WINDOW_MINUTES'),
+    );
+    return Number.isFinite(configured) && configured > 0
+      ? configured
+      : DEFAULT_FAULT_GROUPING_WINDOW_MINUTES;
+  }
+
+  /** US15 · NF-11 (SCRUM-238): severity weights configurable via env without code changes. */
+  getSeverityWeights(): SeverityWeights {
     return {
-      fuseAlarm: Number(this.configService.get('SEVERITY_WEIGHT_FUSE_ALARM')) || 100,
-      voltageAlarm: Number(this.configService.get('SEVERITY_WEIGHT_VOLTAGE_ALARM')) || 75,
-      droppedPhase: Number(this.configService.get('SEVERITY_WEIGHT_DROPPED_PHASE')) || 50,
-      phaseOutOfRange: Number(this.configService.get('SEVERITY_WEIGHT_PHASE_OUT_OF_RANGE')) || 25,
+      fuseAlarm: this.weightFromConfig(
+        'SEVERITY_WEIGHT_FUSE_ALARM',
+        DEFAULT_SEVERITY_WEIGHTS.fuseAlarm,
+      ),
+      voltageAlarm: this.weightFromConfig(
+        'SEVERITY_WEIGHT_VOLTAGE_ALARM',
+        DEFAULT_SEVERITY_WEIGHTS.voltageAlarm,
+      ),
+      droppedPhase: this.weightFromConfig(
+        'SEVERITY_WEIGHT_DROPPED_PHASE',
+        DEFAULT_SEVERITY_WEIGHTS.droppedPhase,
+      ),
+      phaseOutOfRange: this.weightFromConfig(
+        'SEVERITY_WEIGHT_PHASE_OUT_OF_RANGE',
+        DEFAULT_SEVERITY_WEIGHTS.phaseOutOfRange,
+      ),
     };
   }
 
-  /** Window for grouping faults without code changes */
-  getGroupingWindowMinutes(): number {
-    const configured = Number(this.configService.get('FAULT_GROUPING_WINDOW_MINUTES'));
-    return Number.isFinite(configured) && configured > 0 ? configured : 5;
-  }
-
-  /** Report openings in different fuse sets as separate faults */
-  async getActiveFaults() {
-    const windowMinutes = this.getGroupingWindowMinutes();
-    
-    // The configurable weights are now available for your F-57 SQL sorting logic
-    const severityWeights = this.getSeverityWeights(); 
-
-    // Grouping by f.fuses_set_id guarantees faults on different branches of the same node are kept separate
-    const sql = `
-      SELECT 
-        fs.node_id,
-        f.fuses_set_id,
-        ARRAY_AGG(f.phase) as affected_phases,
-        MIN(l.recorded_at) as first_opening_time
-      FROM public.fuses_sets fs
-      JOIN public.fuses f ON f.fuses_set_id = fs.id
-      JOIN public.last_falcon_values l ON l.hw_id = f.current_hw_id
-      WHERE l.fuse_state = 'OPEN'
-      -- The window parameter ($1) is available here for Javier's timestamp logic
-      GROUP BY fs.node_id, f.fuses_set_id
-    `;
-
-    return this.dataSource.query(sql, [windowMinutes]);
+  private weightFromConfig(key: string, fallback: number): number {
+    const raw = this.configService.get(key);
+    if (raw === undefined || raw === null || raw === '') return fallback;
+    const configured = Number(raw);
+    return Number.isFinite(configured) && configured > 0
+      ? configured
+      : fallback;
   }
 }

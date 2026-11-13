@@ -61,10 +61,11 @@ const LIFECYCLE_TYPES = new Map<string, FuseEvent['type']>([
  * The patterns are the registry's, passed as values; `~` and `classifyEventCode` agree on every
  * input (checked against PostgreSQL in test/faults.e2e-spec.ts), and the code is not normalized.
  *
- * Source of truth: `alarms`. A fuse whose telemetry (`last_falcon_values.fuse_state`) says open but
- * whose alarm history does not is NOT listed: Scope v6.0 §3.2 takes openings and closings from the
- * alarms, and the seed has such a case (0000100002-A-R). The map may then show a node as critical
- * while the list has no fault for it.
+ * #CORRECTION CL-01/TD-01 (2026-11-09): the map now follows alarms too; the note about the map disagreeing was removed.
+ * Source of truth: `alarms` (CL-01). A fuse whose telemetry (`last_falcon_values.fuse_state`) says
+ * open but whose alarm history does not is NOT listed: Scope v6.0 §3.2 takes openings and closings
+ * from the alarms, and the seed has such a case (0000100002-A-R). The map applies the same
+ * precedence (TD-01, FUSE_SUMMARY_SQL), so it does not show that node as critical either.
  *
  * Performance: step 1 reads the alarms of every in-scope fuse through `idx_alarms_custom_id`, so its
  * cost grows with the alarm history. Measured on 2.9M alarm rows, 18,000 fuses and 4 open sets:
@@ -206,7 +207,11 @@ export class ActiveFaultsService {
       else this.reportSkippedSourceAlarm(row, mapped.skipped);
     }
 
-    return responseOf(now, orderFaults([...fuseFaults, ...sourceAlarms]));
+    const weights = this.faultsService.getSeverityWeights?.();
+    return responseOf(
+      now,
+      orderFaults([...fuseFaults, ...sourceAlarms], weights),
+    );
   }
 
   /** Same scope rule as the nodes list: the names of the nodes the user may see. */
