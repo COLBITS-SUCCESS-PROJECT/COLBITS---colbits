@@ -9,8 +9,11 @@ import { cn } from '@/utils/cn'
 import type { FaultFilters as Filters } from '../../model/faultRules'
 import type { FaultAlert, FaultCounters } from '../../model/liveMonitoring.types'
 import type { FaultTab } from '../../hooks/useLiveMonitoringFilters'
+import { useResizablePanel } from '../../hooks/useResizablePanel'
 import { FaultFilters } from './FaultFilters'
 import { FaultList } from './FaultList'
+import { FaultPanelResizeHandle } from './FaultPanelResizeHandle'
+import { InactiveDevicesTab, type InactiveDevicesTabProps } from './InactiveDevicesTab'
 
 const TABS: FaultTab[] = ['ACTIVE', 'RESOLVED', 'INACTIVE']
 const ID_PREFIX = 'fault-panel'
@@ -28,6 +31,8 @@ export interface FaultPanelProps {
   isLoading: boolean
   isError: boolean
   onRetry: () => void
+  /** Inactive devices tab data; null/undefined until the backend reports them: the tab says they are coming. */
+  inactive?: InactiveDevicesTabProps | null
   closeLabel?: string
   isMobileOpen?: boolean
   onClose?: () => void
@@ -43,16 +48,24 @@ export function FaultPanel(props: FaultPanelProps) {
     counters,
     filters,
     onFiltersChange,
+    inactive,
     closeLabel,
     isMobileOpen = false,
     onClose,
   } = props
   const { t } = useTranslation('dashboard')
   const panelRef = useRef<HTMLElement>(null)
+  const resize = useResizablePanel()
   const listState = { isLoading: props.isLoading, isError: props.isError, onRetry: props.onRetry }
   // Tabs whose data the backend does not report yet show a placeholder instead of a list.
   const listFaults = tab === 'ACTIVE' ? activeFaults : tab === 'RESOLVED' ? resolvedFaults : null
   const comingSoonKey = tab === 'INACTIVE' ? 'panel.inactiveSoon' : 'panel.resolvedSoon'
+  const inactiveTab = tab === 'INACTIVE' ? inactive : null
+  const headerCount = inactiveTab
+    ? t('inactive.nowCount', {
+        count: inactiveTab.devices.filter((view) => view.isInactiveNow).length,
+      })
+    : t('panel.activeCount', { count: activeFaults.length })
 
   useEffect(() => {
     if (!isMobileOpen || !onClose) return
@@ -92,95 +105,101 @@ export function FaultPanel(props: FaultPanelProps) {
   }, [isMobileOpen, onClose])
 
   return (
-    <aside
-      aria-labelledby="fault-panel-title"
-      id="fault-panel"
-      aria-modal={isMobileOpen ? true : undefined}
-      role={isMobileOpen ? 'dialog' : 'complementary'}
-      ref={panelRef}
-      className={cn(
-        'min-w-0 flex-col gap-3 overflow-y-auto border-border-default bg-bg-panel px-4 pt-4 pb-4 xl:w-90 xl:shrink-0 xl:border-l xl:px-2.5 xl:pb-2.5',
-        props.className
-      )}
-    >
-      <header className="flex items-center justify-between px-1">
-        <h2 id="fault-panel-title" className="text-base font-semibold text-text-heading">
-          {t('panel.title')}
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-text-subtle">
-            {t('panel.activeCount', { count: activeFaults.length })}
-          </span>
-          {closeLabel && props.onClose && (
-            <IconButton
-              icon="close"
-              label={closeLabel}
-              onClick={props.onClose}
-              className="xl:hidden"
-            />
+    <>
+      <FaultPanelResizeHandle {...resize} />
+      <aside
+        aria-labelledby="fault-panel-title"
+        id="fault-panel"
+        aria-modal={isMobileOpen ? true : undefined}
+        role={isMobileOpen ? 'dialog' : 'complementary'}
+        ref={panelRef}
+        style={resize.style}
+        className={cn(
+          'min-w-0 flex-col gap-3 overflow-y-auto border-border-default bg-bg-panel px-4 pt-4 pb-4 xl:w-(--fault-panel-width,22.5rem) xl:shrink-0 xl:border-l xl:px-2.5 xl:pb-2.5',
+          props.className
+        )}
+      >
+        <header className="flex items-center justify-between px-1">
+          <h2 id="fault-panel-title" className="text-base font-semibold text-text-heading">
+            {t('panel.title')}
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text-subtle">{headerCount}</span>
+            {closeLabel && props.onClose && (
+              <IconButton
+                icon="close"
+                label={closeLabel}
+                onClick={props.onClose}
+                className="xl:hidden"
+              />
+            )}
+          </div>
+        </header>
+
+        <Tabs
+          idPrefix={ID_PREFIX}
+          label={t('panel.tabsLabel')}
+          items={TABS.map((id) => ({ id, label: t(`panel.tab.${id}`) }))}
+          activeId={tab}
+          onChange={onTabChange}
+        />
+
+        <div
+          role="tabpanel"
+          id={getTabPanelId(ID_PREFIX, tab)}
+          aria-labelledby={getTabId(ID_PREFIX, tab)}
+          className="flex flex-col gap-3"
+        >
+          {inactiveTab ? (
+            <InactiveDevicesTab {...inactiveTab} />
+          ) : listFaults === null ? (
+            <p className="p-6 text-center text-sm text-text-subtle">{t(comingSoonKey)}</p>
+          ) : (
+            <>
+              {counters && (
+                <section
+                  aria-label={t('panel.counters.label')}
+                  className="grid grid-cols-2 gap-x-2.5 gap-y-2"
+                >
+                  <CounterCard
+                    value={counters.fuseAlarmNodes}
+                    label={t('panel.counters.fuseAlarm')}
+                    tone="primary"
+                  />
+                  <CounterCard
+                    value={counters.voltageAlarmNodes}
+                    label={t('panel.counters.voltageAlarm')}
+                    tone="info"
+                  />
+                  <CounterCard
+                    value={counters.phaseOutOfRangeNodes}
+                    label={t('panel.counters.phaseOutOfRange')}
+                    tone="warning"
+                  />
+                  <CounterCard
+                    value={counters.phaseDroppedNodes}
+                    label={t('panel.counters.phaseDropped')}
+                    tone="critical"
+                  />
+                </section>
+              )}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-text-primary">
+                  {t(`panel.list.${tab}`)}
+                </h3>
+                <Link
+                  to={ROUTES.analysis}
+                  className="text-overline font-medium text-action-link hover:underline"
+                >
+                  {t('panel.olderAlarms')}
+                </Link>
+              </div>
+              <FaultFilters filters={filters} onChange={onFiltersChange} />
+              <FaultList faults={listFaults} {...listState} />
+            </>
           )}
         </div>
-      </header>
-
-      <Tabs
-        idPrefix={ID_PREFIX}
-        label={t('panel.tabsLabel')}
-        items={TABS.map((id) => ({ id, label: t(`panel.tab.${id}`) }))}
-        activeId={tab}
-        onChange={onTabChange}
-      />
-
-      <div
-        role="tabpanel"
-        id={getTabPanelId(ID_PREFIX, tab)}
-        aria-labelledby={getTabId(ID_PREFIX, tab)}
-        className="flex flex-col gap-3"
-      >
-        {listFaults === null ? (
-          <p className="p-6 text-center text-sm text-text-subtle">{t(comingSoonKey)}</p>
-        ) : (
-          <>
-            {counters && (
-              <section
-                aria-label={t('panel.counters.label')}
-                className="grid grid-cols-2 gap-x-2.5 gap-y-2"
-              >
-                <CounterCard
-                  value={counters.fuseAlarmNodes}
-                  label={t('panel.counters.fuseAlarm')}
-                  tone="primary"
-                />
-                <CounterCard
-                  value={counters.voltageAlarmNodes}
-                  label={t('panel.counters.voltageAlarm')}
-                  tone="info"
-                />
-                <CounterCard
-                  value={counters.phaseOutOfRangeNodes}
-                  label={t('panel.counters.phaseOutOfRange')}
-                  tone="warning"
-                />
-                <CounterCard
-                  value={counters.phaseDroppedNodes}
-                  label={t('panel.counters.phaseDropped')}
-                  tone="critical"
-                />
-              </section>
-            )}
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-text-primary">{t(`panel.list.${tab}`)}</h3>
-              <Link
-                to={ROUTES.analysis}
-                className="text-overline font-medium text-action-link hover:underline"
-              >
-                {t('panel.olderAlarms')}
-              </Link>
-            </div>
-            <FaultFilters filters={filters} onChange={onFiltersChange} />
-            <FaultList faults={listFaults} {...listState} />
-          </>
-        )}
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }

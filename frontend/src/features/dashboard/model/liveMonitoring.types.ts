@@ -54,7 +54,17 @@ export interface PhaseStates {
 
 export type PhaseClassification = 'MONOPHASIC' | 'BIPHASIC' | 'TRIPHASIC'
 
-export type AlertType = 'FUSE_OPENING' | 'NO_VOLTAGE' | 'PHASE_LOSS' | 'OVERLOAD_UNBALANCE'
+/** Closed list of F-47 (Scope v6.0 §3.2): same identifiers as backend/src/faults/fault-alert-types.ts, the source of truth. */
+export type AlertType =
+  | 'FUSE_OPENING'
+  | 'NO_VOLTAGE'
+  | 'FREE_FALL'
+  | 'SOLAR_PANEL_FAILURE'
+  | 'PHASE_LOSS'
+  | 'PHASE_OUT_OF_RANGE'
+  | 'OVERLOAD_UNBALANCE'
+  | 'LOW_ENERGY'
+  | 'DEVICE_INACTIVITY'
 
 export type FaultSeverity = 'CRITICAL' | 'WARNING' | 'INACTIVE'
 

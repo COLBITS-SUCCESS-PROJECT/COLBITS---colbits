@@ -7,7 +7,11 @@ import '@/i18n'
 import { DEFAULT_FILTERS } from '../../hooks/useLiveMonitoringFilters'
 import { selectFaults, type FaultFilters } from '../../model/faultRules'
 import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
+import { buildInactiveDevicesMock } from '@/mocks/data/inactiveDevices.fixtures'
+import { DEFAULT_INACTIVE_FILTERS as INACTIVE_FILTERS } from '../../hooks/useInactiveDevicesFilters'
+import { deriveInactiveScope, selectInactiveDevices } from '../../model/inactiveDevices.rules'
 import { FaultPanel, type FaultPanelProps } from './FaultPanel'
+import type { InactiveDevicesTabProps } from './InactiveDevicesTab'
 
 const NOW = Date.now()
 const data = buildLiveMonitoringMock(NOW)
@@ -42,7 +46,7 @@ describe('FaultPanel', () => {
 
     // Assert
     const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
-    expect(within(panel).getByText('6 activas')).toBeInTheDocument()
+    expect(within(panel).getByText('7 activas')).toBeInTheDocument()
     const counters = within(panel).getByRole('region', { name: 'Resumen de nodos con alarma' })
     expect(within(counters).getByText('7')).toBeInTheDocument()
     const cards = within(panel).getAllByRole('article')
@@ -51,6 +55,19 @@ describe('FaultPanel', () => {
       'href',
       '/analysis'
     )
+  })
+
+  it('widens the panel with the keyboard from its resize handle', async () => {
+    renderPanel()
+    const handle = screen.getByRole('separator', { name: 'Ajustar el ancho del panel de fallas' })
+    const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
+
+    expect(handle).toHaveAttribute('aria-valuenow', '360')
+    handle.focus()
+    await userEvent.keyboard('{ArrowLeft}')
+
+    expect(handle).toHaveAttribute('aria-valuenow', '384')
+    expect(panel.style.getPropertyValue('--fault-panel-width')).toBe('384px')
   })
 
   it('requests a tab change and shows the resolved list', async () => {
@@ -66,11 +83,93 @@ describe('FaultPanel', () => {
     expect(screen.getAllByRole('article')).toHaveLength(2)
   })
 
-  it('shows the placeholder on the inactive devices tab', () => {
+  it('shows the placeholder on the inactive devices tab while there is no data', () => {
     renderPanel({ tab: 'INACTIVE' })
 
     expect(screen.getByText(/dispositivos inactivos llegará/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
+  })
+
+  describe('inactive devices tab', () => {
+    const views = selectInactiveDevices(buildInactiveDevicesMock(NOW), INACTIVE_FILTERS, NOW)
+    const scope = deriveInactiveScope(buildInactiveDevicesMock(NOW), INACTIVE_FILTERS)
+
+    function renderInactive(overrides: Partial<InactiveDevicesTabProps> = {}) {
+      const inactive: InactiveDevicesTabProps = {
+        devices: views,
+        filters: INACTIVE_FILTERS,
+        scope,
+        onFiltersChange: vi.fn(),
+        isLoading: false,
+        isError: false,
+        onRetry: vi.fn(),
+        ...overrides,
+      }
+      renderPanel({ tab: 'INACTIVE', inactive })
+      return inactive
+    }
+
+    it('lists the devices longest silence first and counts those silent now', () => {
+      renderInactive()
+
+      const cards = screen.getAllByRole('article')
+      expect(cards.map((card) => card.getAttribute('aria-label'))).toEqual([
+        'ND03090C04 · Inactivo ahora',
+        'ND08812B05 · Inactivo ahora',
+        'ND07311A06 · Inactivo en el periodo',
+        'ND02218B09 · Inactivo en el periodo',
+      ])
+      expect(screen.getByText('2 inactivos ahora')).toBeInTheDocument()
+      expect(
+        screen.getByText('4 dispositivos · último día · mayor silencio primero')
+      ).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Alarmas anteriores/ })).toHaveAttribute(
+        'href',
+        '/analysis'
+      )
+    })
+
+    it('reports the time window and every location filter', async () => {
+      const inactive = renderInactive()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Última hora' }))
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Zona' }), 'Sur')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Subestación' }), 'SE-Sur')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Circuito' }), 'CR-25')
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Nodo' }), 'ND03090C04')
+
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ timeWindow: 'LAST_HOUR' })
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ zone: 'Sur' })
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ substation: 'SE-Sur' })
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ circuit: 'CR-25' })
+      expect(inactive.onFiltersChange).toHaveBeenCalledWith({ node: 'ND03090C04' })
+    })
+
+    it('shows the empty state when no device is inactive', () => {
+      renderInactive({ devices: [] })
+
+      expect(screen.getByText('No hay dispositivos inactivos en este periodo.')).toBeInTheDocument()
+      expect(screen.getByText('0 inactivos ahora')).toBeInTheDocument()
+    })
+
+    it('shows skeletons while loading', () => {
+      renderInactive({ isLoading: true, devices: [] })
+
+      expect(screen.getByLabelText('Cargando dispositivos inactivos')).toHaveAttribute(
+        'aria-busy',
+        'true'
+      )
+    })
+
+    it('shows the error state with a retry action', async () => {
+      const inactive = renderInactive({ isError: true })
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'No se pudieron cargar los dispositivos inactivos.'
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+      expect(inactive.onRetry).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('shows a placeholder on the resolved tab while there are no resolved faults to show', () => {

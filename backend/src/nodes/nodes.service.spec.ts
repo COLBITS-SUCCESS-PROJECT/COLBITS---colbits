@@ -12,6 +12,8 @@ function serviceWith(
   smacRows: unknown[] = [],
   smacHours?: string,
   transformerRows: unknown[] = [],
+  // #CORRECTION TD-04 (2026-11-09): lets the tests set SMAC_PHASE_WINDOW_DAYS.
+  phaseWindowDays?: string,
   locationRows: unknown[] = [],
 ) {
   const builder = {
@@ -35,6 +37,7 @@ function serviceWith(
   const env: Record<string, string | undefined> = {
     FALCON_INACTIVITY_HOURS: falconHours,
     SMAC_INACTIVITY_HOURS: smacHours,
+    SMAC_PHASE_WINDOW_DAYS: phaseWindowDays,
   };
   const config = { get: jest.fn((key: string) => env[key]) };
   const service = new NodesService(
@@ -116,7 +119,8 @@ describe('NodesService.findAll (US4 + US6)', () => {
 
     expect(repository.query).toHaveBeenCalledWith(
       expect.not.stringMatching(/last_smac/),
-      [[N1.name], 'Abierto', 6],
+      // #CORRECTION CL-01/TD-01 (2026-11-09): the query now also receives the 13xx20 / 13xx21 patterns.
+      [[N1.name], 'Abierto', 6, '^13[0-9]{2}20$', '^13[0-9]{2}21$'],
     );
   });
 
@@ -127,7 +131,7 @@ describe('NodesService.findAll (US4 + US6)', () => {
 
     expect(repository.query).toHaveBeenCalledWith(
       expect.not.stringMatching(/last_smac/),
-      [[N1.name], 'Abierto', 9],
+      [[N1.name], 'Abierto', 9, '^13[0-9]{2}20$', '^13[0-9]{2}21$'],
     );
   });
 
@@ -196,7 +200,7 @@ describe('NodesService.findAll · SMAC inactivity (US5 · F-37)', () => {
 
     expect(repository.query).toHaveBeenCalledWith(
       expect.not.stringMatching(/last_smac/),
-      [[N1.name], 'Abierto', 12],
+      [[N1.name], 'Abierto', 12, expect.any(String), expect.any(String)],
     );
     expect(repository.query).toHaveBeenCalledWith(SMAC_INACTIVITY_SQL, [
       [N1.name],
@@ -233,6 +237,7 @@ describe('NodesService.findAll transformer_state (US7)', () => {
       [N1.name, N2.name],
       3,
       '^05[0-9]{2}21[0-9A-Za-z]$',
+      0,
     ]);
   });
 
@@ -253,8 +258,60 @@ describe('NodesService.findAll transformer_state (US7)', () => {
       [N1.name],
       6,
       expect.any(String),
+      0,
     ]);
   });
+
+  // #CORRECTION CL-07/TD-04 (2026-11-09): new tests for the voltage-column phases and the configurable window.
+  it('takes the existing phases from the voltage columns, so a B-C transformer with C down is WARNING (TD-04)', async () => {
+    const { service } = serviceWith([N1], [], undefined, [], undefined, [
+      {
+        node_id: N1.name,
+        custom_id: `${N1.name}-T1-2`,
+        inactive: false,
+        down_channels: ['A', 'C'],
+        has_a: false,
+        has_b: true,
+        has_c: true,
+      },
+    ]);
+
+    const result = await service.findAll({ kind: 'unrestricted' });
+
+    expect(result.nodes[0].transformer_state).toBe('WARNING');
+  });
+
+  it.each([
+    ['0', 0],
+    ['14', 14],
+    ['7', 7],
+    [undefined, 0],
+    ['', 0],
+    ['-1', 0],
+    ['abc', 0],
+  ])(
+    'reads the phase window from SMAC_PHASE_WINDOW_DAYS=%p as %p days (0 = latest reading only)',
+    async (configured, expected) => {
+      const { service, repository } = serviceWith(
+        [N1],
+        [],
+        undefined,
+        [],
+        undefined,
+        [],
+        configured,
+      );
+
+      await service.findAll({ kind: 'unrestricted' });
+
+      expect(repository.query).toHaveBeenCalledWith(TRANSFORMER_SUMMARY_SQL, [
+        [N1.name],
+        3,
+        expect.any(String),
+        expected,
+      ]);
+    },
+  );
 });
 
 describe('NodesService.findAll · location and devices (US14 · F-33, F-34)', () => {
@@ -272,7 +329,7 @@ describe('NodesService.findAll · location and devices (US14 · F-33, F-34)', ()
 
   it('returns the zone, substation, circuit and installed devices of each node', async () => {
     // Arrange
-    const { service } = serviceWith([N1], [], undefined, [], undefined, [], [
+    const { service } = serviceWith([N1], [], undefined, [], undefined, [], undefined, [
       N1_LOCATION,
     ]);
 
@@ -289,7 +346,7 @@ describe('NodesService.findAll · location and devices (US14 · F-33, F-34)', ()
   });
 
   it('gives an empty device list to a node without installed devices', async () => {
-    const { service } = serviceWith([N1], [], undefined, [], undefined, [], [
+    const { service } = serviceWith([N1], [], undefined, [], undefined, [], undefined, [
       { ...N1_LOCATION, device_ids: null },
     ]);
 

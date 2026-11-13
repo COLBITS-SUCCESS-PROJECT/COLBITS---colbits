@@ -3,6 +3,20 @@ import {
   FAULT_CLASSIFICATIONS,
   type FaultClassification,
 } from '../fault-classification';
+import {
+  SMAC_CHANNELS,
+  SOURCE_ALARM_TYPES,
+  type SmacChannel,
+  type SourceAlarmDevice,
+  type SourceAlarmType,
+} from '../source-alarms';
+
+/** Alert types the active list can hold: fuse openings (US10) and source alarms (SCRUM-225). */
+export const ACTIVE_FAULT_ALERT_TYPES = [
+  'FUSE_OPENING',
+  ...SOURCE_ALARM_TYPES,
+] as const;
+export type ActiveFaultAlertType = 'FUSE_OPENING' | SourceAlarmType;
 
 /** Warnings a fault can carry. The list can grow; each one says what the consumer should not assume. */
 export const FAULT_WARNINGS = ['PHASES_UNCLASSIFIED'] as const;
@@ -50,7 +64,7 @@ export class ActiveFaultDto {
   @ApiProperty({
     example: '2:2026-10-29T15:05:00.000Z',
     description:
-      'Fuse set id and instant of the first opening: stable while the fault is open.',
+      'Stable while the entry is open. FUSE_OPENING: fuse set id and instant of the first opening. NO_VOLTAGE: `NO_VOLTAGE:<fuse>:<started_at>`. SMAC alarms: `<alert_type>:<transformer>:<channel>:<started_at>`.',
   })
   id: string;
 
@@ -61,33 +75,62 @@ export class ActiveFaultDto {
   circuit: FaultCircuitDto;
 
   @ApiProperty({
+    type: Number,
+    nullable: true,
     example: 2,
     description:
-      'Fuse set (branch) the fault belongs to: faults are never grouped across sets (fuses_sets.id).',
+      'Fuse set (branch) the entry belongs to (fuses_sets.id): faults are never grouped across sets. Null for SMAC alarms, which belong to a transformer.',
   })
-  fuses_set_id: number;
+  fuses_set_id: number | null;
 
   @ApiProperty({
     type: String,
     nullable: true,
     example: 'A',
     description:
-      'Branch letter of the fuse set; null when the node has one set.',
+      'Branch letter of the fuse set; null when the node has one set, and for SMAC alarms.',
   })
   branch: string | null;
 
   @ApiProperty({
-    enum: ['FUSE_OPENING'],
+    enum: [...ACTIVE_FAULT_ALERT_TYPES],
     example: 'FUSE_OPENING',
-    description: 'Only fuse-opening faults are listed for now.',
+    description:
+      'FUSE_OPENING: grouped fuse openings (US10). NO_VOLTAGE: loss of voltage on one Falcon fuse (13xx21). PHASE_LOSS / PHASE_OUT_OF_RANGE: one SMAC transformer channel (05xx21y / 05xx20y). Only the alarms table makes an entry active; telemetry never does.',
   })
-  alert_type: 'FUSE_OPENING';
+  alert_type: ActiveFaultAlertType;
+
+  @ApiProperty({
+    enum: ['FALCON', 'SMAC'],
+    example: 'FALCON',
+    description: 'Device that reports the alert.',
+  })
+  device: SourceAlarmDevice;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: null,
+    description:
+      'custom_id of the single source of a NO_VOLTAGE (fuse) or SMAC (transformer) alarm. Null for FUSE_OPENING, which can group several fuses: see openings.',
+  })
+  source_id: string | null;
+
+  @ApiProperty({
+    type: String,
+    enum: [...SMAC_CHANNELS],
+    nullable: true,
+    example: null,
+    description:
+      'SMAC channel (event codes 1/A, 2/B, 3/C are the same channel). It is not an electrical phase and is never mapped to R/S/T. Null except on SMAC alarms.',
+  })
+  channel: SmacChannel | null;
 
   @ApiProperty({
     enum: ['OPEN'],
     example: 'OPEN',
     description:
-      'A fault is open while any of its phases has not reported a close. Only open faults are listed.',
+      'A fuse-opening fault is open while any of its phases has not reported a close; a source alarm while its last event is a SET. Only open entries are listed.',
   })
   state: 'OPEN';
 
@@ -96,7 +139,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: ['R', 'S'],
     description:
-      'Distinct canonical phases (repetition digit removed) in natural order. Null when they cannot be classified: see the PHASES_UNCLASSIFIED warning.',
+      'Distinct canonical phases (repetition digit removed) in natural order; for NO_VOLTAGE, the phase of its fuse. Null when they cannot be classified (see the PHASES_UNCLASSIFIED warning), and always null for SMAC alarms.',
   })
   phases: string[] | null;
 
@@ -106,7 +149,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: 'BIPHASIC',
     description:
-      'Single-, two- or three-phase, by distinct canonical phases and never by fuse identifiers. Null when the phases cannot be classified.',
+      'Single-, two- or three-phase, by distinct canonical phases and never by fuse identifiers. Null when the phases cannot be classified, and for every source alarm (only fuse-opening faults are classified).',
   })
   classification: FaultClassification | null;
 
@@ -115,14 +158,15 @@ export class ActiveFaultDto {
     nullable: true,
     example: 120,
     description:
-      'Clients associated with the fuse set (fuses_sets.client_count); null when not recorded.',
+      'Clients associated with the fuse set (fuses_sets.client_count); null when not recorded (unknown, not zero). Always null on source alarms for now. In the listing order a null counts as 0.',
   })
   client_count: number | null;
 
   @ApiProperty({
     format: 'date-time',
     example: '2026-10-29T15:05:00.000Z',
-    description: 'Instant of the first opening.',
+    description:
+      'Instant of the first opening; for a source alarm, of the first SET after its last CLEAR.',
   })
   started_at: string;
 
@@ -138,14 +182,14 @@ export class ActiveFaultDto {
   @ApiProperty({
     example: 900,
     description:
-      'Elapsed seconds from the first opening to generated_at, since the fault is still open.',
+      'Elapsed seconds from started_at to generated_at, since the entry is still open.',
   })
   duration_seconds: number;
 
   @ApiProperty({
     type: () => [FaultOpeningDto],
     description:
-      'Every opening grouped into the fault, in opening order, with the phase as stored.',
+      'Every opening grouped into the fault, in opening order, with the phase as stored. Empty for source alarms.',
   })
   openings: FaultOpeningDto[];
 
@@ -173,7 +217,7 @@ export class ActiveFaultsResponseDto {
   @ApiProperty({
     type: () => [ActiveFaultDto],
     description:
-      'Oldest first. Filtering and ordering by severity are not part of this endpoint.',
+      'Ordered by severity (F-57): most affected clients first, a null client_count counting as 0 for the sort only; faults with the same count oldest first; then by alert type, source, channel and fuse set. Filtering and configurable ordering criteria are not part of this endpoint.',
   })
   faults: ActiveFaultDto[];
 }
