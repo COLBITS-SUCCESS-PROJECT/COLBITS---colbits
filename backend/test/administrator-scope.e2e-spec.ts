@@ -278,6 +278,8 @@ function identity(fault: FaultBody) {
 }
 const byText = (a: unknown, b: unknown): number =>
   JSON.stringify(a) < JSON.stringify(b) ? -1 : 1;
+/** Code-unit order for strings: the same in every environment (unlike localeCompare). */
+const byString = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 /** An entry the listing holds for a fuse-opening fault, written out by hand from the alarms. */
 const opening = (
@@ -369,7 +371,7 @@ describe('F-04: the administrator sees the entire network (e2e)', () => {
   const getFaults = async (token: string): Promise<FaultsBody> =>
     (await get('/faults', token).expect(200)).body as FaultsBody;
   const namesOf = (body: NodesBody): string[] =>
-    body.nodes.map((node) => node.name).sort();
+    body.nodes.map((node) => node.name).sort(byString);
   /** Plain SQL on the tables, independent of the scope code. */
   const namesInDatabase = async (where = 'TRUE'): Promise<string[]> =>
     (
@@ -378,7 +380,7 @@ describe('F-04: the administrator sees the entire network (e2e)', () => {
       )) as Array<{ name: string }>
     )
       .map((row) => row.name)
-      .sort();
+      .sort(byString);
 
   beforeAll(async () => {
     now = Date.now();
@@ -478,7 +480,7 @@ describe('F-04: the administrator sees the entire network (e2e)', () => {
       const ids = (await getFaults(tokens.admin)).faults
         .filter((fault) => fault.alert_type !== 'FUSE_OPENING')
         .map((fault) => fault.id)
-        .sort();
+        .sort(byString);
 
       expect(ids).toEqual(
         [
@@ -487,7 +489,7 @@ describe('F-04: the administrator sees the entire network (e2e)', () => {
           `PHASE_LOSS:ADME2E0008-T1-3:B:${at(T.lossOut)}`,
           `PHASE_OUT_OF_RANGE:ADME2E0008-T1-3:A:${at(T.rangeOut)}`,
           `PHASE_LOSS:ADME2E0009-T1-3:A:${at(T.lossIn)}`,
-        ].sort(),
+        ].sort(byString),
       );
     });
 
@@ -551,7 +553,7 @@ describe('F-04: the administrator sees the entire network (e2e)', () => {
       expect(fuseSets).toHaveLength(1);
       expect(fuseSets[0].id).toBe(991_002);
       expect(fuseSets[0].client_count).toBe(CLIENTS[991_002]);
-      expect(fuseSets[0].fuses.map((fuse) => fuse.id).sort()).toEqual([
+      expect(fuseSets[0].fuses.map((fuse) => fuse.id).sort(byString)).toEqual([
         'ADME2E0002-R',
         'ADME2E0002-S',
         'ADME2E0002-T',
