@@ -10,7 +10,9 @@ import { ALERT_TYPE_DEFINITIONS, ALERT_TYPES } from './fault-alert-types';
 import { FaultsService } from './faults.service';
 import {
   ACTIVE_SOURCE_ALARMS_SQL,
+  RESOLVED_SOURCE_ALARMS_SQL,
   SOURCE_ALARM_PATTERNS,
+  SourceAlarmEpisodeRow,
   SourceAlarmRow,
 } from './source-alarms';
 
@@ -86,6 +88,7 @@ function serviceWith(
     nodes?: string[];
     window?: number;
     sourceRows?: SourceAlarmRow[];
+    resolvedRows?: SourceAlarmEpisodeRow[];
   } = {},
 ) {
   const nodes = options.nodes ?? ['0000100002'];
@@ -97,10 +100,15 @@ function serviceWith(
   };
   const repository = {
     createQueryBuilder: jest.fn().mockReturnValue(builder),
-    // Each statement gets its own rows: fuse-opening events or active source alarms.
+    // Each statement gets its own rows: fuse-opening events, active source alarms or resolved
+    // source-alarm episodes.
     query: jest.fn((sql: string) =>
       Promise.resolve(
-        sql === ACTIVE_SOURCE_ALARMS_SQL ? (options.sourceRows ?? []) : rows,
+        sql === ACTIVE_SOURCE_ALARMS_SQL
+          ? (options.sourceRows ?? [])
+          : sql === RESOLVED_SOURCE_ALARMS_SQL
+            ? (options.resolvedRows ?? [])
+            : rows,
       ),
     ),
   };
@@ -956,6 +964,158 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
       await service.activeFaults(UNRESTRICTED, NOW);
 
       expect(warn).toHaveBeenCalledTimes(100);
+    });
+
+    it('does not run the resolved query', async () => {
+      const { service, repository } = serviceWith([]);
+
+      await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(repository.query).not.toHaveBeenCalledWith(
+        RESOLVED_SOURCE_ALARMS_SQL,
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('resolved source alarms (SCRUM-226 · F-60)', () => {
+    const SINCE = minutesAgo(60);
+    const resolvedRow = (
+      row: SourceAlarmRow,
+      endedAt: Date | string = minutesAgo(5),
+    ): SourceAlarmEpisodeRow => ({ ...row, ended_at: endedAt });
+
+    it('runs only the resolved query, with the scoped nodes, the registry patterns and resolvedSince', async () => {
+      const { service, repository } = serviceWith([], {
+        nodes: ['0000100001', '0000100002'],
+      });
+
+      await service.resolvedSourceAlarms(UNRESTRICTED, SINCE);
+
+      expect(repository.query).toHaveBeenCalledTimes(1);
+      expect(repository.query).toHaveBeenCalledWith(
+        RESOLVED_SOURCE_ALARMS_SQL,
+        [
+          ['0000100001', '0000100002'],
+          ALERT_TYPE_DEFINITIONS.NO_VOLTAGE.eventCodePattern,
+          ALERT_TYPE_DEFINITIONS.PHASE_LOSS.eventCodePattern,
+          ALERT_TYPE_DEFINITIONS.PHASE_OUT_OF_RANGE.eventCodePattern,
+          SINCE,
+        ],
+      );
+    });
+
+    it('queries nothing for an empty scope or no node in scope (F-10)', async () => {
+      const resolvedRows = [resolvedRow(sourceRow())];
+      const empty = serviceWith([], { resolvedRows });
+      const none = serviceWith([], { nodes: [], resolvedRows });
+
+      expect(
+        await empty.service.resolvedSourceAlarms({ kind: 'empty' }, SINCE),
+      ).toEqual([]);
+      expect(
+        await none.service.resolvedSourceAlarms(UNRESTRICTED, SINCE),
+      ).toEqual([]);
+      expect(empty.repository.query).not.toHaveBeenCalled();
+      expect(none.repository.query).not.toHaveBeenCalled();
+    });
+
+    it('restricts the nodes to a consultation user scope (F-10)', async () => {
+      const { service, builder, repository } = serviceWith([], {
+        nodes: ['0000100002'],
+      });
+
+      await service.resolvedSourceAlarms(
+        { kind: 'restricted', userId: 7 },
+        SINCE,
+      );
+
+      expect(builder.setParameter).toHaveBeenCalledWith('scopeUserId', 7);
+      expect(repository.query).toHaveBeenCalledWith(
+        RESOLVED_SOURCE_ALARMS_SQL,
+        [['0000100002'], ...SOURCE_ALARM_PATTERNS, SINCE],
+      );
+    });
+
+    it.each([
+      ['an invalid Date', new Date('not a date')],
+      ['a string', '2026-10-29T15:00:00.000Z'],
+      ['a number', NOW.getTime()],
+      ['null', null],
+    ])(
+      'rejects %s as resolvedSince before reading anything',
+      async (_, since) => {
+        const { service, repository } = serviceWith([]);
+
+        await expect(
+          service.resolvedSourceAlarms(UNRESTRICTED, since as unknown as Date),
+        ).rejects.toThrow(RangeError);
+        expect(repository.createQueryBuilder).not.toHaveBeenCalled();
+        expect(repository.query).not.toHaveBeenCalled();
+      },
+    );
+
+    it('maps each row to an episode, reading numbers and dates as the driver may return them', async () => {
+      const { service } = serviceWith([], {
+        resolvedRows: [
+          resolvedRow(
+            sourceRow({
+              fuses_set_id: '2',
+              circuit_id: '1',
+              started_at: minutesAgo(20).toISOString(),
+            }),
+            minutesAgo(5).toISOString(),
+          ),
+          resolvedRow(smacRow({ event_code: '0514212' })),
+        ],
+      });
+
+      const episodes = await service.resolvedSourceAlarms(UNRESTRICTED, SINCE);
+
+      expect(episodes).toEqual([
+        {
+          id: 'NO_VOLTAGE:0000100002-A-R:2026-10-29T15:00:00.000Z',
+          alertType: 'NO_VOLTAGE',
+          sourceId: '0000100002-A-R',
+          channel: null,
+          node: '0000100002',
+          circuit: { id: 1, name: 'CTO 1' },
+          fuse: { fusesSetId: 2, branch: 'A', phase: 'R' },
+          state: 'RESOLVED',
+          startedAt: minutesAgo(20),
+          endedAt: minutesAgo(5),
+        },
+        {
+          id: 'PHASE_LOSS:0000100002-T1-3:B:2026-10-29T15:00:00.000Z',
+          alertType: 'PHASE_LOSS',
+          sourceId: '0000100002-T1-3',
+          channel: 'B',
+          node: '0000100002',
+          circuit: { id: 1, name: 'CTO 1' },
+          fuse: null,
+          state: 'RESOLVED',
+          startedAt: minutesAgo(20),
+          endedAt: minutesAgo(5),
+        },
+      ]);
+    });
+
+    it('does not return an episode on an unknown SMAC channel; logs it once, as resolved', async () => {
+      const row = smacRow({ event_code: '051421D' });
+      const { service } = serviceWith([], {
+        sourceRows: [row],
+        resolvedRows: [resolvedRow(row), resolvedRow(smacRow())],
+      });
+
+      const first = await service.resolvedSourceAlarms(UNRESTRICTED, SINCE);
+      await service.resolvedSourceAlarms(UNRESTRICTED, SINCE);
+      await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(first.map((episode) => episode.channel)).toEqual(['A']);
+      expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+        'Resolved alarm event_code "051421D" on "0000100002-T1-3" not listed: UNKNOWN_CHANNEL',
+        'Active alarm event_code "051421D" on "0000100002-T1-3" not listed: UNKNOWN_CHANNEL',
+      ]);
     });
   });
 });

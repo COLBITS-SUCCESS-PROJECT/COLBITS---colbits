@@ -16,6 +16,9 @@ import {
 // fuse-opening faults inside the user's scope, grouped per fuse set within the window and
 // classified by distinct canonical phases. It also checks that PostgreSQL's `~` and
 // classifyEventCode agree on every event code, including unusual ones.
+// SCRUM-226 · F-59 / F-60 acceptance for fuse openings (sets 990007 and 990008): a repeated SET
+// keeps the opening time, a CLEAR closes only its own phase at its recorded_at, and a SET and a
+// CLEAR at one instant keep the fuse open (the current tie rule of fuse openings).
 // Uses the isolated database of the F-10 tests (02_dummy_inserts.sql + 03_security_schema.sql),
 // removes what it creates, and must run in band (npm run test:e2e -- --runInBand).
 
@@ -28,7 +31,7 @@ const USERS = {
 };
 const ALARM_HW_PREFIX = 'FLTE2E-';
 const FIRST_SET_ID = 990_001; // explicit ids: the seed does not move the sequences
-const LAST_SET_ID = 990_006;
+const LAST_SET_ID = 990_008;
 
 const SEED_RESOLVED_NODE = '0000100002'; // alarms: open 08:05, closed 08:47; telemetry still says open
 const SEED_LEGACY_SET = 4; // node 0000100003, circuit 1: fuses I1, I2, C, D
@@ -37,6 +40,14 @@ const SEED_LONG_RUNNING_SET = 6; // node 1000300001, circuit 4: fuse R, with the
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
+
+/** Event instants of fault set 990007, relative to the run's `now`. */
+const PARTIAL_CLOSE = {
+  openedR: (now: number) => now - 35 * MINUTE,
+  openedS: (now: number) => now - 35 * MINUTE + 30_000,
+  repeatedR: (now: number) => now - 25 * MINUTE,
+  closedR: (now: number) => now - 20 * MINUTE,
+};
 
 async function assertTestDatabase(dataSource: DataSource): Promise<void> {
   const result: Array<{ database_name: string }> = await dataSource.query(
@@ -137,6 +148,23 @@ const FIXTURE_SETS: FixtureSet[] = [
       ['FLTE2E0005-I', 'I'],
     ],
   },
+  {
+    id: 990_007,
+    node: 'FLTE2E0006',
+    setId: null,
+    clients: 14,
+    fuses: [
+      ['FLTE2E0006-R', 'R'],
+      ['FLTE2E0006-S', 'S'],
+    ],
+  },
+  {
+    id: 990_008,
+    node: 'FLTE2E0007',
+    setId: null,
+    clients: 15,
+    fuses: [['FLTE2E0007-R', 'R']],
+  },
 ];
 
 async function insertAlarm(
@@ -145,12 +173,13 @@ async function insertAlarm(
   eventType: string,
   at: number,
   eventCode = '131420',
+  hwSuffix = '',
 ): Promise<void> {
   await dataSource.query(
     `INSERT INTO alarms (hw_id, custom_id, event_code, event_type, alarm, value, recorded_at)
      VALUES ($1, $2, $3, $4, 'e2e', NULL, $5)`,
     [
-      `${ALARM_HW_PREFIX}${customId}`,
+      `${ALARM_HW_PREFIX}${customId}${hwSuffix}`,
       customId,
       eventCode,
       eventType,
@@ -188,6 +217,8 @@ async function createFixtures(
     'FLTE2E0003',
     'FLTE2E0004',
     'FLTE2E0005',
+    'FLTE2E0006',
+    'FLTE2E0007',
   ]) {
     await dataSource.query(
       'INSERT INTO nodes (name, circuit_id, latitude, longitude) VALUES ($1, 1, 3.5, -75.5)',
@@ -250,6 +281,41 @@ async function createFixtures(
   const e = ago(30);
   await insertAlarm(dataSource, 'FLTE2E0005-R', 'SET', e);
   await insertAlarm(dataSource, 'FLTE2E0005-I', 'SET', e + 20_000);
+  // 990007 (F-59, F-60): R opens at g, reports the same SET again 10 minutes later (a repeat that
+  // must not become a second opening nor move the opening time) and closes at g + 15 min. S opens
+  // 30 s after R and never closes, so the fault stays open with one closed phase.
+  await insertAlarm(
+    dataSource,
+    'FLTE2E0006-R',
+    'SET',
+    PARTIAL_CLOSE.openedR(now),
+  );
+  await insertAlarm(
+    dataSource,
+    'FLTE2E0006-S',
+    'SET',
+    PARTIAL_CLOSE.openedS(now),
+  );
+  await insertAlarm(
+    dataSource,
+    'FLTE2E0006-R',
+    'SET',
+    PARTIAL_CLOSE.repeatedR(now),
+  );
+  await insertAlarm(
+    dataSource,
+    'FLTE2E0006-R',
+    'CLEAR',
+    PARTIAL_CLOSE.closedR(now),
+  );
+  // 990008: a SET and a CLEAR of the same fuse at one instant (an old and a new device). Fuse
+  // openings keep the fuse open (SET wins). A loss-of-voltage alarm with the same tie is resolved
+  // instead (source alarms: CLEAR wins): the two lifecycles differ today, pending a team decision.
+  const tie = ago(12);
+  await insertAlarm(dataSource, 'FLTE2E0007-R', 'SET', tie, '131420', '-OLD');
+  await insertAlarm(dataSource, 'FLTE2E0007-R', 'CLEAR', tie);
+  await insertAlarm(dataSource, 'FLTE2E0007-R', 'SET', tie, '131421', '-OLD');
+  await insertAlarm(dataSource, 'FLTE2E0007-R', 'CLEAR', tie, '131421');
   // Seed set 4 (legacy I1, I2, C, D): I1, I2 and C open: three fuses, two canonical phases.
   const f = ago(25);
   await insertAlarm(dataSource, '0000100003-I1', 'SET', f);
@@ -513,6 +579,111 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       }
     });
 
+    describe('fuse-opening lifecycle (SCRUM-226 · F-59, F-60)', () => {
+      const iso = (at: number) => new Date(at).toISOString();
+      let fault: FaultBody;
+
+      beforeAll(() => {
+        [fault] = bySet(body, 990_007);
+      });
+
+      it('a repeated SET on an open fuse keeps the first opened_at and is not a second opening (F-59)', () => {
+        const openingsOfR = fault.openings.filter(
+          (opening) => opening.fuse_id === 'FLTE2E0006-R',
+        );
+
+        expect(bySet(body, 990_007)).toHaveLength(1);
+        expect(openingsOfR).toHaveLength(1);
+        expect(openingsOfR[0].opened_at).toBe(iso(PARTIAL_CLOSE.openedR(now)));
+        expect(fault.started_at).toBe(iso(PARTIAL_CLOSE.openedR(now)));
+        expect(fault.id).toBe(`990007:${iso(PARTIAL_CLOSE.openedR(now))}`);
+      });
+
+      it('a CLEAR sets closed_at to its recorded_at, and only for the phase that reported it (F-60)', () => {
+        expect(
+          fault.openings.map(({ fuse_id, opened_at, closed_at }) => [
+            fuse_id,
+            opened_at,
+            closed_at,
+          ]),
+        ).toEqual([
+          [
+            'FLTE2E0006-R',
+            iso(PARTIAL_CLOSE.openedR(now)),
+            iso(PARTIAL_CLOSE.closedR(now)),
+          ],
+          ['FLTE2E0006-S', iso(PARTIAL_CLOSE.openedS(now)), null],
+        ]);
+      });
+
+      it('stays active while one phase is still open, and does not take the close as its end', () => {
+        expect(fault).toMatchObject({
+          state: 'OPEN',
+          ended_at: null,
+          phases: ['R', 'S'],
+          classification: 'BIPHASIC',
+          client_count: 14,
+          warnings: [],
+        });
+      });
+
+      it('keeps every field of the fault entry and of its openings', () => {
+        expect(Object.keys(fault).sort((a, b) => a.localeCompare(b))).toEqual([
+          'alert_type',
+          'branch',
+          'channel',
+          'circuit',
+          'classification',
+          'client_count',
+          'device',
+          'duration_seconds',
+          'ended_at',
+          'fuses_set_id',
+          'id',
+          'node',
+          'openings',
+          'phases',
+          'source_id',
+          'started_at',
+          'state',
+          'warnings',
+        ]);
+        expect(fault).toMatchObject({
+          alert_type: 'FUSE_OPENING',
+          device: 'FALCON',
+          source_id: null,
+          channel: null,
+          branch: null,
+          node: 'FLTE2E0006',
+          circuit: { id: 1, name: 'CTO 1' },
+        });
+        for (const opening of fault.openings) {
+          expect(
+            Object.keys(opening).sort((a, b) => a.localeCompare(b)),
+          ).toEqual(['closed_at', 'fuse_id', 'opened_at', 'phase']);
+        }
+      });
+
+      it('a SET and a CLEAR of one fuse at the same instant keep it open: SET wins (current rule)', () => {
+        const [tied] = bySet(body, 990_008);
+
+        expect(tied).toMatchObject({ state: 'OPEN', ended_at: null });
+        expect(
+          tied.openings.map(({ fuse_id, closed_at }) => [fuse_id, closed_at]),
+        ).toEqual([['FLTE2E0007-R', null]]);
+      });
+
+      it('the same tie on a loss-of-voltage alarm resolves it instead: CLEAR wins (current rule, differs)', () => {
+        expect(
+          body.faults.filter(
+            (listed) =>
+              listed.node === 'FLTE2E0007' &&
+              listed.alert_type !== 'FUSE_OPENING',
+          ),
+        ).toEqual([]);
+      });
+    });
+
     it('lists the faults by affected clients, then oldest first (F-57)', () => {
       // Each fault must not come after the next one on the same two keys: clients (highest first,
       // an unknown count sorting as 0), then the first opening (oldest first).
@@ -633,6 +804,18 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       expect(sets.has(SEED_LEGACY_SET)).toBe(true);
       for (const fault of body.faults) expect(fault.circuit.id).toBe(1);
       expect(JSON.stringify(body)).not.toContain('1000300001');
+    });
+
+    it('gives the circuit-1 user the same partially closed fault as the administrator', async () => {
+      const withoutDuration = ({
+        duration_seconds: _duration,
+        ...rest
+      }: FaultBody) => rest;
+      const admin = bySet(await getFaults(tokens.admin), 990_007);
+      const user = bySet(await getFaults(tokens.circuit1), 990_007);
+
+      expect(user).toHaveLength(1);
+      expect(user.map(withoutDuration)).toEqual(admin.map(withoutDuration));
     });
 
     it('lists more faults for the administrator than for the circuit-1 user', async () => {

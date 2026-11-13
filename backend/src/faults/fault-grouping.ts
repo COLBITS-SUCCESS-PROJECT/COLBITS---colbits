@@ -15,11 +15,20 @@
  *   - momentary openings count (RF-ALR-05): a close reported after the opening, however soon, still
  *     leaves a (resolved) fault
  *
- * Events at the same instant: the data does not say which came first. `alarms` cannot even hold a
- * SET and a CLEAR of one device with the same code at the same `recorded_at` (primary key
- * hw_id, recorded_at, event_code), so a SET and a CLEAR of one fuse at one instant is not expected.
- * If it is given anyway, the order is not guessed from the events: the fuse is taken as open after
- * that instant, so an active fault is never hidden. Output never depends on the order of the input.
+ * Lifecycle of one opening (SCRUM-226 · F-59, F-60): the first SET of a fuse opens it, and it stays
+ * open while the fuse keeps reporting: a repeated SET is ignored, so `openedAt` never moves. The
+ * next CLEAR of that fuse closes it, and `closedAt` is that CLEAR's `recorded_at`; no other fuse is
+ * touched. The fault built from several openings is a separate level: it is OPEN while any opening
+ * is open and ends at the last close (F-61). This module groups; listing resolved faults is not
+ * done here.
+ *
+ * Events at the same instant: the data does not say which came first. One device cannot report a
+ * SET and a CLEAR of the same code at the same `recorded_at` (primary key hw_id, recorded_at,
+ * event_code), but two devices on one fuse can, for example an old and a replacement device. The
+ * order is not guessed from the events: the fuse is taken as open after that instant (the SET
+ * wins), so an active fault is never hidden. Source alarms (source-alarms.ts) use the opposite
+ * rule, where the CLEAR wins; the difference is not a requirement and is pending a team decision.
+ * Output never depends on the order of the input.
  */
 export interface FuseEvent {
   /** `fuses_sets.id` of the fuse that reported. */
