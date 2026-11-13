@@ -136,6 +136,12 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
       expect(result).toEqual({
         generated_at: NOW.toISOString(),
         count: 0,
+        counters: {
+          fuseAlarmNodes: 0,
+          voltageAlarmNodes: 0,
+          phaseOutOfRangeNodes: 0,
+          phaseDroppedNodes: 0,
+        },
         faults: [],
       });
       expect(repository.createQueryBuilder).not.toHaveBeenCalled();
@@ -221,6 +227,12 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
       expect(result).toEqual({
         generated_at: '2026-10-29T15:20:00.000Z',
         count: 1,
+        counters: {
+          fuseAlarmNodes: 1,
+          voltageAlarmNodes: 0,
+          phaseOutOfRangeNodes: 0,
+          phaseDroppedNodes: 0,
+        },
         faults: [
           {
             id: '2:2026-10-29T15:05:00.000Z',
@@ -777,6 +789,12 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
       expect(result).toEqual({
         generated_at: NOW.toISOString(),
         count: 1,
+        counters: {
+          fuseAlarmNodes: 0,
+          voltageAlarmNodes: 1,
+          phaseOutOfRangeNodes: 0,
+          phaseDroppedNodes: 0,
+        },
         faults: [
           {
             id: 'NO_VOLTAGE:0000100002-A-R:2026-10-29T15:00:00.000Z',

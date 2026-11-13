@@ -203,6 +203,36 @@ export class ActiveFaultDto {
   warnings: FaultWarning[];
 }
 
+export class FaultNodeCountersDto {
+  @ApiProperty({
+    example: 1,
+    description:
+      'Distinct nodes in the list with at least one active fuse-opening fault (FUSE_OPENING) (F-58).',
+  })
+  fuseAlarmNodes: number;
+
+  @ApiProperty({
+    example: 0,
+    description:
+      'Distinct nodes in the list with at least one active loss-of-voltage alarm (NO_VOLTAGE) (F-58).',
+  })
+  voltageAlarmNodes: number;
+
+  @ApiProperty({
+    example: 0,
+    description:
+      'Distinct nodes in the list with at least one active SMAC phase-out-of-range alarm (PHASE_OUT_OF_RANGE) (F-58).',
+  })
+  phaseOutOfRangeNodes: number;
+
+  @ApiProperty({
+    example: 0,
+    description:
+      'Distinct nodes in the list with at least one active SMAC dropped-phase alarm (PHASE_LOSS) (F-58).',
+  })
+  phaseDroppedNodes: number;
+}
+
 export class ActiveFaultsResponseDto {
   @ApiProperty({
     format: 'date-time',
@@ -213,6 +243,13 @@ export class ActiveFaultsResponseDto {
 
   @ApiProperty({ example: 1, description: 'Number of faults returned.' })
   count: number;
+
+  @ApiProperty({
+    type: () => FaultNodeCountersDto,
+    description:
+      'US15 · F-58: Counters of distinct nodes in the returned list with a fuse alarm, voltage alarm, phase out of range, and dropped phase.',
+  })
+  counters: FaultNodeCountersDto;
 
   @ApiProperty({
     type: () => [ActiveFaultDto],

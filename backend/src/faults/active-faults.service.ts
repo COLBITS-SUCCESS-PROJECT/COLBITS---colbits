@@ -7,6 +7,7 @@ import { ScopeContext } from '../scope/scope.types';
 import {
   ActiveFaultDto,
   ActiveFaultsResponseDto,
+  FaultNodeCountersDto,
   FaultWarning,
 } from './dto/faults.dto';
 import {
