@@ -9,6 +9,12 @@ const SCOPE: ScopeContext = { kind: 'restricted', userId: 2 };
 const RESPONSE = {
   generated_at: '2026-10-29T15:20:00.000Z',
   count: 0,
+  counters: {
+    fuseAlarmNodes: 0,
+    voltageAlarmNodes: 0,
+    phaseOutOfRangeNodes: 0,
+    phaseDroppedNodes: 0,
+  },
   faults: [],
 };
 
