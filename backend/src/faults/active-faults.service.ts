@@ -131,6 +131,10 @@ interface SetInfo {
   circuit: { id: number; name: string };
 }
 
+/**
+ * Active (open) entries inside a user's scope, ordered by severity. Active and resolved alarm
+ * lifecycles are derived from the alarms table on each request.
+ */
 @Injectable()
 export class ActiveFaultsService {
   private readonly logger = new Logger(ActiveFaultsService.name);
@@ -260,7 +264,7 @@ export class ActiveFaultsService {
 
     const rows: SourceAlarmEpisodeRow[] = await this.nodesRepository.query(
       RESOLVED_SOURCE_ALARMS_SQL,
-      [nodes, ...SOURCE_ALARM_PATTERNS, resolvedSince],
+      [nodes, ...SOURCE_ALARM_PATTERNS, resolvedSince, new Date()],
     );
 
     const episodes: SourceAlarmEpisode[] = [];
