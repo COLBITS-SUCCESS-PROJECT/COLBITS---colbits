@@ -84,13 +84,43 @@ describe('F-92 · periodicity and time range are parameters', () => {
     assert.equal(count, net.trafos.length * 7 * 24);
   });
 
-  it('a two-phase transformer has no phase C values', () => {
+  // #CORRECTION TD-21/TD-22/TD-23 (2026-11-09): the test expected 0 for phase C; new tests for NULL, phase pairs and the formula.
+  it('a two-phase transformer stores its missing phase as NULL in all three tables, never 0 (CL-07 / TD-21)', () => {
     const config = base({ trafoRatio: 1, twoPhaseTrafoRatio: 1, intervalMinutes: 360 });
     const net = buildNetwork(config);
+    const missingOf = new Map(net.trafos.map((t) => [t.customId, [0, 1, 2].find((p) => !t.phaseIndexes.includes(p)) as number]));
+    let count = 0;
     for (const { vc, pw, pf } of smacRows(net, config, new Set())) {
-      assert.equal(vc[7], 0);
-      assert.equal(pw[5], null);
-      assert.equal(pf[3], null);
+      const missing = missingOf.get(vc[1]) as number;
+      // vc: va/vb/vc at 5-7, ia/ib/ic at 8-10. pw: active 3-5, reactive 6-8, apparent A/B at 9-10.
+      // pf: apparent C at 3, power factors A/B/C at 4-6.
+      const columns = [vc[5 + missing], vc[8 + missing], pw[3 + missing], pw[6 + missing], pf[4 + missing],
+        missing === 2 ? pf[3] : pw[9 + missing]];
+      assert.deepEqual(columns, [null, null, null, null, null, null], `missing phase ${missing} of ${vc[1]}`);
+      for (const p of [0, 1, 2].filter((x) => x !== missing)) {
+        assert.ok(typeof vc[5 + p] === 'number' && (vc[5 + p] as number) > 200, `phase ${p} of ${vc[1]} has voltage`);
+      }
+      count++;
+    }
+    assert.ok(count > 0);
+  });
+
+  it('two-phase transformers use varying phase pairs: A-B, B-C and A-C (TD-22)', () => {
+    const net = buildNetwork(base({ nodes: 300, trafoRatio: 1, twoPhaseTrafoRatio: 1 }));
+    const pairs = new Set(net.trafos.map((t) => t.phaseIndexes.join('-')));
+    assert.deepEqual([...pairs].sort(), ['0-1', '0-2', '1-2']);
+    assert.ok(net.trafos.every((t) => t.phases === 2 && t.customId.endsWith('-2')));
+  });
+
+  it('load_percent follows the CL-05 formula: total apparent power / rated VA x 100 (TD-23)', () => {
+    const config = base({ trafoRatio: 1, twoPhaseTrafoRatio: 0.5, intervalMinutes: 360 });
+    const net = buildNetwork(config);
+    const ratedOf = new Map(net.trafos.map((t) => [t.customId, t.ratedKva * 1000]));
+    for (const { vc, pw, pf } of smacRows(net, config, new Set())) {
+      const total = [pw[9], pw[10], pf[3]].reduce<number>((sum, s) => sum + (s ?? 0), 0);
+      const expected = (total / (ratedOf.get(vc[1]) as number)) * 100;
+      assert.ok(Math.abs(vc[14] - expected) < 0.2, `${vc[1]}: ${vc[14]} vs ${expected}`);
+      assert.ok(vc[14] < 90, 'normal operation stays below the 90 % overload threshold');
     }
   });
 });

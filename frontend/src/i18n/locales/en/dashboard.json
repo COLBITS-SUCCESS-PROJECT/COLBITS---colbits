@@ -17,8 +17,11 @@
     "allZones": "All zones",
     "allSubstations": "All substations",
     "allCircuits": "All circuits",
-    "search": "Search node",
-    "searchPlaceholder": "Search node or device ID…"
+    "search": "Search node or device",
+    "searchPlaceholder": "Search node or device ID…",
+    "searchLabel": "Search the map",
+    "searchFound": "Map centered on node {{id}}",
+    "searchNotFound": "No node or device “{{query}}” in your scope"
   },
   "map": {
     "label": "Network map",
@@ -62,6 +65,8 @@
     "closeMobile": "Close fault panel",
     "activeCount_one": "{{count}} active",
     "activeCount_other": "{{count}} active",
+    "resize": "Resize the fault panel",
+    "resizeHint": "Drag or use the ← → arrow keys to widen the panel. Double-click to reset.",
     "tabsLabel": "Alarm type",
     "tab": {
       "ACTIVE": "Active",
@@ -85,13 +90,6 @@
       "LAST_HOUR": "Last hour",
       "LAST_DAY": "Last day"
     },
-    "alertType": "Alert type",
-    "allTypes": "All types",
-    "classification": "Classification",
-    "allClassifications": "All",
-    "minDuration": "Minimum duration ≥ {{minutes}} min",
-    "minDurationHint": "Minimum-duration filter: faults shorter than the threshold are hidden.",
-    "minDurationInfo": "What the minimum-duration filter does",
     "sortNote": "Sorted by customers affected, then oldest first",
     "empty": "No faults match the filters.",
     "error": "Faults could not be loaded.",
@@ -100,11 +98,41 @@
     "inactiveSoon": "The inactive devices view will come in a later story.",
     "resolvedSoon": "The resolved faults list will come in a later story."
   },
+  "inactive": {
+    "title": "Inactive devices",
+    "nowCount_one": "{{count}} inactive now",
+    "nowCount_other": "{{count}} inactive now",
+    "summary_one": "{{count}} device · {{window}} · longest silence first",
+    "summary_other": "{{count}} devices · {{window}} · longest silence first",
+    "empty": "No inactive devices in this period.",
+    "error": "The inactive devices could not be loaded.",
+    "loading": "Loading inactive devices",
+    "card": {
+      "label": "{{nodeId}} · {{state}}",
+      "now": "Inactive now",
+      "inRange": "Inactive in range",
+      "silent": "Silent {{duration}}",
+      "neverReported": "Never reported",
+      "reporting": "Reporting",
+      "location": "{{substation}} › {{circuit}} · {{deviceId}}",
+      "total": "Total inactive in range",
+      "periodsLabel": "Inactivity periods",
+      "period": "{{start}} → {{end}}",
+      "ongoing": "ongoing",
+      "threshold_one": "Threshold {{hours}} h ({{device}}) · {{count}} period in range",
+      "threshold_other": "Threshold {{hours}} h ({{device}}) · {{count}} periods in range"
+    }
+  },
   "alertType": {
     "FUSE_OPENING": "Fuse opening",
     "NO_VOLTAGE": "No voltage",
+    "FREE_FALL": "Free fall or abnormal movement",
+    "SOLAR_PANEL_FAILURE": "Solar panel failure",
     "PHASE_LOSS": "Phase loss",
-    "OVERLOAD_UNBALANCE": "Overload & unbalance"
+    "PHASE_OUT_OF_RANGE": "Phase out of range",
+    "OVERLOAD_UNBALANCE": "Overload & unbalance",
+    "LOW_ENERGY": "Low energy",
+    "DEVICE_INACTIVITY": "Device inactivity"
   },
   "classification": {
     "MONOPHASIC": "Monophasic",

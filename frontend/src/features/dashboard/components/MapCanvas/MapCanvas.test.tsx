@@ -16,12 +16,16 @@ const N1: NetworkNode = {
   coordinates: { latitude: 3.469, longitude: -76.529 },
   fuseState: 'CRITICAL',
   transformerState: 'NORMAL',
+  location: null,
+  deviceIds: [],
 }
 const N2: NetworkNode = {
   id: 'ND06102B03',
   coordinates: { latitude: 3.4655, longitude: -76.512 },
   fuseState: null,
   transformerState: 'CRITICAL',
+  location: null,
+  deviceIds: [],
 }
 
 function renderMap(overrides: Partial<MapCanvasProps> = {}) {
@@ -234,6 +238,14 @@ describe('MapCanvas', () => {
     expect(screen.getByRole('region', { name: 'Mapa de la red' })).toBeInTheDocument()
     expect(screen.getByText('overlay')).toBeInTheDocument()
   })
+
+  it('renders the top overlay (last refresh time) inside the map, also when the map fails', () => {
+    renderMap({ isError: true, topOverlay: <p>top-overlay</p> })
+
+    const map = screen.getByRole('region', { name: 'Mapa de la red' })
+    expect(within(map).getByText('top-overlay')).toBeInTheDocument()
+    expect(within(map).getByRole('alert')).toBeInTheDocument()
+  })
 })
 
 describe('MapCanvas — clusters (SCRUM-63 · F-13)', () => {
@@ -248,6 +260,8 @@ describe('MapCanvas — clusters (SCRUM-63 · F-13)', () => {
     coordinates: { latitude: 3.469, longitude: -76.5324 },
     fuseState: 'WARNING',
     transformerState: null,
+    location: null,
+    deviceIds: [],
   }
   const CLUSTER = { name: '2 nodos agrupados' }
 

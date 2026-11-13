@@ -756,7 +756,12 @@ describe('GET /faults — loss-of-voltage and SMAC phase alarms (SCRUM-225, e2e)
       });
     });
 
-    it('lists everything oldest first, ties by alert type', () => {
+    it('lists everything oldest first, ties by alert type, while no client count is known (F-57)', () => {
+      // No fixture fuse set has a client_count, and source alarms never do: every count is unknown
+      // and sorts as 0, so the order is the age order.
+      expect(body.faults.every((fault) => fault.client_count === null)).toBe(
+        true,
+      );
       const starts = body.faults.map((fault) => Date.parse(fault.started_at));
       expect(starts).toEqual([...starts].sort((x, y) => x - y));
 
@@ -764,6 +769,48 @@ describe('GET /faults — loss-of-voltage and SMAC phase alarms (SCRUM-225, e2e)
         .filter((fault) => fault.node === 'SAE2EF0004')
         .map((fault) => fault.alert_type);
       expect(sameInstant).toEqual(['FUSE_OPENING', 'NO_VOLTAGE']);
+    });
+
+    it('lists a fuse fault with clients before older source alarms, and ranks a known 0 like an unknown count (F-57)', async () => {
+      const fuseSet = FIRST_SET_ID + 3; // its fuse-opening fault is newer than other source alarms
+      const setClients = (clients: number | null) =>
+        dataSource().query(
+          'UPDATE fuses_sets SET client_count = $1 WHERE id = $2',
+          [clients, fuseSet],
+        );
+      const order = async () =>
+        (await getFaults(tokens.admin)).faults.map((fault) => ({
+          type: fault.alert_type,
+          set: fault.fuses_set_id,
+          clients: fault.client_count,
+          at: Date.parse(fault.started_at),
+        }));
+      try {
+        await setClients(50);
+        const withClients = await order();
+        // 50 clients: first, although older source alarms exist; all others have no count.
+        expect(withClients[0]).toMatchObject({
+          type: 'FUSE_OPENING',
+          set: fuseSet,
+          clients: 50,
+        });
+        expect(withClients.slice(1).every((f) => f.clients === null)).toBe(
+          true,
+        );
+        const rest = withClients.slice(1).map((f) => f.at);
+        expect(rest).toEqual([...rest].sort((x, y) => x - y));
+
+        // A known 0 does not rank above or below an unknown count: only its age decides.
+        await setClients(0);
+        const withZero = await order();
+        expect(withZero.find((f) => f.type === 'FUSE_OPENING')?.clients).toBe(
+          0,
+        );
+        const starts = withZero.map((f) => f.at);
+        expect(starts).toEqual([...starts].sort((x, y) => x - y));
+      } finally {
+        await setClients(null);
+      }
     });
 
     it('keeps the fuse-opening fault next to a voltage alarm on the same fuse', () => {

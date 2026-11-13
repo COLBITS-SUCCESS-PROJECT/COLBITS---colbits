@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module';
+import { NodesService } from '../src/nodes/nodes.service';
 import {
   ALERT_TYPE_DEFINITIONS,
   ALERT_TYPES,
@@ -683,11 +684,59 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       });
     });
 
-    it('lists the faults oldest first', () => {
-      const starts = body.faults.map((fault) => Date.parse(fault.started_at));
+    it('lists the faults by affected clients, then oldest first (F-57)', () => {
+      // Each fault must not come after the next one on the same two keys: clients (highest first,
+      // an unknown count sorting as 0), then the first opening (oldest first).
+      for (let i = 1; i < body.faults.length; i++) {
+        const previous = body.faults[i - 1];
+        const next = body.faults[i];
+        const previousClients = previous.client_count ?? 0;
+        const nextClients = next.client_count ?? 0;
 
-      expect(starts).toEqual([...starts].sort((x, y) => x - y));
-      expect(body.faults[0].fuses_set_id).toBe(SEED_LONG_RUNNING_SET);
+        expect(previousClients).toBeGreaterThanOrEqual(nextClients);
+        if (previousClients === nextClients) {
+          expect(Date.parse(previous.started_at)).toBeLessThanOrEqual(
+            Date.parse(next.started_at),
+          );
+        }
+      }
+      // Highest count first (120, against 42 and below elsewhere), although it is not the oldest.
+      expect(body.faults[0].fuses_set_id).toBe(990_001);
+    });
+
+    it('lists faults with the same client count oldest first', () => {
+      // Fuse set 990003 (10 clients): two faults, exactly one window apart.
+      const faults = bySet(body, 990_003);
+
+      expect(faults).toHaveLength(2);
+      expect(faults[0].client_count).toBe(10);
+      expect(faults[1].client_count).toBe(10);
+      expect(Date.parse(faults[0].started_at)).toBeLessThan(
+        Date.parse(faults[1].started_at),
+      );
+      expect(body.faults.indexOf(faults[0])).toBeLessThan(
+        body.faults.indexOf(faults[1]),
+      );
+    });
+
+    it('lists an unknown client count after every known one, oldest first among themselves, without turning it into 0', () => {
+      // Sets 990002 and 990006 have no client_count (null); every other fixture and seed set has one.
+      const unknown = body.faults.filter((fault) =>
+        [990_002, 990_006].includes(fault.fuses_set_id),
+      );
+
+      expect(unknown).toHaveLength(2);
+      expect(unknown.every((fault) => fault.client_count === null)).toBe(true);
+      // Nothing with a known count comes after the first unknown one.
+      expect(
+        body.faults
+          .slice(body.faults.indexOf(unknown[0]))
+          .every((fault) => fault.client_count === null),
+      ).toBe(true);
+      // 990002 opened 59 minutes ago, 990006 thirty minutes ago.
+      expect(unknown.map((fault) => fault.fuses_set_id)).toEqual([
+        990_002, 990_006,
+      ]);
     });
 
     it('never lists nor returns an unrecognized event code, and logs it once', async () => {
@@ -701,7 +750,7 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       expect(reports).toHaveLength(1);
     });
 
-    it('does not list a fuse that telemetry shows open when its alarms say closed (known limitation)', async () => {
+    it('does not list a fuse that telemetry shows open when its alarms say closed, and the map agrees (CL-01)', async () => {
       const telemetry: Array<{ fuse_state: string }> = await dataSource.query(
         `SELECT l.fuse_state FROM last_falcon_values l
          JOIN fuses f ON f.current_hw_id = l.hw_id WHERE f.custom_id = '0000100002-A-R'`,
@@ -711,11 +760,19 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
          ORDER BY recorded_at DESC LIMIT 1`,
       );
 
-      expect(telemetry[0].fuse_state).toBe('Abierto'); // the map shows this node as critical
+      expect(telemetry[0].fuse_state).toBe('Abierto'); // telemetry still says open
       expect(lastAlarm[0].event_type).toBe('CLEAR'); // but its alarm history closed the opening
       expect(
         body.faults.filter((fault) => fault.node === SEED_RESOLVED_NODE),
       ).toEqual([]);
+      // #CORRECTION CL-01/TD-01 (2026-11-09): was a known limitation (map red, list empty); the map now agrees with the list.
+      // CL-01 / TD-01: alarms win on the map too, so the node is no longer red.
+      const { nodes } = await app
+        .get(NodesService)
+        .findAll({ kind: 'unrestricted' });
+      expect(
+        nodes.find((node) => node.name === SEED_RESOLVED_NODE)?.fuse_state,
+      ).not.toBe('CRITICAL');
     });
 
     it('changes the grouping when the window changes, without code changes (NF-09)', async () => {

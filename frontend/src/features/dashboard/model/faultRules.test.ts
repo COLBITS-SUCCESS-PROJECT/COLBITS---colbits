@@ -1,7 +1,13 @@
 /** Unit tests for the fault panel business rules. */
 import { describe, it, expect } from 'vitest'
 import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
-import { compareFaults, matchesFilters, selectFaults, type FaultFilters } from './faultRules'
+import {
+  compareFaults,
+  countAlarmNodes,
+  matchesFilters,
+  selectFaults,
+  type FaultFilters,
+} from './faultRules'
 import { ALL, MS_PER_MINUTE } from './liveMonitoring.constants'
 
 const NOW = new Date(2026, 9, 2, 6, 0).getTime()
@@ -15,10 +21,7 @@ const NO_FILTERS: FaultFilters = {
   substation: ALL,
   circuit: ALL,
   search: '',
-  alertType: ALL,
-  classification: ALL,
   timeWindow: 'LAST_DAY',
-  onlyLongFaults: false,
 }
 
 describe('matchesFilters', () => {
@@ -26,26 +29,28 @@ describe('matchesFilters', () => {
     expect(faults.every((fault) => matchesFilters(fault, NO_FILTERS, NOW))).toBe(true)
   })
 
-  it('filters by layer, substation, search, type, classification and minimum duration', () => {
+  it('follows the map location filter through the fault node (US14)', () => {
     const fuse = byId('f-1')
-    expect(matchesFilters(fuse, { ...NO_FILTERS, layers: ['TRANSFORMERS'] }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, zone: 'Z-02' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, substation: 'SE-Sur' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, circuit: 'CR-07' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'nd0482' }, NOW)).toBe(true)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'XX' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, alertType: 'NO_VOLTAGE' }, NOW)).toBe(false)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, classification: 'BIPHASIC' }, NOW)).toBe(true)
-    expect(matchesFilters(fuse, { ...NO_FILTERS, classification: 'TRIPHASIC' }, NOW)).toBe(false)
-    expect(matchesFilters(byId('f-8'), { ...NO_FILTERS, onlyLongFaults: true }, NOW)).toBe(false)
+    expect(matchesFilters(fuse, NO_FILTERS, NOW, new Set([fuse.nodeId]))).toBe(true)
+    expect(matchesFilters(fuse, NO_FILTERS, NOW, new Set(['OTHER']))).toBe(false)
+    expect(matchesFilters(fuse, NO_FILTERS, NOW, new Set())).toBe(false)
   })
 
-  it('uses the classification sent by the backend, so an unclassified fault matches no class', () => {
-    const unclassified = { ...byId('f-1'), classification: null }
+  it('filters by the layers and the search of the map toolbar', () => {
+    const fuse = byId('f-1')
+    expect(matchesFilters(fuse, { ...NO_FILTERS, layers: ['TRANSFORMERS'] }, NOW)).toBe(false)
+    expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'nd0482' }, NOW)).toBe(true)
+    expect(matchesFilters(fuse, { ...NO_FILTERS, search: 'XX' }, NOW)).toBe(false)
+  })
 
-    expect(matchesFilters(unclassified, { ...NO_FILTERS, classification: 'BIPHASIC' }, NOW)).toBe(
-      false
-    )
+  it('keeps short, unclassified and any type of fault: the panel has no filters of its own (F-56)', () => {
+    const shortFault = byId('f-8')
+    const unclassified = { ...byId('f-1'), classification: null }
+    const noVoltage = byId('f-3')
+
+    expect(matchesFilters(shortFault, NO_FILTERS, NOW)).toBe(true)
+    expect(matchesFilters(unclassified, NO_FILTERS, NOW)).toBe(true)
+    expect(matchesFilters(noVoltage, NO_FILTERS, NOW)).toBe(true)
   })
 
   it('keeps an active fault listed however long ago it started (F-62)', () => {
@@ -69,7 +74,7 @@ describe('selectFaults', () => {
     const open = selectFaults(faults, NO_FILTERS, 'OPEN', NOW)
 
     // Assert
-    expect(open.map((fault) => fault.id)).toEqual(['f-1', 'f-2', 'f-3', 'f-4', 'f-5', 'f-6'])
+    expect(open.map((fault) => fault.id)).toEqual(['f-1', 'f-2', 'f-3', 'f-4', 'f-5', 'f-6', 'f-9'])
   })
 
   it('breaks ties by the oldest start', () => {
@@ -88,5 +93,69 @@ describe('selectFaults', () => {
 
   it('returns an empty list when nothing matches', () => {
     expect(selectFaults(faults, { ...NO_FILTERS, search: 'nope' }, 'OPEN', NOW)).toEqual([])
+  })
+})
+
+describe('countAlarmNodes', () => {
+  it('counts the nodes in alarm per alert type', () => {
+    const open = selectFaults(faults, NO_FILTERS, 'OPEN', NOW)
+
+    expect(countAlarmNodes(open)).toEqual({
+      fuseAlarmNodes: 2,
+      voltageAlarmNodes: 1,
+      phaseOutOfRangeNodes: 1,
+      phaseDroppedNodes: 2,
+    })
+  })
+
+  it('counts PHASE_OUT_OF_RANGE as phase out of range and never OVERLOAD_UNBALANCE', () => {
+    const outOfRange = byId('f-9')
+    const overload = byId('f-6')
+
+    expect(countAlarmNodes([overload]).phaseOutOfRangeNodes).toBe(0)
+    expect(countAlarmNodes([outOfRange]).phaseOutOfRangeNodes).toBe(1)
+    expect(countAlarmNodes([overload, outOfRange])).toEqual({
+      fuseAlarmNodes: 0,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 1,
+      phaseDroppedNodes: 0,
+    })
+  })
+
+  it('counts a node with open fuses on two fuse sets once, and a dropped phase on its own counter', () => {
+    const twoSets = [byId('f-1'), { ...byId('f-1'), id: 'f-1b' }]
+
+    expect(countAlarmNodes([...twoSets, byId('f-4')])).toEqual({
+      fuseAlarmNodes: 1,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 1,
+    })
+  })
+
+  it('counts a node once per type even when it has several faults', () => {
+    const sameNode = [byId('f-1'), { ...byId('f-1'), id: 'f-1b' }]
+
+    expect(countAlarmNodes(sameNode).fuseAlarmNodes).toBe(1)
+  })
+
+  it('follows the map filter: only the faults that remain are counted', () => {
+    const fusesOnly = selectFaults(faults, { ...NO_FILTERS, layers: ['FUSES'] }, 'OPEN', NOW)
+
+    expect(countAlarmNodes(fusesOnly)).toEqual({
+      fuseAlarmNodes: 2,
+      voltageAlarmNodes: 1,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 0,
+    })
+  })
+
+  it('returns zeros when there are no faults', () => {
+    expect(countAlarmNodes([])).toEqual({
+      fuseAlarmNodes: 0,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 0,
+    })
   })
 })

@@ -1,4 +1,4 @@
-/** useLiveMonitoringFilters — UI state of the map toolbar and fault panel (layers, scope, search, tab, filters). */
+/** useLiveMonitoringFilters — UI state of the map toolbar (layers, location, search) and of the fault panel (tab, time window). */
 import { useState } from 'react'
 import type { FaultFilters } from '../model/faultRules'
 import { ALL } from '../model/liveMonitoring.constants'
@@ -13,10 +13,7 @@ export const DEFAULT_FILTERS: FaultFilters = {
   substation: ALL,
   circuit: ALL,
   search: '',
-  alertType: ALL,
-  classification: ALL,
   timeWindow: 'LAST_DAY',
-  onlyLongFaults: false,
 }
 
 export function useLiveMonitoringFilters() {
