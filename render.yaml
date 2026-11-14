@@ -52,6 +52,11 @@ services:
         value: '30'
       - key: SMAC_LOW_ENERGY_PERCENT
         value: '30'
+      - key: SMAC_OVERLOAD_PERCENT
+        value: '90'
+      - key: SMAC_VOLTAGE_UNBALANCE_PERCENT
+        value: '2'
+      # SMAC_CURRENT_UNBALANCE_PERCENT is left unset on purpose (TD-10 has no approved value: that condition is disabled).
       - key: DATA_REFRESH_HOURS
         value: '1'
       # The frontend URL (Render asks for it on the first deploy), e.g. https://colbits-web.onrender.com
@@ -116,6 +121,11 @@ services:
         value: '30'
       - key: SMAC_LOW_ENERGY_PERCENT
         value: '30'
+      - key: SMAC_OVERLOAD_PERCENT
+        value: '90'
+      - key: SMAC_VOLTAGE_UNBALANCE_PERCENT
+        value: '2'
+      # SMAC_CURRENT_UNBALANCE_PERCENT is left unset on purpose (TD-10 has no approved value: that condition is disabled).
       - key: DATA_REFRESH_HOURS
         value: '1'
       # The staging frontend URL, e.g. https://colbits-web-dev.onrender.com

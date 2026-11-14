@@ -66,6 +66,10 @@ services:
       CHOKIDAR_USEPOLLING: 'true'
       FALCON_LOW_ENERGY_PERCENT: ${FALCON_LOW_ENERGY_PERCENT:-30}
       SMAC_LOW_ENERGY_PERCENT: ${SMAC_LOW_ENERGY_PERCENT:-30}
+      SMAC_OVERLOAD_PERCENT: ${SMAC_OVERLOAD_PERCENT:-90}
+      SMAC_VOLTAGE_UNBALANCE_PERCENT: ${SMAC_VOLTAGE_UNBALANCE_PERCENT:-2}
+      # Empty = disabled: TD-10 has no approved current-imbalance threshold yet.
+      SMAC_CURRENT_UNBALANCE_PERCENT: ${SMAC_CURRENT_UNBALANCE_PERCENT:-}
     volumes:
       - ./backend:/app
       # Keep the container's Linux node_modules; never mix them with the host's.

@@ -247,6 +247,8 @@ export interface SourceAlarmFault {
   ended_at: string | null;
   duration_seconds: number;
   openings: [];
+  conditions: null;
+  transformer_load: null;
   warnings: FaultWarning[];
 }
 
@@ -387,6 +389,8 @@ export function toSourceAlarmDto(
       ended_at: endedAt === null ? null : endedAt.toISOString(),
       duration_seconds: openDurationSeconds(startedAt, now, endedAt),
       openings: [],
+      conditions: null,
+      transformer_load: null,
       warnings,
     },
   };

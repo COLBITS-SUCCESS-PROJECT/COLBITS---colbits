@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Node } from '../nodes/node.entity';
@@ -11,6 +11,17 @@ import {
   FaultWarning,
   ResolvedWindow,
 } from './dto/faults.dto';
+import {
+  FREE_FALL_ALERT_PARAMETERS,
+  FREE_FALL_ALERTS_SQL,
+  FalconAlertRow,
+  OVERLOAD_ALERTS_SQL,
+  OverloadAlertRow,
+  SOLAR_PANEL_ALERTS_SQL,
+  toFalconAlertDto,
+  toOverloadAlertDto,
+} from './device-alert-queries';
+import { DeviceAlertThresholds } from './device-alert-thresholds';
 import {
   ALERT_TYPE_DEFINITIONS,
   ALERT_TYPES,
@@ -138,7 +149,11 @@ interface SetInfo {
  * - fuse-opening faults (US10): the alarm events are grouped per fuse set within the configured
  *   window, classified by distinct canonical phases, and only the open ones are returned;
  * - source alarms (SCRUM-225): loss of voltage per fuse and SMAC phase alarms per transformer
- *   channel, never grouped (see source-alarms.ts).
+ *   channel, never grouped (see source-alarms.ts);
+ * - device alerts (SCRUM-245, US18): free fall and solar-panel failure per Falcon fuse, and overload
+ *   or imbalance per SMAC transformer, never grouped (see device-alerts.ts and
+ *   device-alert-queries.ts). They come from `alarms` (free fall) and from the telemetry
+ *   (solar panel, overload, imbalance), all derived on each request like the rest.
  * It filters and groups; it does not detect anything new (F-47).
  *
  * Alarm lifecycles (F-59, F-60) are derived from `alarms` on every request; nothing is stored:
@@ -150,16 +165,22 @@ interface SetInfo {
  *   resolvedFaults.
  */
 @Injectable()
-export class ActiveFaultsService {
+export class ActiveFaultsService implements OnModuleInit {
   private readonly logger = new Logger(ActiveFaultsService.name);
   private readonly reportedCodes = new Set<string>();
   private readonly reportedSourceAlarms = new Set<string>();
+  private readonly reportedThresholdNotices = new Set<string>();
 
   constructor(
     @InjectRepository(Node)
     private readonly nodesRepository: Repository<Node>,
     private readonly faultsService: FaultsService,
   ) {}
+
+  /** Says once, at startup, which device-alert thresholds are invalid or unset (TD-10). */
+  onModuleInit(): void {
+    this.deviceAlertThresholds();
+  }
 
   async activeFaults(
     scope: ScopeContext,
@@ -168,7 +189,14 @@ export class ActiveFaultsService {
     const nodes = await this.nodesInScope(scope);
     if (nodes.length === 0) return responseOf(now, []);
 
-    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] = await Promise.all([
+    const thresholds = this.deviceAlertThresholds();
+    const [rows, sourceRows, freeFallRows, solarRows, overloadRows]: [
+      EventRow[],
+      SourceAlarmRow[],
+      FalconAlertRow[],
+      FalconAlertRow[],
+      OverloadAlertRow[],
+    ] = await Promise.all([
       this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
         nodes,
         FUSE_OPENING_PATTERN,
@@ -177,6 +205,17 @@ export class ActiveFaultsService {
       this.nodesRepository.query(ACTIVE_SOURCE_ALARMS_SQL, [
         nodes,
         ...SOURCE_ALARM_PATTERNS,
+      ]),
+      this.nodesRepository.query(FREE_FALL_ALERTS_SQL, [
+        nodes,
+        ...FREE_FALL_ALERT_PARAMETERS,
+      ]),
+      this.nodesRepository.query(SOLAR_PANEL_ALERTS_SQL, [nodes]),
+      this.nodesRepository.query(OVERLOAD_ALERTS_SQL, [
+        nodes,
+        thresholds.overloadPercent,
+        thresholds.voltageUnbalancePercent,
+        thresholds.currentUnbalancePercent,
       ]),
     ]);
 
@@ -190,11 +229,18 @@ export class ActiveFaultsService {
       .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
 
     const sourceAlarms = this.collectSourceAlarms(sourceRows, now);
+    const deviceAlerts = [
+      ...freeFallRows.map((row) => toFalconAlertDto('FREE_FALL', row, now)),
+      ...solarRows.map((row) =>
+        toFalconAlertDto('SOLAR_PANEL_FAILURE', row, now),
+      ),
+      ...this.collectOverloadAlerts(overloadRows, thresholds, now),
+    ];
     const weights = this.faultsService.getSeverityWeights?.();
 
     return responseOf(
       now,
-      orderFaults([...fuseFaults, ...sourceAlarms], weights),
+      orderFaults([...fuseFaults, ...sourceAlarms, ...deviceAlerts], weights),
     );
   }
 
@@ -331,6 +377,44 @@ export class ActiveFaultsService {
     return sourceAlarms;
   }
 
+  private collectOverloadAlerts(
+    rows: OverloadAlertRow[],
+    thresholds: DeviceAlertThresholds,
+    now: Date,
+  ): ActiveFaultDto[] {
+    const alerts: ActiveFaultDto[] = [];
+    for (const row of rows) {
+      const alert = toOverloadAlertDto(row, thresholds, now);
+      if (alert !== null) {
+        alerts.push(alert);
+        continue;
+      }
+      const key = `OVERLOAD_UNBALANCE:${row.source_id}`;
+      if (
+        !this.reportedSourceAlarms.has(key) &&
+        this.reportedSourceAlarms.size < MAX_REPORTED_CODES
+      ) {
+        this.reportedSourceAlarms.add(key);
+        this.logger.warn(
+          `Overload alert for transformer ${JSON.stringify(row.source_id)} not listed: no condition is above its threshold for its last values`,
+        );
+      }
+    }
+    return alerts;
+  }
+
+  /** The device-alert thresholds, logging each notice (invalid or unset setting) only once. */
+  private deviceAlertThresholds(): DeviceAlertThresholds {
+    const { thresholds, warnings } =
+      this.faultsService.getDeviceAlertThresholds();
+    for (const warning of warnings) {
+      if (this.reportedThresholdNotices.has(warning)) continue;
+      this.reportedThresholdNotices.add(warning);
+      this.logger.warn(warning);
+    }
+    return thresholds;
+  }
+
   private async nodesInScope(scope: ScopeContext): Promise<string[]> {
     if (scope.kind === 'empty') return [];
 
@@ -430,6 +514,8 @@ export function toDto(
       opened_at: opening.openedAt.toISOString(),
       closed_at: opening.closedAt ? opening.closedAt.toISOString() : null,
     })),
+    conditions: null,
+    transformer_load: null,
     warnings,
   };
 }
