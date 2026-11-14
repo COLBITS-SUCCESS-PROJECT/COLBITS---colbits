@@ -146,6 +146,8 @@ describe('toSourceAlarmDto', () => {
         ended_at: null,
         duration_seconds: 900,
         openings: [],
+        conditions: null,
+        transformer_load: null,
         warnings: [],
       },
     });
@@ -177,6 +179,8 @@ describe('toSourceAlarmDto', () => {
             ended_at: null,
             duration_seconds: 900,
             openings: [],
+            conditions: null,
+            transformer_load: null,
             warnings: [],
           },
         },

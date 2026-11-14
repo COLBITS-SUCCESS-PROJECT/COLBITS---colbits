@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  ResolvedDeviceAlertThresholds,
+  resolveDeviceAlertThresholds,
+} from './device-alert-thresholds';
 import { DEFAULT_SEVERITY_WEIGHTS, SeverityWeights } from './fault-ordering';
 
 export const DEFAULT_FAULT_GROUPING_WINDOW_MINUTES = 5;
@@ -16,6 +20,16 @@ export class FaultsService {
     return Number.isFinite(configured) && configured > 0
       ? configured
       : DEFAULT_FAULT_GROUPING_WINDOW_MINUTES;
+  }
+
+  /**
+   * SCRUM-245 · NF-22: thresholds of the overload and imbalance alert, configurable without code
+   * changes (device-alert-thresholds.ts). Read on every call, like the other settings here.
+   */
+  getDeviceAlertThresholds(): ResolvedDeviceAlertThresholds {
+    return resolveDeviceAlertThresholds((setting) =>
+      this.configService.get(setting),
+    );
   }
 
   /** US15 · NF-11 (SCRUM-238): severity weights configurable via env without code changes. */
