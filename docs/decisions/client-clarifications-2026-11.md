@@ -5,6 +5,7 @@
 **Status:** Colbits answers are confirmed. Team decisions are proposed and must be agreed by the team before implementation.
 **Update 9 November 2026:** the code was checked against this document and the corrections listed in section 7 were made.
 **Update 11 November 2026:** Colbits answered the TD-04 follow-up (CL-24): a failed phase always reports a value. TD-04 is now resolved with the simple variant, the latest reading only (section 7.2).
+**Update 14 November 2026:** SCRUM-245 added free fall, solar-panel failure and overload / imbalance to `GET /faults`. What is implemented, what stays open and how it performs is in section 7.4.
 
 ## Purpose
 
@@ -211,6 +212,9 @@ All values are configurable. TD-09 and TD-10 need a new flexibility requirement 
 | Legacy I, C, D phases in the fault classification (CL-18) | Kept as they are (7.2) | Team |
 | Q18: does `13xx01` arrive as `SET` or `MSG`? | Unanswered; covered by TD-02 | No action needed |
 | Hours without voltage before `is_solar_panel_alarm` fires | Not given; evaluated by the device | No action needed |
+| Device alerts (free fall, solar panel, overload / imbalance): derive on every request or store them (7.4) | Derived on every request; storing is undecided | Team |
+| Resolved episodes of the device alerts in `GET /faults/resolved` | Not available (nothing is stored); depends on the previous item | Team |
+| Cost of the overload / imbalance and solar-panel queries on large histories (7.4) | Known limitation, accepted for SCRUM-245 (14 Nov 2026); not optimized. To revisit with the persistence decision. | Team |
 
 ## 7. Implementation record (9 November 2026)
 
@@ -253,11 +257,70 @@ Each can change later; the table says how. TD-04 was provisional on 9 Nov 2026 a
 
 | Item | Status |
 | --- | --- |
-| Alert types other than fuse opening (no voltage, free fall TD-02, solar panel, low energy, overload, imbalance) | Not implemented yet. The list returns fuse-opening faults only. |
-| Thresholds 30 % (CL-11, TD-11), 90 % (CL-05), 2 % (TD-09), `cuf_percent` (TD-10) | Not in the backend yet; they need NF-22. TD-10 still has no value. |
+| Alert types of F-47 not yet in the fault list | Low energy (CL-11, TD-11) and device inactivity. Free fall (TD-02), solar panel, overload and imbalance are listed since SCRUM-245 (7.4). |
+| Thresholds 90 % (CL-05), 2 % (TD-09), `cuf_percent` (TD-10) | 90 % and 2 % are settings since SCRUM-245 (NF-22, 7.4). TD-10 still has no value, so the current-imbalance condition is off. The 30 % thresholds (CL-11, TD-11) are outside SCRUM-245. |
 | SMAC alignment tolerance of 2 minutes (CL-22, NF-12) | No alignment of the three SMAC tables yet (history view, F-73). |
 | `angle_incl` in the node view (TD-12) | Not exposed by the node-detail endpoint yet. |
 | Section 4.2 (`Analisis de requisitos V2.md`) | Not in this repository; to be updated where the document is kept. |
+
+### 7.4 Device alerts in the fault list (SCRUM-245, 14 November 2026)
+
+`GET /faults` now also lists `FREE_FALL`, `SOLAR_PANEL_FAILURE` and `OVERLOAD_UNBALANCE`. The rules are in `backend/src/faults/device-alerts.ts` (pure reference, unit tested) and the SQL in `backend/src/faults/device-alert-queries.ts`; an e2e test checks that the SQL agrees with the reference on seeded random data.
+
+**Implemented (complete for SCRUM-245)**
+
+| Alert | Rule | Starts | Ends |
+| --- | --- | --- | --- |
+| `FREE_FALL` (one per fuse) | An `alarms` row with code `13xx01` and type `SET` or `MSG` (TD-02, CL-14). The flag alone never raises it (CL-01). | First such event after the last `is_free_fall_alarm = false` reading | The first reading **strictly later** than the event with `is_free_fall_alarm = false`. A `CLEAR` is ignored. An event at the same instant as a false reading keeps the alert. |
+| `SOLAR_PANEL_FAILURE` (one per fuse) | The flag is the alert (CL-10): last non-null `is_solar_panel_alarm` is true. | First true reading after the last false one | The next reading with the flag false |
+| `OVERLOAD_UNBALANCE` (one per transformer) | Any of `load_percent` above `SMAC_OVERLOAD_PERCENT` (90, CL-05), `vuf_percent` above `SMAC_VOLTAGE_UNBALANCE_PERCENT` (2, TD-09), `cuf_percent` above `SMAC_CURRENT_UNBALANCE_PERCENT` (unset, TD-10). Strictly above; values read as stored (TD-08). | First reading with any condition active, while none was | When no condition is active. Overlapping conditions never restart it, so `started_at` and the `id` are stable. |
+
+- A `NULL` value changes nothing: it neither raises nor resolves an alert. `NaN` and infinite values count as no measurement.
+- Thresholds are settings read on every request (NF-22): with `SMAC_OVERLOAD_PERCENT=80` a transformer at 85 % raises the alert and one at exactly 80 % does not (e2e test). A condition without a threshold is never active.
+- Scope is node-level, as for every other alert. Device-level scope (F-10) depends on SCRUM-249 and is not claimed here.
+- The two new response fields, `conditions` and `transformer_load`, are `null` on every other alert type.
+- Counters of F-58 still count only the four original types. Ordering (F-57) is unchanged: clients, then age; the new types have no client count and no weight of their own.
+
+**Open team decisions**
+
+| Item | State |
+| --- | --- |
+| TD-10: `cuf_percent` threshold | No value. The condition is disabled, the API logs a warning that names TD-10 at start-up, and `CURRENT_UNBALANCE` never appears. CL-06 is **not** met until the team agrees a value (a setting, no code change). |
+| Persistence: derive on every request (current) or store alert episodes | Nothing is stored. Storing would give stable history and remove the cost described under known performance limitations, but needs a schema change and a job; it is the team's call. |
+| Resolved alerts | `GET /faults/resolved` returns no device alert. A free fall, solar failure or overload that ends just leaves the active list. Needs the persistence decision first. |
+| Device-level scope (F-10) | Scope is the whole node, as for every alert: a user who sees a node sees all its device alerts. Device-level scope depends on SCRUM-249; full F-10 compliance is not claimed. |
+| Free-fall `CLEAR` and the same-instant tie | `CLEAR` is ignored because no document defines it (Q18 unanswered); the tie rule (an event at the same instant as a false reading wins) is the team's choice. Both to confirm. |
+| Weight of the new types in the severity order (NF-11) | Not set (they weigh 0). |
+| Threshold changes | The history is evaluated again with the new value, so an episode's start and `id` can move; enabling TD-10 does the same. |
+
+**Known performance limitations (accepted for SCRUM-245, 14 November 2026)**
+
+The team decided not to optimize these queries inside SCRUM-245, whose goal is the alert behavior. They are documented here as known limitations. No index, schema change or persistence was added, and none is needed for the behavior to be correct.
+
+Measured with `EXPLAIN (ANALYZE, BUFFERS)` on PostgreSQL 15 (Docker, `shared_buffers` 512 MB, default settings, warm cache, synthetic data): 2,000 transformers with 11.3 M readings (1,500 with 30 days, 400 with 90 days, 100 with 365 days, one reading every 15 minutes), 6,300 fuses with 7.7 M Falcon readings and 1.2 M alarms. Times are for the whole query. "JIT on" is the PostgreSQL default; whether production uses it is not known.
+
+| Query and situation | JIT on | JIT off |
+| --- | --- | --- |
+| Overload, no transformer over a limit | about 1 s | 0.05 s |
+| Overload, 1 transformer over a limit | 1.2 s (30 days of history) to 3.9 s (365 days) | not measured |
+| Overload, 100 transformers over a limit (5 % of the network) | 6 to 7 s | 5.5 s |
+| Overload, the transformers of one circuit all over a limit | about 17 s | not measured |
+| Overload, 100 over a limit, 365 days of history each | 29 to 30 s | not measured |
+| Overload, 400 over a limit, 90 days each | 26 to 30 s | not measured |
+| Overload, 1,500 over a limit, 30 days each | 30 to 39 s | not measured |
+| Overload, all 2,000 over a limit | 73 to 80 s | not measured |
+| Solar panel, no fuse failing | 0.8 s | 0.08 s |
+| Solar panel, 315 fuses failing for the last 2 h | 0.7 s | not measured |
+| Solar panel, 100 fuses failing for 365 days | 7.4 s | not measured |
+| Free fall, 6,300 fuses (none, or 20 % active) | 0.4 to 0.7 s | 0.4 s |
+| Free fall, one circuit | 0.03 s | 0.03 s |
+
+- **Overload / imbalance.** The history of each transformer that is over a limit is read to find when its episode started. The planner reads the readings table in index order up to the last such transformer and then sorts four times (about 5 to 10 microseconds per reading), so the cost grows with the table size and the history length, not only with the number of transformers over a limit. A network where many transformers are over a limit for a long time is slow.
+- **JIT.** With the default settings PostgreSQL compiles the overload and solar queries, which adds about 0.7 to 1 s to every request even when nothing is over a limit. The same queries take 0.05 to 0.08 s with JIT off.
+- **Solar panel.** A fuse that has been failing for a long time costs about 35 ms per fuse for each 365 days of history.
+- **Free fall.** No limitation seen at this size.
+- **What was not done.** No query optimization, no index and no stored episodes. A rewrite of the overload history read that was tried in a scratch copy helped the one-transformer case and made the many-transformer case worse, so it is not recommended without more work. Switching JIT off for these queries, restructuring the history read, or storing the episodes (the persistence decision above) are the options if the cost matters in production.
+- **Limits of the measurements.** One synthetic, healthy-by-construction data set on a developer machine; production sizes, settings and hardware were not available.
 
 ## Appendix: question numbering
 
