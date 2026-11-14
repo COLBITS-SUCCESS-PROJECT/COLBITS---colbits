@@ -7,6 +7,7 @@ import { ScopeContext } from '../scope/scope.types';
 import {
   ActiveFaultDto,
   ActiveFaultsResponseDto,
+  FaultNodeCountersDto,
   FaultWarning,
   ResolvedWindow,
 } from './dto/faults.dto';
@@ -433,6 +434,43 @@ export function toDto(
   };
 }
 
+/**
+ * US15 · F-58: Counts distinct nodes with a fuse alarm, voltage alarm,
+ * phase out of range, and phase drop among the returned faults.
+ */
+export function countNodesByAlertType(
+  faults: readonly ActiveFaultDto[],
+): FaultNodeCountersDto {
+  const fuseNodes = new Set<string>();
+  const voltageNodes = new Set<string>();
+  const phaseOutOfRangeNodes = new Set<string>();
+  const phaseDropNodes = new Set<string>();
+
+  for (const fault of faults) {
+    switch (fault.alert_type) {
+      case 'FUSE_OPENING':
+        fuseNodes.add(fault.node);
+        break;
+      case 'NO_VOLTAGE':
+        voltageNodes.add(fault.node);
+        break;
+      case 'PHASE_OUT_OF_RANGE':
+        phaseOutOfRangeNodes.add(fault.node);
+        break;
+      case 'PHASE_LOSS':
+        phaseDropNodes.add(fault.node);
+        break;
+    }
+  }
+
+  return {
+    fuseAlarmNodes: fuseNodes.size,
+    voltageAlarmNodes: voltageNodes.size,
+    phaseOutOfRangeNodes: phaseOutOfRangeNodes.size,
+    phaseDroppedNodes: phaseDropNodes.size,
+  };
+}
+
 function responseOf(
   now: Date,
   faults: ActiveFaultDto[],
@@ -440,6 +478,7 @@ function responseOf(
   return {
     generated_at: now.toISOString(),
     count: faults.length,
+    counters: countNodesByAlertType(faults),
     faults,
   };
 }

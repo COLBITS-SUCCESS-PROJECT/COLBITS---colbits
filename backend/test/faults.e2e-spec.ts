@@ -353,6 +353,12 @@ interface FaultBody {
 interface ListBody {
   generated_at: string;
   count: number;
+  counters: {
+    fuseAlarmNodes: number;
+    voltageAlarmNodes: number;
+    phaseOutOfRangeNodes: number;
+    phaseDroppedNodes: number;
+  };
   faults: FaultBody[];
 }
 
@@ -445,10 +451,17 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
     it('returns the documented envelope and only open fuse-opening faults', () => {
       expect(Object.keys(body).sort((a, b) => a.localeCompare(b))).toEqual([
         'count',
+        'counters',
         'faults',
         'generated_at',
       ]);
       expect(body.count).toBe(body.faults.length);
+      expect(body.counters).toEqual({
+        fuseAlarmNodes: new Set(body.faults.map((f) => f.node)).size,
+        voltageAlarmNodes: 0,
+        phaseOutOfRangeNodes: 0,
+        phaseDroppedNodes: 0,
+      });
       expect(Number.isNaN(Date.parse(body.generated_at))).toBe(false);
       for (const fault of body.faults) {
         expect(fault.alert_type).toBe('FUSE_OPENING');

@@ -448,6 +448,12 @@ interface FaultBody {
 interface ListBody {
   generated_at: string;
   count: number;
+  counters: {
+    fuseAlarmNodes: number;
+    voltageAlarmNodes: number;
+    phaseOutOfRangeNodes: number;
+    phaseDroppedNodes: number;
+  };
   faults: FaultBody[];
 }
 
