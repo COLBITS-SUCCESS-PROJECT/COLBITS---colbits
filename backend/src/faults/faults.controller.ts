@@ -1,14 +1,18 @@
-import {
+﻿import {
+  BadRequestException,
   Controller,
   Get,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -17,7 +21,11 @@ import { AuthGuard } from '../auth/auth.guard';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { ScopeService } from '../scope/scope.service';
 import { ActiveFaultsService } from './active-faults.service';
-import { ActiveFaultsResponseDto } from './dto/faults.dto';
+import {
+  ActiveFaultsResponseDto,
+  RESOLVED_WINDOWS,
+  type ResolvedWindow,
+} from './dto/faults.dto';
 
 @Controller('faults')
 @ApiTags('faults')
@@ -50,6 +58,57 @@ export class FaultsController {
 
     return this.activeFaultsService.activeFaults(scope);
   }
+
+  @Get('resolved')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Resolved fuse-opening faults, loss-of-voltage alarms and SMAC phase alarms inside the authenticated user scope (US16: F-60, F-61, F-62, F-63).',
+    description:
+      'Lists only the faults and alarms resolved within the selected window (last hour or last day), ordered by resolution time newest first (F-62), with total duration from activation to resolution (F-63).',
+  })
+  @ApiQuery({
+    name: 'window',
+    required: false,
+    enum: [...RESOLVED_WINDOWS],
+    description:
+      'Resolution time window: 1h (last hour) or 24h / 1d (last day). Defaults to 24h.',
+  })
+  @ApiOkResponse({
+    type: ActiveFaultsResponseDto,
+    description:
+      'Resolved faults and alarms in scope within the window, newest resolution first (F-62).',
+  })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDto,
+    description: 'window is not one of 1h, 24h or 1d.',
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
+  })
+  async findResolved(
+    @Req() request: Request,
+    @Query('window') window?: string,
+  ) {
+    const parsedWindow = parseResolvedWindow(window);
+    const scope = await this.scopeService.resolve(userIdOf(request));
+
+    return this.activeFaultsService.resolvedFaults(scope, parsedWindow);
+  }
+}
+
+function parseResolvedWindow(window: string | undefined): ResolvedWindow {
+  if (window === undefined || window === '') {
+    return '24h';
+  }
+  if ((RESOLVED_WINDOWS as readonly string[]).includes(window)) {
+    return window as ResolvedWindow;
+  }
+  throw new BadRequestException(
+    `window must be one of: ${RESOLVED_WINDOWS.join(', ')}`,
+  );
 }
 
 /** User id from the verified token, or 401 (same rule as NodesController; the guard checked the signature). */

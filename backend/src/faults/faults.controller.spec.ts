@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+﻿import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import type { Request } from 'express';
 import { ScopeService } from '../scope/scope.service';
 import { ScopeContext } from '../scope/scope.types';
@@ -22,6 +22,7 @@ function controllerWith() {
   const scopeService = { resolve: jest.fn().mockResolvedValue(SCOPE) };
   const activeFaultsService = {
     activeFaults: jest.fn().mockResolvedValue(RESPONSE),
+    resolvedFaults: jest.fn().mockResolvedValue(RESPONSE),
   };
   const controller = new FaultsController(
     activeFaultsService as unknown as ActiveFaultsService,
@@ -33,7 +34,7 @@ function controllerWith() {
 const requestFor = (user?: { sub?: unknown }) =>
   ({ user }) as unknown as Request;
 
-describe('FaultsController (US10 · GET /faults)', () => {
+describe('FaultsController (US10 · GET /faults & US16 · GET /faults/resolved)', () => {
   it('returns the active faults inside the scope of the user in the token (F-10)', async () => {
     const { controller, scopeService, activeFaultsService } = controllerWith();
 
@@ -71,5 +72,56 @@ describe('FaultsController (US10 · GET /faults)', () => {
     expect(guards.map((guard) => (guard as { name: string }).name)).toContain(
       'AuthGuard',
     );
+  });
+
+  describe('GET /faults/resolved (US16 · F-62)', () => {
+    it('defaults to the 24h window when no window query parameter is passed', async () => {
+      const { controller, scopeService, activeFaultsService } = controllerWith();
+
+      const result = await controller.findResolved(requestFor({ sub: 2 }));
+
+      expect(scopeService.resolve).toHaveBeenCalledWith(2);
+      expect(activeFaultsService.resolvedFaults).toHaveBeenCalledWith(
+        SCOPE,
+        '24h',
+      );
+      expect(result).toBe(RESPONSE);
+    });
+
+    it.each(['1h', '24h', '1d'] as const)(
+      'forwards the %s window to ActiveFaultsService.resolvedFaults',
+      async (window) => {
+        const { controller, activeFaultsService } = controllerWith();
+
+        await controller.findResolved(requestFor({ sub: 2 }), window);
+
+        expect(activeFaultsService.resolvedFaults).toHaveBeenCalledWith(
+          SCOPE,
+          window,
+        );
+      },
+    );
+
+    it('rejects unsupported window values with 400 BadRequestException', async () => {
+      const { controller, scopeService, activeFaultsService } = controllerWith();
+
+      await expect(
+        controller.findResolved(requestFor({ sub: 2 }), '7d'),
+      ).rejects.toThrow(BadRequestException);
+      expect(scopeService.resolve).not.toHaveBeenCalled();
+      expect(activeFaultsService.resolvedFaults).not.toHaveBeenCalled();
+    });
+
+    it('is protected by the authentication guard', () => {
+      const handler = (
+        FaultsController.prototype as unknown as Record<string, object>
+      )['findResolved'];
+      const guards: unknown[] =
+        Reflect.getMetadata('__guards__', handler) ?? [];
+
+      expect(guards.map((guard) => (guard as { name: string }).name)).toContain(
+        'AuthGuard',
+      );
+    });
   });
 });
