@@ -45,6 +45,7 @@
   --color-feedback-warning-text: var(--color-yellow-800);
   --color-feedback-danger-bg: var(--color-red-50);
   --color-feedback-danger-text: var(--color-red-700);
+  --color-feedback-danger-border: var(--color-red-200);
   --color-feedback-neutral-bg: var(--color-gray-100);
   --color-feedback-neutral-text: var(--color-ink-600);
 

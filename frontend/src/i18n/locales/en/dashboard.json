@@ -36,6 +36,7 @@
     "loading": "Loading nodes",
     "empty": "There are no nodes within your scope.",
     "error": "Nodes could not be loaded.",
+    "interrupted": "Live updates interrupted – the map is no longer refreshing.",
     "retry": "Retry"
   },
   "fuseState": {

@@ -35,7 +35,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | SCRUM-115 | `dashboard` | US17 · Inactive devices tab: list ordered by time without data (sample data until the backend lists them) | [SCRUM-115.md](./dashboard/SCRUM-115.md) | IN_PROGRESS | Monica |
 | SCRUM-110 | `dashboard` | US12 · Live node state updates: the map refreshes every 15 s (F-30, NF-01) | [SCRUM-110.md](./dashboard/SCRUM-110.md) | IN_REVIEW | Paola |
 | SCRUM-108 | `dashboard` | US10 · Active fault list from `GET /faults` (F-51, F-55) | [SCRUM-108.md](./dashboard/SCRUM-108.md) | IN_REVIEW | Paola |
-| SCRUM-111 | `dashboard` | US13 · Time of the last successful map refresh (F-32) and stale map warning (F-31) | [SCRUM-111.md](./dashboard/SCRUM-111.md) | IN_PROGRESS | Paola |
+| SCRUM-111 | `dashboard` | US13 · Time of the last successful map refresh (F-32) and stale map warning (F-31) | [SCRUM-111.md](./dashboard/SCRUM-111.md) | IN_REVIEW | Paola |
 | SCRUM-112 | `dashboard` | US14 · Map filter by zone / substation / circuit and node or device search (F-33, F-34) | [SCRUM-112.md](./dashboard/SCRUM-112.md) | IN_REVIEW | Sofia |
 | SCRUM-113 | `dashboard` | US15 · Panel follows the map filter (F-56), fault ordering (F-57) and node counters (F-58) | [SCRUM-113.md](./dashboard/SCRUM-113.md) | IN_PROGRESS | Paola |
 
