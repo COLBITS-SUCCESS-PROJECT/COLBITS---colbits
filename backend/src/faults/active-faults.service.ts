@@ -105,8 +105,8 @@ export const RESOLVED_FAULT_EVENTS_SQL = `
   JOIN public.circuits c ON c.id = n.circuit_id
   JOIN public.fuses f ON f.fuses_set_id = fs.id
   JOIN public.alarms a ON a.custom_id = f.custom_id
-  WHERE a.event_code ~ $2::text
-    AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
+  WHERE (a.event_code ~ $2::text AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear'))
+     OR NOT (a.event_code ~ ANY($3::text[]))
   ORDER BY fs.id, a.recorded_at, a.event_type, f.custom_id
 `;
 
