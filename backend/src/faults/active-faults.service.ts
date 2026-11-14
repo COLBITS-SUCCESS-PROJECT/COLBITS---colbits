@@ -8,6 +8,7 @@ import {
   ActiveFaultDto,
   ActiveFaultsResponseDto,
   FaultWarning,
+  ResolvedWindow,
 } from './dto/faults.dto';
 import {
   ALERT_TYPE_DEFINITIONS,
@@ -33,16 +34,13 @@ import {
 
 const FUSE_OPENING_PATTERN = requiredPattern('FUSE_OPENING');
 
-/** Every documented Annex §4.2 pattern: a code that matches none of them is unrecognized. */
 const DOCUMENTED_PATTERNS: string[] = ALERT_TYPES.flatMap((type) => {
   const { eventCodePattern } = ALERT_TYPE_DEFINITIONS[type];
   return eventCodePattern === null ? [] : [eventCodePattern];
 });
 
-/** Distinct unrecognized codes logged per process, so a bad code cannot flood the log. */
 const MAX_REPORTED_CODES = 100;
 
-/** `alarms.event_type` values of the fuse-opening lifecycle (Annex §4.2 writes them in lower case). */
 const LIFECYCLE_TYPES = new Map<string, FuseEvent['type']>([
   ['SET', 'SET'],
   ['set', 'SET'],
@@ -50,34 +48,8 @@ const LIFECYCLE_TYPES = new Map<string, FuseEvent['type']>([
   ['clear', 'CLEAR'],
 ]);
 
-/**
- * US10 · F-47 / F-48 / F-49: the events of every fuse set that has a fuse currently open, in one
- * statement (one consistent snapshot).
- *
- * `latest` takes the latest fuse-opening event of each in-scope fuse (a same-instant tie counts as
- * SET, as in the grouping rule); `open_sets` keeps the sets where it is a SET. The final SELECT
- * returns every fuse-opening event of those sets, so a fault that has been open for months still has
- * its first opening, and a chain of openings is complete. It also returns the rows of those fuses
- * whose code matches no documented pattern, only so they can be reported as unrecognized.
- * There is no time lookback. Fuses are joined by `custom_id`: `current_hw_id` keeps no history.
- *
- * Parameters: $1 node names in scope, $2 the fuse-opening pattern, $3 every documented pattern.
- * The patterns are the registry's, passed as values; `~` and `classifyEventCode` agree on every
- * input (checked against PostgreSQL in test/faults.e2e-spec.ts), and the code is not normalized.
- *
- * #CORRECTION CL-01/TD-01 (2026-11-09): the map now follows alarms too; the note about the map disagreeing was removed.
- * Source of truth: `alarms` (CL-01). A fuse whose telemetry (`last_falcon_values.fuse_state`) says
- * open but whose alarm history does not is NOT listed: Scope v6.0 §3.2 takes openings and closings
- * from the alarms, and the seed has such a case (0000100002-A-R). The map applies the same
- * precedence (TD-01, FUSE_SUMMARY_SQL), so it does not show that node as critical either.
- *
- * Performance: step 1 reads the alarms of every in-scope fuse through `idx_alarms_custom_id`, so its
- * cost grows with the alarm history. Measured on 2.9M alarm rows, 18,000 fuses and 4 open sets:
- * about 3.9 s with the existing indexes and about 0.26 s with an index on
- * `alarms (custom_id, recorded_at DESC)`, which makes it independent of the history length.
- * That index is recommended but is not created here: it changes a Colbits table and needs a team
- * decision. Orphan alarms (no fuse with that `custom_id`) cannot be placed in a set and are ignored.
- */
+const HOUR_MS = 3_600_000;
+
 export const ACTIVE_FAULT_EVENTS_SQL = `
   WITH latest AS (
     SELECT fs.id AS fuses_set_id, last_event.is_set
@@ -102,6 +74,33 @@ export const ACTIVE_FAULT_EVENTS_SQL = `
          a.event_code, a.event_type, a.recorded_at
   FROM open_sets o
   JOIN public.fuses_sets fs ON fs.id = o.fuses_set_id
+  JOIN public.nodes n ON n.name = fs.node_id
+  JOIN public.circuits c ON c.id = n.circuit_id
+  JOIN public.fuses f ON f.fuses_set_id = fs.id
+  JOIN public.alarms a ON a.custom_id = f.custom_id
+  WHERE (a.event_code ~ $2::text AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear'))
+     OR NOT (a.event_code ~ ANY($3::text[]))
+  ORDER BY fs.id, a.recorded_at, a.event_type, f.custom_id
+`;
+
+export const RESOLVED_FAULT_EVENTS_SQL = `
+  WITH candidate_sets AS (
+    SELECT DISTINCT fs.id AS fuses_set_id
+    FROM public.fuses_sets fs
+    JOIN public.fuses f ON f.fuses_set_id = fs.id
+    JOIN public.alarms a ON a.custom_id = f.custom_id
+    WHERE fs.node_id = ANY($1::text[])
+      AND a.event_code ~ $2::text
+      AND a.event_type IN ('CLEAR', 'clear')
+      AND a.recorded_at >= $4::timestamptz
+      AND a.recorded_at <= $5::timestamptz
+  )
+  SELECT fs.id AS fuses_set_id, fs.node_id, fs.set_id AS branch, fs.client_count,
+         c.id AS circuit_id, c.name AS circuit_name,
+         f.custom_id AS fuse_id, f.phase,
+         a.event_code, a.event_type, a.recorded_at
+  FROM candidate_sets cs
+  JOIN public.fuses_sets fs ON fs.id = cs.fuses_set_id
   JOIN public.nodes n ON n.name = fs.node_id
   JOIN public.circuits c ON c.id = n.circuit_id
   JOIN public.fuses f ON f.fuses_set_id = fs.id
@@ -146,7 +145,8 @@ interface SetInfo {
  *   the resolution time; a CLEAR wins at the same instant (details in source-alarms.ts);
  * - fuse openings: each fuse has an opening from its first SET to its next CLEAR, and a SET wins at
  *   the same instant (fault-grouping.ts). The openings are listed grouped as one fault, which is
- *   open while any of them is open; resolved faults (F-61) are not returned yet.
+ *   open while any of them is open. Resolved faults and alarms (F-61, F-62) are listed by
+ *   resolvedFaults.
  */
 @Injectable()
 export class ActiveFaultsService {
@@ -160,7 +160,6 @@ export class ActiveFaultsService {
     private readonly faultsService: FaultsService,
   ) {}
 
-  /** `now` is injectable so open durations are exact in tests. */
   async activeFaults(
     scope: ScopeContext,
     now: Date = new Date(),
@@ -168,41 +167,19 @@ export class ActiveFaultsService {
     const nodes = await this.nodesInScope(scope);
     if (nodes.length === 0) return responseOf(now, []);
 
-    // Independent statements on the same node list, so they run in parallel.
-    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] =
-      await Promise.all([
-        this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
-          nodes,
-          FUSE_OPENING_PATTERN,
-          DOCUMENTED_PATTERNS,
-        ]),
-        this.nodesRepository.query(ACTIVE_SOURCE_ALARMS_SQL, [
-          nodes,
-          ...SOURCE_ALARM_PATTERNS,
-        ]),
-      ]);
+    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] = await Promise.all([
+      this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
+        nodes,
+        FUSE_OPENING_PATTERN,
+        DOCUMENTED_PATTERNS,
+      ]),
+      this.nodesRepository.query(ACTIVE_SOURCE_ALARMS_SQL, [
+        nodes,
+        ...SOURCE_ALARM_PATTERNS,
+      ]),
+    ]);
 
-    const sets = new Map<number, SetInfo>();
-    const events: FuseEvent[] = [];
-    for (const row of rows) {
-      const kind = classifyEventCode(row.event_code);
-      if (kind === UNRECOGNIZED) {
-        this.reportUnrecognized(row);
-        continue;
-      }
-      const type = LIFECYCLE_TYPES.get(row.event_type);
-      if (kind !== 'FUSE_OPENING' || type === undefined) continue;
-
-      const fusesSetId = Number(row.fuses_set_id);
-      if (!sets.has(fusesSetId)) sets.set(fusesSetId, setInfoOf(row));
-      events.push({
-        fusesSetId,
-        fuseId: row.fuse_id,
-        phase: row.phase,
-        type,
-        at: new Date(row.recorded_at),
-      });
-    }
+    const { sets, events } = this.collectEvents(rows);
 
     const fuseFaults = groupFuseFaults(
       events,
@@ -211,35 +188,79 @@ export class ActiveFaultsService {
       .filter((fault) => fault.state === 'OPEN')
       .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
 
-    const sourceAlarms: ActiveFaultDto[] = [];
-    for (const row of sourceRows) {
-      const mapped = toSourceAlarmDto(row, now);
-      if ('fault' in mapped) sourceAlarms.push(mapped.fault);
-      else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Active');
-    }
-
+    const sourceAlarms = this.collectSourceAlarms(sourceRows, now);
     const weights = this.faultsService.getSeverityWeights?.();
+
     return responseOf(
       now,
       orderFaults([...fuseFaults, ...sourceAlarms], weights),
     );
   }
 
-  /**
-   * SCRUM-226 · F-60: the source-alarm episodes (NO_VOLTAGE, PHASE_LOSS, PHASE_OUT_OF_RANGE) of
-   * the user's scope that a CLEAR resolved at or after `resolvedSince` (boundary included). Each
-   * episode runs from its first SET to that CLEAR, both as recorded in `alarms`; the rules are in
-   * RESOLVED_SOURCE_ALARMS_SQL. Same scope rule (F-10) and the same skip reasons as activeFaults.
-   *
-   * Internal: no route calls it yet. The resolved list (F-62: route, last hour/day, newest first)
-   * belongs to SCRUM-229 and durations (F-63) to SCRUM-228, which can take them from `endedAt -
-   * startedAt`. The rows come in a fixed order, not that list's order.
-   *
-   * An invalid `resolvedSince` throws a RangeError, so an HTTP caller must validate its input and
-   * answer 400 itself. Instants are `Date` values (milliseconds) while `recorded_at` has
-   * microseconds, so they are truncated to the millisecond. Only source alarms are returned: the
-   * resolved fuse-opening faults (F-61) belong to SCRUM-227.
-   */
+  async resolvedFaults(
+    scope: ScopeContext,
+    window: ResolvedWindow = '24h',
+    now: Date = new Date(),
+  ): Promise<ActiveFaultsResponseDto> {
+    const nodes = await this.nodesInScope(scope);
+    if (nodes.length === 0) return responseOf(now, []);
+
+    const hours = window === '1h' ? 1 : 24;
+    const cutoff = new Date(now.getTime() - hours * HOUR_MS);
+
+    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] = await Promise.all([
+      this.nodesRepository.query(RESOLVED_FAULT_EVENTS_SQL, [
+        nodes,
+        FUSE_OPENING_PATTERN,
+        DOCUMENTED_PATTERNS,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+      // RESOLVED_SOURCE_ALARMS_SQL takes $1-$5 only; the upper bound (now) is applied below.
+      this.nodesRepository.query(RESOLVED_SOURCE_ALARMS_SQL, [
+        nodes,
+        ...SOURCE_ALARM_PATTERNS,
+        cutoff.toISOString(),
+      ]),
+    ]);
+
+    const { sets, events } = this.collectEvents(rows);
+
+    const fuseFaults = groupFuseFaults(
+      events,
+      this.faultsService.getGroupingWindowMinutes(),
+    )
+      .filter(
+        (fault) =>
+          fault.state === 'RESOLVED' &&
+          fault.endedAt !== null &&
+          fault.endedAt.getTime() >= cutoff.getTime() &&
+          fault.endedAt.getTime() <= now.getTime(),
+      )
+      .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
+
+    const sourceAlarms = this.collectSourceAlarms(sourceRows, now).filter(
+      (alarm) =>
+        alarm.state === 'RESOLVED' &&
+        alarm.ended_at !== null &&
+        new Date(alarm.ended_at).getTime() >= cutoff.getTime() &&
+        new Date(alarm.ended_at).getTime() <= now.getTime(),
+    );
+
+    const allResolved = [...fuseFaults, ...sourceAlarms].sort((a, b) => {
+      const endedDiff =
+        new Date(b.ended_at as string).getTime() -
+        new Date(a.ended_at as string).getTime();
+      if (endedDiff !== 0) return endedDiff;
+      const startedDiff =
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime();
+      if (startedDiff !== 0) return startedDiff;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
+
+    return responseOf(now, allResolved);
+  }
+
   async resolvedSourceAlarms(
     scope: ScopeContext,
     resolvedSince: Date,
@@ -268,7 +289,47 @@ export class ActiveFaultsService {
     return episodes;
   }
 
-  /** Same scope rule as the nodes list: the names of the nodes the user may see. */
+  private collectEvents(rows: EventRow[]): {
+    sets: Map<number, SetInfo>;
+    events: FuseEvent[];
+  } {
+    const sets = new Map<number, SetInfo>();
+    const events: FuseEvent[] = [];
+    for (const row of rows) {
+      const kind = classifyEventCode(row.event_code);
+      if (kind === UNRECOGNIZED) {
+        this.reportUnrecognized(row);
+        continue;
+      }
+      const type = LIFECYCLE_TYPES.get(row.event_type);
+      if (kind !== 'FUSE_OPENING' || type === undefined) continue;
+
+      const fusesSetId = Number(row.fuses_set_id);
+      if (!sets.has(fusesSetId)) sets.set(fusesSetId, setInfoOf(row));
+      events.push({
+        fusesSetId,
+        fuseId: row.fuse_id,
+        phase: row.phase,
+        type,
+        at: new Date(row.recorded_at),
+      });
+    }
+    return { sets, events };
+  }
+
+  private collectSourceAlarms(
+    sourceRows: SourceAlarmRow[],
+    now: Date,
+  ): ActiveFaultDto[] {
+    const sourceAlarms: ActiveFaultDto[] = [];
+    for (const row of sourceRows) {
+      const mapped = toSourceAlarmDto(row, now);
+      if ('fault' in mapped) sourceAlarms.push(mapped.fault);
+      else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Active');
+    }
+    return sourceAlarms;
+  }
+
   private async nodesInScope(scope: ScopeContext): Promise<string[]> {
     if (scope.kind === 'empty') return [];
 
@@ -280,7 +341,6 @@ export class ActiveFaultsService {
     return (await query.getMany()).map((node) => node.name);
   }
 
-  /** Minimal diagnostic: each distinct unrecognized code is logged once, never mapped or returned. */
   private reportUnrecognized(row: EventRow): void {
     if (
       this.reportedCodes.has(row.event_code) ||
@@ -331,11 +391,17 @@ function setInfoOf(row: EventRow): SetInfo {
   };
 }
 
-function toDto(fault: FuseFault, info: SetInfo, now: Date): ActiveFaultDto {
+export function toDto(
+  fault: FuseFault,
+  info: SetInfo,
+  now: Date,
+): ActiveFaultDto {
   const rawPhases = fault.openings.map((opening) => opening.phase);
   const classification = classifyFault(rawPhases);
   const warnings: FaultWarning[] =
     classification === null ? ['PHASES_UNCLASSIFIED'] : [];
+
+  const endInstant = fault.endedAt ?? now;
 
   return {
     id: `${fault.fusesSetId}:${fault.startedAt.toISOString()}`,
@@ -347,15 +413,15 @@ function toDto(fault: FuseFault, info: SetInfo, now: Date): ActiveFaultDto {
     device: 'FALCON',
     source_id: null,
     channel: null,
-    state: 'OPEN',
+    state: fault.state,
     phases: classification === null ? null : canonicalPhases(rawPhases),
     classification,
     client_count: info.clientCount,
     started_at: fault.startedAt.toISOString(),
-    ended_at: null,
+    ended_at: fault.endedAt === null ? null : fault.endedAt.toISOString(),
     duration_seconds: Math.max(
       0,
-      Math.floor((now.getTime() - fault.startedAt.getTime()) / 1000),
+      Math.floor((endInstant.getTime() - fault.startedAt.getTime()) / 1000),
     ),
     openings: fault.openings.map((opening) => ({
       fuse_id: opening.fuseId,

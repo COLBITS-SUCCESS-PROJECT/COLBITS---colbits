@@ -44,17 +44,11 @@ export const SOURCE_ALARM_TYPES = [
 ] as const satisfies readonly AlertType[];
 export type SourceAlarmType = (typeof SOURCE_ALARM_TYPES)[number];
 
-/** Device that reports each source alarm (Scope v6.0 §3.2), taken from the registry. */
 export type SourceAlarmDevice = 'FALCON' | 'SMAC';
 
-/**
- * SMAC channels. They are transformer channels, not electrical phases: the client confirmed there
- * is no correspondence between A/B/C and R/S/T (Q7), so a channel is never reported as a phase.
- */
 export const SMAC_CHANNELS = ['A', 'B', 'C'] as const;
 export type SmacChannel = (typeof SMAC_CHANNELS)[number];
 
-/** Source alarm type of an `alarms.event_code`, or null for any other code (including fuse openings). */
 export function sourceAlarmTypeOf(eventCode: string): SourceAlarmType | null {
   const type = classifyEventCode(eventCode);
   return (SOURCE_ALARM_TYPES as readonly string[]).includes(type)
@@ -62,18 +56,10 @@ export function sourceAlarmTypeOf(eventCode: string): SourceAlarmType | null {
     : null;
 }
 
-/** Device of a source alarm type: each one has exactly one in the registry. */
 export function deviceOf(type: SourceAlarmType): SourceAlarmDevice {
   return ALERT_TYPE_DEFINITIONS[type].devices[0];
 }
 
-/**
- * Normalized channel of a SMAC phase event code (its last character, `y`). The Annex calls it a
- * digit and Q17 gives 1 = A, 2 = B, 3 = C, while the seed and the generator write letters, so
- * 1/A, 2/B and 3/C are the same channel (lower case is accepted, as in the transformer layer).
- * null when the code is not a SMAC phase code or its channel is none of those: such an alarm is
- * not listed, since mapping it to a channel would be a guess.
- */
 export function channelOf(eventCode: string): SmacChannel | null {
   const type = sourceAlarmTypeOf(eventCode);
   if (type === null || deviceOf(type) !== 'SMAC') return null;
@@ -231,26 +217,18 @@ export const RESOLVED_SOURCE_ALARMS_SQL = `
  * fuse-set columns are filled; for SMAC alarms the source is a transformer and they are null.
  */
 export interface SourceAlarmRow {
-  /** Event code of the SET that started the alarm (the first SET after the last CLEAR). */
   event_code: string;
-  /** recorded_at of that SET. */
   started_at: Date | string;
-  /** fuses.custom_id or trafos.custom_id: the alarm's `alarms.custom_id`. */
+  ended_at?: Date | string | null;
   source_id: string;
   node_id: string;
   circuit_id: number | string;
   circuit_name: string;
   fuses_set_id: number | string | null;
   branch: string | null;
-  /** fuses.phase as stored; null for SMAC alarms. */
   phase: string | null;
 }
 
-/**
- * Fault-list entry of a source alarm. It has the same fields as a fuse-opening entry plus
- * `device`, `source_id` and `channel`; the fields that only make sense for grouped fuse faults
- * (`classification`, `openings`) are null or empty.
- */
 export interface SourceAlarmFault {
   id: string;
   node: string;
@@ -261,23 +239,25 @@ export interface SourceAlarmFault {
   device: SourceAlarmDevice;
   source_id: string;
   channel: SmacChannel | null;
-  state: 'OPEN';
+  state: 'OPEN' | 'RESOLVED';
   phases: string[] | null;
   classification: null;
   client_count: null;
   started_at: string;
-  ended_at: null;
+  ended_at: string | null;
   duration_seconds: number;
   openings: [];
   warnings: FaultWarning[];
 }
 
-/** Why a row was not turned into an entry; the caller logs it, nothing is guessed. */
 export type SourceAlarmSkipReason =
-  'NOT_A_SOURCE_ALARM' | 'UNKNOWN_CHANNEL' | 'MISSING_FUSE_SET';
+  | 'NOT_A_SOURCE_ALARM'
+  | 'UNKNOWN_CHANNEL'
+  | 'MISSING_FUSE_SET';
 
 export type SourceAlarmMapping =
-  { fault: SourceAlarmFault } | { skipped: SourceAlarmSkipReason };
+  | { fault: SourceAlarmFault }
+  | { skipped: SourceAlarmSkipReason };
 
 /** One source-alarm episode as a query returns it: a SourceAlarmRow plus the CLEAR that ended it. */
 export interface SourceAlarmEpisodeRow extends SourceAlarmRow {
@@ -314,7 +294,8 @@ export interface SourceAlarmEpisode {
 }
 
 export type SourceAlarmEpisodeMapping =
-  { episode: SourceAlarmEpisode } | { skipped: SourceAlarmSkipReason };
+  | { episode: SourceAlarmEpisode }
+  | { skipped: SourceAlarmSkipReason };
 
 interface SourceAlarmIdentity {
   type: SourceAlarmType;
@@ -343,15 +324,16 @@ function identityOf(
   return { type, device, channel };
 }
 
-/** Whole seconds from `startedAt` to `now`, never negative (same rule as fuse-opening faults). */
-export function openDurationSeconds(startedAt: Date, now: Date): number {
-  return Math.max(0, Math.floor((now.getTime() - startedAt.getTime()) / 1000));
+/** Whole seconds from `startedAt` to `endedAt`, or to `now` while open; never negative (same rule as fuse-opening faults). */
+export function openDurationSeconds(
+  startedAt: Date,
+  now: Date,
+  endedAt: Date | null = null,
+): number {
+  const end = endedAt ?? now;
+  return Math.max(0, Math.floor((end.getTime() - startedAt.getTime()) / 1000));
 }
 
-/**
- * Stable id while the alarm stays active, and distinct from fuse-opening ids (which start with
- * a number): `NO_VOLTAGE:<fuse>:<started_at>`, `<type>:<transformer>:<channel>:<started_at>`.
- */
 export function sourceAlarmId(
   type: SourceAlarmType,
   sourceId: string,
@@ -364,12 +346,6 @@ export function sourceAlarmId(
   return parts.join(':');
 }
 
-/**
- * Fault-list entry of one active source alarm. The type and the channel come from the event code,
- * never from the row's other columns. A NO_VOLTAGE entry carries its fuse's canonical phase, or
- * null plus PHASES_UNCLASSIFIED when the stored phase is not valid. SMAC entries carry a channel
- * and no phases. Whether the channel exists on the transformer is not checked (open question).
- */
 export function toSourceAlarmDto(
   row: SourceAlarmRow,
   now: Date,
@@ -387,6 +363,11 @@ export function toSourceAlarmDto(
   }
 
   const startedAt = new Date(row.started_at);
+  const endedAt =
+    row.ended_at !== undefined && row.ended_at !== null
+      ? new Date(row.ended_at)
+      : null;
+
   return {
     fault: {
       id: sourceAlarmId(type, row.source_id, channel, startedAt),
@@ -398,13 +379,13 @@ export function toSourceAlarmDto(
       device,
       source_id: row.source_id,
       channel,
-      state: 'OPEN',
+      state: endedAt === null ? 'OPEN' : 'RESOLVED',
       phases,
       classification: null,
       client_count: null,
       started_at: startedAt.toISOString(),
-      ended_at: null,
-      duration_seconds: openDurationSeconds(startedAt, now),
+      ended_at: endedAt === null ? null : endedAt.toISOString(),
+      duration_seconds: openDurationSeconds(startedAt, now, endedAt),
       openings: [],
       warnings,
     },
