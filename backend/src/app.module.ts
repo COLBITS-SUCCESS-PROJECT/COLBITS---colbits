@@ -8,6 +8,7 @@ import { DeviceModule } from './device/device.module';
 import { NodesModule } from './nodes/nodes.module';
 import { ScopeModule } from './scope/scope.module';
 import { FaultsModule } from './faults/faults.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { FaultsModule } from './faults/faults.module';
       }),
     }),
     FaultsModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

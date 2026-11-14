@@ -1,4 +1,3 @@
-
 import { SelectQueryBuilder } from 'typeorm';
 import { ScopeContext } from './scope.types';
 
@@ -44,6 +43,23 @@ export function applyNodeScope<T extends object>(
 
           OR (us.entity_type = 'zone'
             AND us.entity_id = s.zone_id::text)
+
+          OR (us.entity_type = 'device'
+            AND (
+              EXISTS (
+                SELECT 1
+                FROM public.fuses_sets fs
+                JOIN public.fuses f ON f.fuses_set_id = fs.id
+                WHERE fs.node_id = n.name
+                  AND (f.current_hw_id = us.entity_id OR f.custom_id = us.entity_id)
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM public.trafos t
+                WHERE t.node_id = n.name
+                  AND (t.current_hw_id = us.entity_id OR t.custom_id = us.entity_id)
+              )
+            ))
         )
     )
   `;
