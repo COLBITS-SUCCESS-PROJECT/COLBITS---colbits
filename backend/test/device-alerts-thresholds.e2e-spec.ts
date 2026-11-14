@@ -263,11 +263,13 @@ describe('GET /faults — configurable overload and imbalance thresholds (SCRUM-
 
   it('lists exactly the expected transformers, with their conditions, start and last values', () => {
     expect(
-      [...overloads.keys()].filter((id) => id.startsWith(NODE)).sort(),
+      [...overloads.keys()]
+        .filter((id) => id.startsWith(NODE))
+        .sort((a, b) => a.localeCompare(b)),
     ).toEqual(
       CASES.filter((c) => c.expect !== null)
         .map((c) => trafoId(c.suffix))
-        .sort(),
+        .sort((a, b) => a.localeCompare(b)),
     );
     for (const c of CASES.filter((x) => x.expect !== null)) {
       const want = c.expect as NonNullable<Case['expect']>;
@@ -325,7 +327,7 @@ describe('GET /faults — configurable overload and imbalance thresholds (SCRUM-
     }
     expect(active).toBeGreaterThan(10);
     expect(active).toBeLessThan(RANDOM.transformers.length);
-    expect([...conditions].sort()).toEqual([
+    expect([...conditions].sort((a, b) => a.localeCompare(b))).toEqual([
       'CURRENT_UNBALANCE',
       'OVERLOAD',
       'VOLTAGE_UNBALANCE',

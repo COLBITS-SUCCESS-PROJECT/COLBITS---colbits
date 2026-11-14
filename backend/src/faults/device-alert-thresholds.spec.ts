@@ -117,7 +117,9 @@ describe('device alert thresholds (NF-22, CL-05, TD-09, TD-10)', () => {
       return undefined;
     });
 
-    expect(asked.sort()).toEqual(Object.values(DEVICE_ALERT_SETTINGS).sort());
+    expect(asked.sort((a, b) => a.localeCompare(b))).toEqual(
+      Object.values(DEVICE_ALERT_SETTINGS).sort((a, b) => a.localeCompare(b)),
+    );
     expect(DEVICE_ALERT_SETTINGS).toEqual({
       OVERLOAD: 'SMAC_OVERLOAD_PERCENT',
       VOLTAGE_UNBALANCE: 'SMAC_VOLTAGE_UNBALANCE_PERCENT',

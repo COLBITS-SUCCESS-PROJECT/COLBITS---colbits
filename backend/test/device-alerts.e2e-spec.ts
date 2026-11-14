@@ -868,8 +868,10 @@ describe('GET /faults — device alerts (SCRUM-245, e2e)', () => {
       );
       const expected = TRAFO_CASES.filter((c) => c.expect !== null);
 
-      expect([...listed.keys()].sort()).toEqual(
-        [...expected.map((c) => trafoId(c.suffix)), LIFE_TRAFO].sort(),
+      expect([...listed.keys()].sort((a, b) => a.localeCompare(b))).toEqual(
+        [...expected.map((c) => trafoId(c.suffix)), LIFE_TRAFO].sort((a, b) =>
+          a.localeCompare(b),
+        ),
       );
       for (const c of expected) {
         const fault = listed.get(trafoId(c.suffix));
@@ -1014,7 +1016,7 @@ describe('GET /faults — device alerts (SCRUM-245, e2e)', () => {
         }
         expect(active).toBeGreaterThan(8);
         expect(active).toBeLessThan(RANDOM.transformers.length);
-        expect([...seenConditions].sort()).toEqual([
+        expect([...seenConditions].sort((a, b) => a.localeCompare(b))).toEqual([
           'OVERLOAD',
           'VOLTAGE_UNBALANCE',
         ]);
@@ -1051,12 +1053,12 @@ describe('GET /faults — device alerts (SCRUM-245, e2e)', () => {
         ours(again)
           .filter((f) => DEVICE_TYPES.includes(f.alert_type))
           .map((f) => f.id)
-          .sort(),
+          .sort((a, b) => a.localeCompare(b)),
       ).toEqual(
         ours(body)
           .filter((f) => DEVICE_TYPES.includes(f.alert_type))
           .map((f) => f.id)
-          .sort(),
+          .sort((a, b) => a.localeCompare(b)),
       );
     });
 
