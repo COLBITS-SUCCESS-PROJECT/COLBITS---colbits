@@ -1,29 +1,27 @@
-/** InactiveDevicesTab — Inactive devices tab body: heading, time window, location filters and the list (Figma: Fault Panel · Inactive devices). */
+/**
+ * InactiveDevicesTab — Inactive devices tab body: heading, time window and the list (Figma: Fault
+ * Panel · Inactive devices). No location filter of its own: the list follows the map filter (F-41).
+ */
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Button, Skeleton, ToggleChip } from '@/design-system/atoms'
-import { Select } from '@/design-system/molecules'
 import { ROUTES } from '@/app/router/routes'
-import type { InactiveFilters, InactiveScope } from '../../model/inactiveDevices.rules'
 import type { InactiveDeviceView } from '../../model/inactiveDevices.types'
-import { ALL, TIME_WINDOWS, type TimeWindow } from '../../model/liveMonitoring.constants'
+import { TIME_WINDOWS, type TimeWindow } from '../../model/liveMonitoring.constants'
 import { InactiveDeviceCard } from '../InactiveDeviceCard/InactiveDeviceCard'
 
 const WINDOWS = Object.keys(TIME_WINDOWS) as TimeWindow[]
 const SKELETON_CARDS = 3
 
 export interface InactiveDevicesTabProps {
-  /** Already filtered and ordered (longest silence first). */
+  /** Already restricted to the map filter and ordered (F-40, F-41). */
   devices: InactiveDeviceView[]
-  filters: InactiveFilters
-  scope: InactiveScope
-  onFiltersChange: (patch: Partial<InactiveFilters>) => void
+  timeWindow: TimeWindow
+  onTimeWindowChange: (timeWindow: TimeWindow) => void
   isLoading: boolean
   isError: boolean
   onRetry: () => void
 }
-
-type LocationLevel = 'zone' | 'substation' | 'circuit' | 'node'
 
 function List({
   devices,
@@ -72,14 +70,8 @@ function List({
 }
 
 export function InactiveDevicesTab(props: InactiveDevicesTabProps) {
-  const { devices, filters, scope, onFiltersChange } = props
+  const { devices, timeWindow, onTimeWindowChange } = props
   const { t } = useTranslation('dashboard')
-  const levels: { level: LocationLevel; options: string[] }[] = [
-    { level: 'zone', options: scope.zones },
-    { level: 'substation', options: scope.substations },
-    { level: 'circuit', options: scope.circuits },
-    { level: 'node', options: scope.nodes },
-  ]
 
   return (
     <>
@@ -108,24 +100,8 @@ export function InactiveDevicesTab(props: InactiveDevicesTabProps) {
           <ToggleChip
             key={window}
             label={t(`panel.window.${window}`)}
-            isActive={filters.timeWindow === window}
-            onClick={() => onFiltersChange({ timeWindow: window })}
-          />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-x-2.5 gap-y-2">
-        {levels.map(({ level, options }) => (
-          <Select
-            key={level}
-            size="sm"
-            label={t(`inactive.level.${level}`)}
-            value={filters[level]}
-            options={[
-              { value: ALL, label: t(`inactive.all.${level}`) },
-              ...options.map((value) => ({ value, label: value })),
-            ]}
-            onChange={(event) => onFiltersChange({ [level]: event.target.value })}
+            isActive={timeWindow === window}
+            onClick={() => onTimeWindowChange(window)}
           />
         ))}
       </div>
@@ -133,7 +109,7 @@ export function InactiveDevicesTab(props: InactiveDevicesTabProps) {
       <p className="text-overline text-text-secondary">
         {t('inactive.summary', {
           count: devices.length,
-          window: t(`panel.window.${filters.timeWindow}`).toLowerCase(),
+          window: t(`panel.window.${timeWindow}`).toLowerCase(),
         })}
       </p>
 

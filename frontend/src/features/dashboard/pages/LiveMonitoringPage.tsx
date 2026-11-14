@@ -5,6 +5,7 @@ import { useNow } from '@/hooks/useNow'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { MapCanvas, type FocusRequest } from '../components/MapCanvas/MapCanvas'
 import { MapLegend } from '../components/MapLegend/MapLegend'
+import { MapRefreshTime } from '../components/MapRefreshTime/MapRefreshTime'
 import { MapToolbar, type SearchResult } from '../components/MapToolbar/MapToolbar'
 import { FaultPanel } from '../components/FaultPanel/FaultPanel'
 import { FaultPanelToggle } from '../components/FaultPanel/FaultPanelToggle'
@@ -13,7 +14,7 @@ import { useInactiveDevicesPanel } from '../hooks/useInactiveDevicesPanel'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
-import { selectFaults, type FaultFilters } from '../model/faultRules'
+import { countAlarmNodes, selectFaults, type FaultFilters } from '../model/faultRules'
 import { ALL } from '../model/liveMonitoring.constants'
 import {
   filterNodesByLocation,
@@ -35,13 +36,14 @@ export function LiveMonitoringPage() {
   const nodesQuery = useNodesQuery()
   const { filters, updateFilters, toggleLayer, tab, setTab } = useLiveMonitoringFilters()
   const now = useNow()
-  const inactive = useInactiveDevicesPanel(now)
   const faults = useMemo(() => query.data?.faults ?? [], [query.data])
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null)
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null)
   const allNodes = useMemo(() => nodesQuery.data ?? [], [nodesQuery.data])
   const { zone, substation, circuit } = filters
   const location = useMemo(() => ({ zone, substation, circuit }), [zone, substation, circuit])
+  // F-41: the inactive-device list follows the same map filter; it has no location filter of its own.
+  const inactive = useInactiveDevicesPanel(now, location)
   // F-33: the map shows only the nodes of the selected zone / substation / circuit.
   const visibleNodes = useMemo(
     () => filterNodesByLocation(allNodes, location),
@@ -58,6 +60,12 @@ export function LiveMonitoringPage() {
     [faults, filters, now, nodesInLocation]
   )
 
+  // The summary counts the faults the list shows, so it follows the map filter.
+  // BACKEND EXPECTED: there is no counters endpoint (US15), so they are derived from GET /faults.
+  // That list must carry every alarm type of F-58 (FUSE_OPENING, NO_VOLTAGE, PHASE_OUT_OF_RANGE,
+  // PHASE_LOSS), each with its `node` and `device`; until the mapper reads them, the counters
+  // other than the fuse one stay at 0.
+  const counters = useMemo(() => countAlarmNodes(activeFaults), [activeFaults])
   function handleFiltersChange(patch: Partial<FaultFilters>) {
     if (patch.search !== undefined) setSearchResult(null)
     updateFilters(patch)
@@ -105,6 +113,7 @@ export function LiveMonitoringPage() {
           isError={nodesQuery.isError}
           onRetry={() => void nodesQuery.refetch()}
           onSelectNode={setSelectedNodeId}
+          topOverlay={<MapRefreshTime />}
           focusRequest={focusRequest}
         >
           <MapLegend layers={filters.layers} />
@@ -128,9 +137,9 @@ export function LiveMonitoringPage() {
           tab={tab}
           onTabChange={setTab}
           activeFaults={activeFaults}
-          // GET /faults lists open faults only: resolved faults (US16) and counters (US15) come later.
+          // GET /faults lists open faults only: resolved faults (US16) come later.
           resolvedFaults={null}
-          counters={query.data?.counters ?? null}
+          counters={query.isSuccess ? counters : null}
           inactive={inactive}
           filters={filters}
           onFiltersChange={updateFilters}

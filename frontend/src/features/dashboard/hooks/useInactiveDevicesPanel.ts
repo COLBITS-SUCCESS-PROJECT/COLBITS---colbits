@@ -1,34 +1,35 @@
-/** useInactiveDevicesPanel — props of the Inactive devices tab: sample devices, filters, scope and ordered list. */
+/** useInactiveDevicesPanel — props of the Inactive devices tab: devices from the API, time window and ordered list. */
 import { useMemo, useState } from 'react'
-import { FEATURES } from '@/config/features'
-import { buildInactiveDevicesMock } from '@/mocks/data/inactiveDevices.fixtures'
 import type { InactiveDevicesTabProps } from '../components/FaultPanel/InactiveDevicesTab'
-import { deriveInactiveScope, selectInactiveDevices } from '../model/inactiveDevices.rules'
-import { useInactiveDevicesFilters } from './useInactiveDevicesFilters'
+import { selectInactiveDevices } from '../model/inactiveDevices.rules'
+import type { TimeWindow } from '../model/liveMonitoring.constants'
+import type { LocationFilter } from '../model/scopeOptions'
+import { useInactiveDevicesQuery } from './useInactiveDevicesQuery'
+
+/** Figma default of the tab: last day. */
+export const DEFAULT_INACTIVE_WINDOW: TimeWindow = 'LAST_DAY'
 
 /**
- * null while the sample data is off: the tab then says the list is coming.
- * TODO SCRUM-115: replace the sample devices with the inactive-devices endpoint once the backend publishes it.
+ * `location` is the filter at the top of the map: the list follows it and has no location filter of
+ * its own (F-41, client review). Only the time window belongs to the tab.
  */
-export function useInactiveDevicesPanel(now: number): InactiveDevicesTabProps | null {
-  const { filters, updateFilters } = useInactiveDevicesFilters()
-  const [devices] = useState(() =>
-    FEATURES.INACTIVE_DEVICES_SAMPLE_DATA ? buildInactiveDevicesMock(Date.now()) : null
-  )
-  const scope = useMemo(() => deriveInactiveScope(devices ?? [], filters), [devices, filters])
+export function useInactiveDevicesPanel(
+  now: number,
+  location: LocationFilter
+): InactiveDevicesTabProps {
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(DEFAULT_INACTIVE_WINDOW)
+  const query = useInactiveDevicesQuery()
   const views = useMemo(
-    () => selectInactiveDevices(devices ?? [], filters, now),
-    [devices, filters, now]
+    () => selectInactiveDevices(query.data ?? [], timeWindow, location, now),
+    [query.data, timeWindow, location, now]
   )
 
-  if (!devices) return null
   return {
     devices: views,
-    filters,
-    scope,
-    onFiltersChange: updateFilters,
-    isLoading: false,
-    isError: false,
-    onRetry: () => undefined,
+    timeWindow,
+    onTimeWindowChange: setTimeWindow,
+    isLoading: query.isPending,
+    isError: query.isError,
+    onRetry: () => void query.refetch(),
   }
 }

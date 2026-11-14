@@ -1,11 +1,11 @@
-/** Data freshness — when live data was last received, shown by the Top Bar as Live / Stale. */
+/** Data freshness — when the map last refreshed successfully (F-32), shown by the Top Bar with its Live / Stale state. */
 import { create } from 'zustand'
 
 /** PROVISIONAL — data older than this is "stale" (open question Q3 in docs/specs/dashboard/FEATURE.md). */
 export const STALE_AFTER_MS = 5 * 60 * 1000
 
 interface DataFreshnessState {
-  /** Epoch ms of the last successful live-data response, or null before the first one. */
+  /** Epoch ms of the last successful map refresh (`GET /nodes`), or null before the first one. */
   lastSyncedAt: number | null
   markSynced: (at: number) => void
   reset: () => void

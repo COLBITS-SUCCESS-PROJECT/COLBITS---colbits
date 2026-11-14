@@ -7,6 +7,36 @@ import {
 } from './fault-alert-types';
 import { canonicalPhases, classifyFault } from './fault-classification';
 
+/**
+ * Source alarms of the active fault list (SCRUM-225 · F-47, US16): loss of voltage on a Falcon
+ * fuse and the two SMAC transformer phase alarms. Unlike fuse openings (US10), they are never
+ * grouped: each one belongs to a single source, a fuse or one transformer channel.
+ *
+ * Event codes (Technical Annex v1.1 §4.2, mapping doc rows 18-23):
+ *   13xx21  NO_VOLTAGE          Falcon fuse, SET = voltage lost, CLEAR = restored
+ *   05xx21y PHASE_LOSS          SMAC channel y, SET = phase dropped, CLEAR = recovered
+ *   05xx20y PHASE_OUT_OF_RANGE  SMAC channel y, SET = out of range, CLEAR = back in range
+ *
+ * Only the `alarms` table makes them active (client answer Q22: the alarms table takes priority);
+ * telemetry never creates one. ACTIVE_SOURCE_ALARMS_SQL selects the active ones and
+ * RESOLVED_SOURCE_ALARMS_SQL the resolved episodes (SCRUM-226 · F-59, F-60); the functions here
+ * are pure and map those rows to the fault-list format or to SourceAlarmEpisode.
+ *
+ * Lifecycle (SCRUM-226). The events of one key (type + source + channel; the firmware version is
+ * ignored and the SMAC channel normalized) form episodes:
+ *   - an episode starts at the first SET after a CLEAR; later SETs change nothing, so the alarm
+ *     stays active while the device keeps reporting it (F-59);
+ *   - the next CLEAR resolves it, and that CLEAR's `recorded_at` is the resolution time (F-60);
+ *   - a later SET starts a new episode with its own start time and id.
+ * `startedAt` and `endedAt` are always `recorded_at` values (server receipt time), never the time
+ * of the query. A CLEAR and a SET at the same instant: the CLEAR wins. An episode that would start
+ * and end at that same instant is not reported at all (D3-B, provisional, pending team review).
+ *
+ * These are the individual source alarms. Fuse openings (13xx20) have their own lifecycle in
+ * fault-grouping.ts, are listed grouped as faults, and break a same-instant tie the other way (the
+ * SET wins); that difference is not a requirement and is pending a team decision. Resolving a
+ * whole fuse fault (F-61) is not done here.
+ */
 export const SOURCE_ALARM_TYPES = [
   'NO_VOLTAGE',
   'PHASE_LOSS',
@@ -37,6 +67,7 @@ export function channelOf(eventCode: string): SmacChannel | null {
   return phase === null ? null : SMAC_CHANNELS[phase - 1];
 }
 
+/** Registry patterns of the three types, in the order the source-alarm queries take them ($2-$4). */
 export const SOURCE_ALARM_PATTERNS: readonly string[] = SOURCE_ALARM_TYPES.map(
   (type) => {
     const { eventCodePattern } = ALERT_TYPE_DEFINITIONS[type];
@@ -47,6 +78,21 @@ export const SOURCE_ALARM_PATTERNS: readonly string[] = SOURCE_ALARM_TYPES.map(
   },
 );
 
+/**
+ * Event selection shared by the source-alarm queries: every SET and CLEAR of the in-scope sources,
+ * one row per event, tagged with its alarm key. It selects and normalizes; it decides nothing.
+ *
+ * - Sources: every fuse of an in-scope fuse set (NO_VOLTAGE) and every in-scope transformer
+ *   (PHASE_LOSS, PHASE_OUT_OF_RANGE). Alarms are joined by `custom_id` only (mapping doc row 80):
+ *   an alarm with no `custom_id` cannot be placed and is not listed.
+ * - Key: type + source + channel. The SMAC channel is normalized as channelOf does (1/A, 2/B,
+ *   3/C, any case). An unknown channel keeps its raw character as its own key, so it never merges
+ *   with a known one; such a row is returned and then skipped and logged by the service.
+ * - event_type: SET, set, CLEAR and clear, the same values the fuse-opening query accepts.
+ *
+ * Written as a CTE named `events`, to be placed after WITH. Parameters: $1 node names in scope,
+ * $2-$4 the registry patterns (SOURCE_ALARM_PATTERNS).
+ */
 export const SOURCE_ALARM_EVENTS_CTE = `events AS (
     SELECT 'NO_VOLTAGE'::text AS alert_type, f.custom_id AS source_id, ''::text AS channel_key,
            fs.node_id, fs.id AS fuses_set_id, fs.set_id AS branch, f.phase,
@@ -75,6 +121,16 @@ export const SOURCE_ALARM_EVENTS_CTE = `events AS (
       AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
   )`;
 
+/**
+ * Active source alarms of the in-scope nodes, one row per source, in one statement, built on
+ * SOURCE_ALARM_EVENTS_CTE (sources, key and event types are described there).
+ *
+ * - Active: the key has a SET later than its last CLEAR. At the same instant a CLEAR wins.
+ * - started_at: the first SET after the last CLEAR, so repeated SETs never restart an alarm.
+ *
+ * There is no time lookback: an alarm stays listed until its CLEAR arrives. Telemetry is not read.
+ * Parameters: $1 node names in scope, $2-$4 the registry patterns (SOURCE_ALARM_PATTERNS).
+ */
 export const ACTIVE_SOURCE_ALARMS_SQL = `
   WITH ${SOURCE_ALARM_EVENTS_CTE}, marked AS (
     SELECT e.*,
@@ -98,6 +154,29 @@ export const ACTIVE_SOURCE_ALARMS_SQL = `
   ORDER BY ac.started_at, ac.alert_type, ac.source_id, ac.channel_key
 `;
 
+/**
+ * Resolved source-alarm episodes (SCRUM-226 · F-60) of the in-scope nodes whose CLEAR was recorded
+ * at or after $5, one row per episode, built on SOURCE_ALARM_EVENTS_CTE.
+ *
+ * - Episode: the SETs of one key up to the next CLEAR. It starts at the first of them, so repeated
+ *   SETs never restart it (F-59), and ends at that CLEAR's recorded_at (F-60). A later SET starts
+ *   a new episode; a CLEAR with no SET before it ends nothing.
+ * - next_clear: for each SET, the earliest CLEAR at or after it. The frame includes the rows at the
+ *   same instant, so a CLEAR at the same instant as a SET ends it: the CLEAR wins, as in
+ *   ACTIVE_SOURCE_ALARMS_SQL. The SETs with no next CLEAR are exactly the ones that query lists as
+ *   active; they are not returned here.
+ * - Zero-length episodes (the episode's SETs and its CLEAR all at one instant, nothing open before)
+ *   are not returned. Provisional decision D3-B, pending team review: the active list never shows
+ *   them either.
+ * - $5 is compared with the CLEAR's recorded_at, boundary included. Before the window runs, only
+ *   sources with a source-alarm CLEAR at or after $5 are kept; their whole history is still read,
+ *   because an episode can start long before $5.
+ *
+ * Times come only from recorded_at (server receipt): the query never reads the clock. Rows are
+ * ordered by resolution instant, type, source and channel only so the result is reproducible; it
+ * is not the order of the resolved list (F-62, SCRUM-229).
+ * Parameters: $1-$4 as ACTIVE_SOURCE_ALARMS_SQL, $5 the earliest resolution instant (timestamptz).
+ */
 export const RESOLVED_SOURCE_ALARMS_SQL = `
   WITH ${SOURCE_ALARM_EVENTS_CTE}, marked AS (
     SELECT e.*,
@@ -133,6 +212,10 @@ export const RESOLVED_SOURCE_ALARMS_SQL = `
   ORDER BY ep.ended_at, ep.alert_type, ep.source_id, ep.channel_key, ep.started_at
 `;
 
+/**
+ * One active source alarm as a query returns it. For NO_VOLTAGE the source is a fuse and the
+ * fuse-set columns are filled; for SMAC alarms the source is a transformer and they are null.
+ */
 export interface SourceAlarmRow {
   event_code: string;
   started_at: Date | string;
@@ -176,24 +259,37 @@ export type SourceAlarmMapping =
   | { fault: SourceAlarmFault }
   | { skipped: SourceAlarmSkipReason };
 
+/** One source-alarm episode as a query returns it: a SourceAlarmRow plus the CLEAR that ended it. */
 export interface SourceAlarmEpisodeRow extends SourceAlarmRow {
+  /** recorded_at of the CLEAR that ended the episode; null while it is open. */
   ended_at: Date | string | null;
 }
 
+/**
+ * One activation of a source alarm, from its first SET to the next CLEAR (SCRUM-226 · F-59, F-60).
+ * Internal: it is not an API DTO, and it carries only facts of the alarm, no presentation
+ * (`device` is deviceOf(alertType); phases, classification and duration belong to the callers).
+ */
 export interface SourceAlarmEpisode {
+  /** sourceAlarmId of the alarm: the same id it had as an active entry. */
   id: string;
   alertType: SourceAlarmType;
+  /** fuses.custom_id (NO_VOLTAGE) or trafos.custom_id (SMAC alarms). */
   sourceId: string;
+  /** SMAC channel; null for NO_VOLTAGE. */
   channel: SmacChannel | null;
   node: string;
   circuit: { id: number; name: string };
+  /** NO_VOLTAGE only: the fuse's set, branch and phase as stored; null for SMAC alarms. */
   fuse: {
     fusesSetId: number;
     branch: string | null;
     phase: string | null;
   } | null;
   state: 'OPEN' | 'RESOLVED';
+  /** recorded_at of the first SET of the episode. */
   startedAt: Date;
+  /** recorded_at of the CLEAR that ended it; null while open. */
   endedAt: Date | null;
 }
 
@@ -207,6 +303,10 @@ interface SourceAlarmIdentity {
   channel: SmacChannel | null;
 }
 
+/**
+ * Type, device and channel of a row, all from its event code; or why the row cannot be placed:
+ * not a source-alarm code, an unknown SMAC channel, or a voltage alarm with no fuse set.
+ */
 function identityOf(
   row: SourceAlarmRow,
 ): SourceAlarmIdentity | { skipped: SourceAlarmSkipReason } {
@@ -224,6 +324,7 @@ function identityOf(
   return { type, device, channel };
 }
 
+/** Whole seconds from `startedAt` to `endedAt`, or to `now` while open; never negative (same rule as fuse-opening faults). */
 export function openDurationSeconds(
   startedAt: Date,
   now: Date,
@@ -291,6 +392,11 @@ export function toSourceAlarmDto(
   };
 }
 
+/**
+ * SourceAlarmEpisode of one row, with the same rules as toSourceAlarmDto: type and channel from
+ * the event code, the same skip reasons, and the same id as the active entry. Both times are the
+ * row's recorded_at values; nothing is read from the clock. The state follows ended_at.
+ */
 export function toSourceAlarmEpisode(
   row: SourceAlarmEpisodeRow,
 ): SourceAlarmEpisodeMapping {
