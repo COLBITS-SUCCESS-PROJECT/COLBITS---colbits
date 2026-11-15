@@ -125,6 +125,11 @@ services:
         value: '30'
       - key: DEMO_SCENARIOS_ENABLED
         value: 'true'
+      # SCRUM-253: scenarios write only to the database named here, and only once it has its
+      # synthetic-dataset marker (the generator writes it on the next data refresh). Same value as
+      # DB_NAME above; confirm the live database name on Render before relying on it.
+      - key: DEMO_SCENARIOS_DATABASE
+        value: colbits_dev
       - key: SMAC_OVERLOAD_PERCENT
         value: '90'
       - key: SMAC_VOLTAGE_UNBALANCE_PERCENT

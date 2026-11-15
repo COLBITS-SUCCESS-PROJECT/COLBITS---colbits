@@ -68,6 +68,9 @@ services:
       SMAC_LOW_ENERGY_PERCENT: ${SMAC_LOW_ENERGY_PERCENT:-30}
       # Local data comes from the generator, so the demo scenario panel is on (US31).
       DEMO_SCENARIOS_ENABLED: ${DEMO_SCENARIOS_ENABLED:-true}
+      # SCRUM-253: the one database scenarios may write to; it must also have the synthetic-dataset
+      # marker (written by 02_dummy_inserts.sql on a new volume, or by the generator).
+      DEMO_SCENARIOS_DATABASE: ${DEMO_SCENARIOS_DATABASE:-colbits}
       SMAC_OVERLOAD_PERCENT: ${SMAC_OVERLOAD_PERCENT:-90}
       SMAC_VOLTAGE_UNBALANCE_PERCENT: ${SMAC_VOLTAGE_UNBALANCE_PERCENT:-2}
       # Empty = disabled: TD-10 has no approved current-imbalance threshold yet.

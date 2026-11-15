@@ -49,7 +49,7 @@ export class ScenariosController {
   @ApiOperation({
     summary: 'Demo mode and the scenarios it offers (US31 · F-100).',
     description:
-      'enabled is true only where DEMO_SCENARIOS_ENABLED=true (never in production, NF-03). The frontend shows the scenario panel only when enabled is true.',
+      'enabled is true only where scenarios could write: DEMO_SCENARIOS_ENABLED=true, DEMO_SCENARIOS_DATABASE names the connected database, and that database has its synthetic-dataset marker (never in production, NF-03). The frontend shows the scenario panel only when enabled is true.',
   })
   @ApiOkResponse({ type: ScenariosStatusDto })
   @ApiUnauthorizedResponse({ type: ErrorResponseDto })
@@ -75,7 +75,7 @@ export class ScenariosController {
   @ApiForbiddenResponse({
     type: ErrorResponseDto,
     description:
-      'Demo mode is off, or the user is not a Colbits administrator.',
+      'Demo mode is off, the database is not the one designated by DEMO_SCENARIOS_DATABASE or has no synthetic-dataset marker for itself, or the user is not a Colbits administrator. Nothing is written.',
   })
   @ApiNotFoundResponse({
     type: ErrorResponseDto,

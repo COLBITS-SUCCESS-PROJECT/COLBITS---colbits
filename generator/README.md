@@ -30,6 +30,12 @@ F-36, F-37). For controlled data gaps, still silent or resumed, see
 `--reset` deletes all data in Colbits' tables of the target database. Use it only on a dedicated,
 disposable development or test database, never on a shared one.
 
+Each run also manages a **synthetic-dataset marker** (table `public.synthetic_dataset`, outside
+Colbits' schema), which the backend's demo scenarios require before they write (SCRUM-253). A run
+first removes the marker (with or without `--reset`; `--reset` truncates it with the data) and
+writes a new one, naming the database, only in the same transaction as the generated data. A run
+that fails therefore leaves no marker, and the scenarios stay refused until a run succeeds.
+
 ```bash
 cd generator
 npm ci

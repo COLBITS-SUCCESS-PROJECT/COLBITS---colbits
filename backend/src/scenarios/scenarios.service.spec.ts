@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import { Node } from '../nodes/node.entity';
 import { SCENARIO_ACTIONS } from './scenario-actions';
 import {
+  DEMO_DATABASE_SQL,
   DEVICE_CLOCK_SQL,
   FIRMWARE_SQL,
   FUSE_TARGET_SQL,
@@ -18,11 +19,14 @@ import {
   INSERT_SMAC_READING_SQL,
   LATEST_EVENT_SQL,
   LOCK_DEVICE_SQL,
+  SYNTHETIC_MARKER_SQL,
   ScenariosService,
   TRANSFORMER_TARGET_SQL,
 } from './scenarios.service';
 
 const NOW = new Date('2026-11-15T15:00:00.000Z');
+/** SCRUM-253: the database the tests designate and connect to. */
+const DEMO_DB = 'colbits_demo_test';
 const FUSE = {
   custom_id: '0000100002-A-R',
   hw_id: '1301000004',
@@ -53,6 +57,14 @@ function serviceWith(
     latestAt?: Date | null;
     /** SCRUM-253: the fuse as read again under the lock (default: the same as `fuse`). */
     fuseUnderLock?: unknown;
+    /** SCRUM-253: DEMO_SCENARIOS_DATABASE (undefined = not set). */
+    designated?: string;
+    /** SCRUM-253: current_database(), the marker table and a marker for this database. */
+    connectedTo?: string;
+    markerTable?: boolean;
+    marked?: boolean;
+    /** SCRUM-253: the database check itself fails (e.g. a permission error). */
+    guardFails?: boolean;
   } = {},
 ) {
   const {
@@ -62,7 +74,12 @@ function serviceWith(
     inScope = true,
     databaseNow = NOW,
     latestAt = null,
+    connectedTo = DEMO_DB,
+    markerTable = true,
+    marked = true,
+    guardFails = false,
   } = options;
+  const designated = 'designated' in options ? options.designated : DEMO_DB;
   const fuse = 'fuse' in options ? options.fuse : FUSE;
   const trafo = 'trafo' in options ? options.trafo : TRAFO;
   const fuseUnderLock =
@@ -90,6 +107,14 @@ function serviceWith(
     }
     if (sql === FIRMWARE_SQL) {
       return Promise.resolve(firmware ? [{ firmware }] : []);
+    }
+    if (sql === DEMO_DATABASE_SQL || sql === SYNTHETIC_MARKER_SQL) {
+      if (guardFails) return Promise.reject(new Error('permission denied'));
+      return Promise.resolve(
+        sql === DEMO_DATABASE_SQL
+          ? [{ database_name: connectedTo, has_marker_table: markerTable }]
+          : [{ marked }],
+      );
     }
     if (sql === DEVICE_CLOCK_SQL) {
       return Promise.resolve([
@@ -131,7 +156,11 @@ function serviceWith(
   };
   const config = {
     get: jest.fn((key: string) =>
-      key === 'DEMO_SCENARIOS_ENABLED' ? enabled : undefined,
+      key === 'DEMO_SCENARIOS_ENABLED'
+        ? enabled
+        : key === 'DEMO_SCENARIOS_DATABASE'
+          ? designated
+          : undefined,
     ),
   };
   const service = new ScenariosService(
@@ -144,13 +173,15 @@ function serviceWith(
 const ADMIN = { kind: 'unrestricted' } as const;
 
 describe('ScenariosService (US31 · F-100, SCRUM-252)', () => {
-  it('status: demo mode only when DEMO_SCENARIOS_ENABLED is "true"', () => {
-    expect(serviceWith().service.status().enabled).toBe(true);
-    expect(serviceWith({ enabled: 'false' }).service.status().enabled).toBe(
+  it('status: demo mode only when DEMO_SCENARIOS_ENABLED is "true"', async () => {
+    expect((await serviceWith().service.status()).enabled).toBe(true);
+    expect(
+      (await serviceWith({ enabled: 'false' }).service.status()).enabled,
+    ).toBe(false);
+    expect((await serviceWith({ enabled: '' }).service.status()).enabled).toBe(
       false,
     );
-    expect(serviceWith({ enabled: '' }).service.status().enabled).toBe(false);
-    expect(serviceWith().service.status().actions[4]).toMatchObject({
+    expect((await serviceWith().service.status()).actions[4]).toMatchObject({
       action: 'DROP_PHASE',
       target: 'TRANSFORMER',
       channel_required: true,
@@ -370,6 +401,8 @@ describe('ScenariosService transaction (SCRUM-253)', () => {
     expect(manager.transaction).toHaveBeenCalledTimes(1);
     expect(sqlOf(steps)).toEqual([
       LOCK_DEVICE_SQL,
+      DEMO_DATABASE_SQL,
+      SYNTHETIC_MARKER_SQL,
       FUSE_TARGET_SQL,
       LATEST_EVENT_SQL,
       FIRMWARE_SQL,
@@ -378,7 +411,7 @@ describe('ScenariosService transaction (SCRUM-253)', () => {
       INSERT_ALARM_SQL,
     ]);
     expect(steps[0][1]).toEqual([FUSE.hw_id]);
-    expect(steps[4][1]).toEqual([FUSE.hw_id]);
+    expect(steps[6][1]).toEqual([FUSE.hw_id]);
   });
 
   it('a repeated action is refused under the lock and writes nothing', async () => {
@@ -387,6 +420,8 @@ describe('ScenariosService transaction (SCRUM-253)', () => {
     await expect(service.run(OPEN, ADMIN)).rejects.toThrow(ConflictException);
     expect(sqlOf(steps)).toEqual([
       LOCK_DEVICE_SQL,
+      DEMO_DATABASE_SQL,
+      SYNTHETIC_MARKER_SQL,
       FUSE_TARGET_SQL,
       LATEST_EVENT_SQL,
     ]);
@@ -422,7 +457,12 @@ describe('ScenariosService transaction (SCRUM-253)', () => {
         fuseUnderLock: { ...FUSE, node_id: '0000999999' },
       }).service.run(OPEN, ADMIN),
     ).rejects.toThrow(/changed during the request/);
-    expect(sqlOf(steps)).toEqual([LOCK_DEVICE_SQL, FUSE_TARGET_SQL]);
+    expect(sqlOf(steps)).toEqual([
+      LOCK_DEVICE_SQL,
+      DEMO_DATABASE_SQL,
+      SYNTHETIC_MARKER_SQL,
+      FUSE_TARGET_SQL,
+    ]);
     expect(writes).toEqual([]);
   });
 
@@ -490,5 +530,94 @@ describe('ScenariosService transaction (SCRUM-253)', () => {
     } finally {
       delete actions.TEST_SILENCE;
     }
+  });
+});
+
+describe('ScenariosService demo database protection (SCRUM-253)', () => {
+  const OPEN = { action: 'OPEN_FUSE', target: FUSE.custom_id } as const;
+  const DROP = {
+    action: 'DROP_PHASE',
+    target: TRAFO.custom_id,
+    channel: 'A',
+  } as const;
+
+  it('all three checks pass: status is enabled and the action writes as before', async () => {
+    const { service, writes } = serviceWith();
+
+    expect((await service.status()).enabled).toBe(true);
+    await expect(service.run(OPEN, ADMIN)).resolves.toMatchObject({
+      event_code: '131420',
+      event_type: 'SET',
+    });
+    expect(writes.map(([sql]) => sql)).toEqual([
+      INSERT_FALCON_READING_SQL,
+      INSERT_ALARM_SQL,
+    ]);
+  });
+
+  it.each([
+    ['DEMO_SCENARIOS_DATABASE is not set', { designated: undefined }],
+    ['DEMO_SCENARIOS_DATABASE is blank', { designated: '   ' }],
+  ])(
+    '%s: disabled, and 403 before any database query',
+    async (_label, options) => {
+      const { service, query, writes, manager } = serviceWith(options);
+
+      expect((await service.status()).enabled).toBe(false);
+      await expect(service.run(OPEN, ADMIN)).rejects.toThrow(
+        /DEMO_SCENARIOS_DATABASE to name/,
+      );
+      expect(query).not.toHaveBeenCalled();
+      expect(manager.transaction).not.toHaveBeenCalled();
+      expect(writes).toEqual([]);
+    },
+  );
+
+  it.each([
+    ['the connected database is another one', { connectedTo: 'colbits' }],
+    [
+      'the designation differs only in case',
+      { designated: 'COLBITS_DEMO_TEST' },
+    ],
+    ['the marker table does not exist', { markerTable: false }],
+    [
+      'there is no marker for this database (absent, or a copy naming another)',
+      { marked: false },
+    ],
+    ['the database check fails', { guardFails: true }],
+  ])(
+    '%s: disabled, and 403 inside the locked transaction with nothing written',
+    async (_label, options) => {
+      for (const body of [OPEN, DROP]) {
+        const { service, writes, steps } = serviceWith(options);
+
+        expect((await service.status()).enabled).toBe(false);
+        await expect(service.run(body, ADMIN)).rejects.toThrow(
+          ForbiddenException,
+        );
+        expect(steps[0][0]).toBe(LOCK_DEVICE_SQL);
+        expect(writes).toEqual([]);
+      }
+    },
+  );
+
+  it('does not read the marker of another database', async () => {
+    const { service, steps } = serviceWith({ connectedTo: 'colbits' });
+
+    await expect(service.run(OPEN, ADMIN)).rejects.toThrow(/not designated/);
+    expect(steps.map(([sql]) => sql)).toEqual([
+      LOCK_DEVICE_SQL,
+      DEMO_DATABASE_SQL,
+    ]);
+  });
+
+  it('demo mode off still wins first: 403 with no database query at all', async () => {
+    const { service, query } = serviceWith({ enabled: 'false' });
+
+    expect((await service.status()).enabled).toBe(false);
+    await expect(service.run(OPEN, ADMIN)).rejects.toThrow(
+      /disabled in this environment/,
+    );
+    expect(query).not.toHaveBeenCalled();
   });
 });

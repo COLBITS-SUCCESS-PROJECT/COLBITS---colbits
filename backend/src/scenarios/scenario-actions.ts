@@ -108,6 +108,12 @@ export type ScenarioChannel = (typeof SMAC_CHANNELS)[number];
 /** Setting that turns the scenarios on. Off by default: they write data (NF-03). */
 export const DEMO_SCENARIOS_SETTING = 'DEMO_SCENARIOS_ENABLED';
 
+/**
+ * SCRUM-253: setting that names the one database scenarios may write to. It must equal the
+ * database the API is connected to (current_database()). Unset means no database is designated.
+ */
+export const DEMO_SCENARIOS_DATABASE_SETTING = 'DEMO_SCENARIOS_DATABASE';
+
 /** Firmware digits used when the device has no previous event (seed and generator use 14). */
 export const DEFAULT_FIRMWARE = '14';
 

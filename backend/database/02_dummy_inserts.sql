@@ -270,6 +270,23 @@ INSERT INTO alarms (hw_id, custom_id, event_code, event_type, alarm, value, reco
   ('130100000E', '1000300001-R', '139999', 'SET', 'Código de evento no documentado', NULL, '2026-09-01 10:00:00-05');
 
 -- ============================================================================
+-- SCRUM-253: synthetic-dataset marker. Not part of Colbits' schema (01). It says
+-- this database was loaded with synthetic data, so the demo scenarios (US31) may
+-- write to it when DEMO_SCENARIOS_DATABASE names it. It is the last statement on
+-- purpose: if any insert above fails, the marker is never created. It names the
+-- database it was created in, so a copy of this database does not inherit it.
+-- The generator writes the same marker (generator/src/db.ts).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.synthetic_dataset (
+    database_name text PRIMARY KEY,
+    source text NOT NULL CHECK (source IN ('seed', 'generator')),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO public.synthetic_dataset (database_name, source)
+VALUES (current_database(), 'seed')
+ON CONFLICT (database_name) DO UPDATE SET source = EXCLUDED.source, created_at = now();
+
+-- ============================================================================
 -- END OF FILE
 -- 8 nodes, 17 devices, 6 fuse sets, 14 fuses, 3 transformers, 8 Falcon
 -- readings, 2+2+2 SMAC readings, 10 alarm events.

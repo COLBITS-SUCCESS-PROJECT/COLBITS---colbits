@@ -21,6 +21,7 @@ import {
 import {
   CLOSED_FUSE_ANGLE,
   DEFAULT_FIRMWARE,
+  DEMO_SCENARIOS_DATABASE_SETTING,
   DEMO_SCENARIOS_SETTING,
   DROPPED_PHASE_VOLTS,
   NOMINAL_PHASE_VOLTS,
@@ -141,6 +142,22 @@ export const DEVICE_CLOCK_SQL = `
          ) AS latest_at
 `;
 
+/**
+ * SCRUM-253: the database the API is connected to, and whether it has the synthetic-dataset marker
+ * table (written only by the synthetic seed and the generator, never by the API or Colbits' schema).
+ */
+export const DEMO_DATABASE_SQL = `
+  SELECT current_database() AS database_name,
+         to_regclass('public.synthetic_dataset') IS NOT NULL AS has_marker_table
+`;
+
+/** SCRUM-253: a marker for this very database (a copied database still names the original one). */
+export const SYNTHETIC_MARKER_SQL = `
+  SELECT EXISTS (
+    SELECT 1 FROM public.synthetic_dataset WHERE database_name = current_database()
+  ) AS marked
+`;
+
 /** A repository or a transaction's entity manager: whatever the query runs on. */
 interface Queryable {
   query(sql: string, parameters?: unknown[]): Promise<unknown>;
@@ -182,9 +199,56 @@ export class ScenariosService {
     );
   }
 
-  status(): ScenariosStatusDto {
+  /**
+   * SCRUM-253: the database scenarios may write to, from DEMO_SCENARIOS_DATABASE; null when the
+   * setting is missing or blank (no database is designated).
+   */
+  designatedDatabase(): string | null {
+    const value = String(
+      this.configService.get(DEMO_SCENARIOS_DATABASE_SETTING) ?? '',
+    ).trim();
+    return value === '' ? null : value;
+  }
+
+  /**
+   * SCRUM-253: whether the connected database is the designated one and carries a synthetic-dataset
+   * marker for itself. Fails closed: a missing setting, another database, a missing or mismatched
+   * marker, or any database error gives false.
+   */
+  private async databaseAllowed(runner: Queryable): Promise<boolean> {
+    const designated = this.designatedDatabase();
+    if (designated === null) return false;
+    try {
+      const [database] = (await runner.query(DEMO_DATABASE_SQL)) as {
+        database_name: string;
+        has_marker_table: boolean;
+      }[];
+      if (
+        database?.database_name !== designated ||
+        database.has_marker_table !== true
+      ) {
+        return false;
+      }
+      const [marker] = (await runner.query(SYNTHETIC_MARKER_SQL)) as {
+        marked: boolean;
+      }[];
+      return marker?.marked === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * SCRUM-253: `enabled` is true only when scenarios could write here: demo mode is on, a database
+   * is designated, and the connected database is that one and has its synthetic-dataset marker.
+   */
+  async status(): Promise<ScenariosStatusDto> {
+    const enabled =
+      this.enabled() &&
+      this.designatedDatabase() !== null &&
+      (await this.databaseAllowed(this.nodesRepository));
     return {
-      enabled: this.enabled(),
+      enabled,
       actions: SCENARIO_ACTION_NAMES.map((action) => ({
         action,
         target:
@@ -210,6 +274,11 @@ export class ScenariosService {
         'Demo scenarios are disabled in this environment',
       );
     }
+    if (this.designatedDatabase() === null) {
+      throw new ForbiddenException(
+        `Demo scenarios need ${DEMO_SCENARIOS_DATABASE_SETTING} to name the database they may write to`,
+      );
+    }
     const { action, target, channel } = parseBody(body);
     const definition = scenarioActionDefinition(action);
     if (definition.kind !== 'event') {
@@ -230,6 +299,13 @@ export class ScenariosService {
 
     return this.nodesRepository.manager.transaction(async (manager) => {
       await manager.query(LOCK_DEVICE_SQL, [located.hwId]);
+      // SCRUM-253: checked in the transaction that writes, so it holds for these very writes.
+      if (!(await this.databaseAllowed(manager))) {
+        throw new ForbiddenException(
+          'This database is not designated for demo scenarios: it is not the one named by ' +
+            `${DEMO_SCENARIOS_DATABASE_SETTING}, or it has no synthetic-dataset marker for itself`,
+        );
+      }
       const resolved = await this.resolveTarget(
         manager,
         definition.device,

@@ -31,7 +31,7 @@ export class ScenariosStatusDto {
   @ApiProperty({
     example: true,
     description:
-      'Demo mode: true only where DEMO_SCENARIOS_ENABLED=true. The frontend shows the scenario panel only when it is true; POST /scenarios answers 403 otherwise.',
+      'Demo mode: true only where DEMO_SCENARIOS_ENABLED=true, DEMO_SCENARIOS_DATABASE names the connected database and that database has its synthetic-dataset marker. The frontend shows the scenario panel only when it is true; POST /scenarios answers 403 otherwise.',
   })
   enabled: boolean;
 

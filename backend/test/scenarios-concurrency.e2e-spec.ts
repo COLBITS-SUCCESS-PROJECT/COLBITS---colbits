@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import {
+  ISOLATED_TEST_DB,
   IsolatedApp,
   createFalconNodes,
   createSmacNodes,
@@ -83,6 +84,8 @@ describe('US31 demo scenarios: device lock and timestamps (SCRUM-253, e2e)', () 
 
   beforeAll(async () => {
     process.env.DEMO_SCENARIOS_ENABLED = 'true';
+    // SCRUM-253: and the isolated database is the one designated for demo scenarios.
+    process.env.DEMO_SCENARIOS_DATABASE = ISOLATED_TEST_DB;
     started = await startIsolatedApp(LABEL, { remove, create });
     adminToken = (
       await request(started.app.getHttpServer())
@@ -95,6 +98,7 @@ describe('US31 demo scenarios: device lock and timestamps (SCRUM-253, e2e)', () 
   afterAll(async () => {
     await stopIsolatedApp(started, LABEL, remove);
     delete process.env.DEMO_SCENARIOS_ENABLED;
+    delete process.env.DEMO_SCENARIOS_DATABASE;
   });
 
   const run = (body: object) =>
