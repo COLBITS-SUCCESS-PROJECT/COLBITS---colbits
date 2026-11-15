@@ -3,7 +3,7 @@ feature: dashboard
 title: Live Monitoring
 status: IN_PROGRESS
 owner: Sofia
-last_updated: 2026-11-12
+last_updated: 2026-11-15
 ---
 
 # Feature: Live Monitoring
@@ -23,6 +23,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - Time of the last successful map refresh (F-32): in the top bar with the *Live* / *Stale* state (shared, in `AppShell`), on the map below 1024 px ✅ ([SCRUM-111](./SCRUM-111.md))
 - Warning when the map stops refreshing (F-31): banner on the map (M10) and red dot in the top bar ✅ ([SCRUM-111](./SCRUM-111.md))
 - Alarm selection → map focus 🔲
+- Demo scenario panel in the node detail, for the administrator in demo mode only (F-100, NF-01, NF-03) 🔲 ([SCRUM-218](./SCRUM-218.md))
 - Responsive layout: mobile navigation drawer, collapsible location filters and map legend, and fault panel bottom sheet below desktop width ✅
 
 ### Out of scope
@@ -47,6 +48,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | [SCRUM-111](./SCRUM-111.md) | US13 · Time of the last successful map refresh (F-32) and warning when the map stops updating (F-31) | Paola | IN_REVIEW |
 | [SCRUM-112](./SCRUM-112.md) | US14 · Map filter (zone / substation / circuit) and node or device search; `GET /nodes` sends location and devices (F-33, F-34) | Sofia | IN_REVIEW |
 | [SCRUM-113](./SCRUM-113.md) | US15 · The panel follows the map filter with no filters of its own (F-56), fault ordering (F-57), node counters (F-58) | Paola · Javier · Mónica · Mahmoud | IN_PROGRESS |
+| [SCRUM-218](./SCRUM-218.md) | US31 · Demo scenario panel in the node detail: run fuse, voltage and phase scenarios and see the map react (F-100, NF-01, NF-03) | Paola | IN_REVIEW |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
@@ -87,13 +89,13 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | `TopBar`, `NavSidebar` | Organism | design-system (via `AppShell`) |
 | `Select`, `SearchField`, `Tabs`, `LegendItem`, `CounterCard`, `DataField`, `RefreshTimestamp`, `Banner` | Molecule | design-system |
 | `ToggleChip`, `Badge`, `StatusDot`, `Toggle`, `Tooltip`, `Icon`, `Button`, `Skeleton` | Atom | design-system |
-| `MapMarker`, `PhaseChips`, `FaultListItem`, `FuseSetCard`, `TransformerCard`, `FaultPanelToggle`, `MapRefreshTime`, `MapRefreshStatus` | Molecule | `src/features/dashboard/components/` |
-| `MapToolbar`, `MapCanvas`, `MapLegend`, `FaultPanel` (+ `FaultFilters`, `FaultList`), `NodeDetailPanel` | Organism | `src/features/dashboard/components/` |
+| `MapMarker`, `PhaseChips`, `FaultListItem`, `FuseSetCard`, `TransformerCard`, `FaultPanelToggle`, `MapRefreshTime`, `MapRefreshStatus`, `ScenarioActionGroup` | Molecule | `src/features/dashboard/components/` |
+| `MapToolbar`, `MapCanvas`, `MapLegend`, `FaultPanel` (+ `FaultFilters`, `FaultList`), `NodeDetailPanel`, `DemoScenarioPanel` | Organism | `src/features/dashboard/components/` |
 
 Other code:
 - `model/` — types, constants, `faultRules.ts` (filters, sort: customers affected → oldest first), `scopeOptions.ts`
 - `hooks/` — `useNodesQuery` (`GET /nodes` every 15 s; each successful answer sets the last refresh time, F-32; a failed refresh marks the map as interrupted, F-31), `useLiveMonitoringQuery` (TanStack Query on `GET /faults`, polling every 15 s), `useLiveMonitoringFilters` (UI state)
-- `api/` — node service: `nodes.dto.ts` (PROVISIONAL), `nodes.mapper.ts`, `nodes.api.ts`; hook `useNodesQuery`. Fault service: `faults.dto.ts`, `faults.mapper.ts`, `faults.api.ts` (SCRUM-108)
+- `api/` — node service: `nodes.dto.ts` (PROVISIONAL), `nodes.mapper.ts`, `nodes.api.ts`; hook `useNodesQuery`. Fault service: `faults.dto.ts`, `faults.mapper.ts`, `faults.api.ts` (SCRUM-108). Scenario service: `scenarios.dto.ts` (PROVISIONAL), `scenarios.mapper.ts`, `scenarios.api.ts`; hooks `useScenariosQuery`, `useRunScenarioMutation` ([SCRUM-218](./SCRUM-218.md))
 - Sample fault-panel data for component tests (every alert type, resolved faults, counters): `src/mocks/data/liveMonitoring.fixtures.ts`
 - Map: Leaflet + OpenStreetMap inside `MapCanvas` only (ADR-0006). Sample nodes in Cali come from the MSW mock (`src/mocks/`)
 
@@ -101,6 +103,7 @@ Other code:
 - **Map:** `GET /nodes` (SCRUM-77, SCRUM-65) and `GET /nodes/:name/detail` (SCRUM-109).
 - **Fault panel, active tab:** `GET /faults` — open fuse-opening faults in the user's scope (US10, [SCRUM-108](./SCRUM-108.md)). The page reads `LiveMonitoringData` (`model/liveMonitoring.types.ts`) through `faults.mapper.ts`.
 - **Node counters (US15, F-58):** derived in the frontend from `GET /faults` over the faults the list shows, so they follow the map filter (`countAlarmNodes` in `model/faultRules.ts`). The 2026-10-31 decision to hide them (no endpoint, no made-up data) is **superseded by US15**: they are now shown with real data.
+- **Demo scenarios (US31):** `GET /scenarios` (demo mode and its actions) and `POST /scenarios` (run one action, administrator only), [SCRUM-218](./SCRUM-218.md) §6.
 - **Not available yet:** resolved faults (US16). The Resolved tab says the list is coming (PO decision, 2026-10-31, still valid).
 
 ## 8. Open questions and decisions
@@ -113,3 +116,4 @@ Other code:
 | Q4 | Spanish copy for toolbar options ("Todas" instead of "Todas las subestaciones") to fit Figma widths | Paola (PO) | Proposed | 2026-10-07 |
 | Q5 | Minimum viewport and mobile fault-panel presentation | Paola (PO) | **360 px minimum; panel opens as a bottom sheet over the map on mobile.** | 2026-10-18 |
 | Q6 | The fault panel loses its own filters (F-56). Where does the minimum-duration filter (F-53, F-54) go? | Paola (PO) | **Historical analysis and reports**, where faults and averages are counted (F-69). The live panel follows only the map ([SCRUM-113](./SCRUM-113.md) Q1) | 2026-11-12 |
+| Q7 | Where does the demo scenario panel go? There is no Figma frame | Paola (PO) | **In the node detail**, for the administrator in demo mode only ([SCRUM-218](./SCRUM-218.md) Q1) | 2026-11-15 |
