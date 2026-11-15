@@ -11,7 +11,7 @@ import type { FaultAlert, FaultCounters } from '../../model/liveMonitoring.types
 import type { FaultTab } from '../../hooks/useLiveMonitoringFilters'
 import { useResizablePanel } from '../../hooks/useResizablePanel'
 import { FaultFilters } from './FaultFilters'
-import { FaultList } from './FaultList'
+import { FaultList, type FaultListProps } from './FaultList'
 import { FaultPanelResizeHandle } from './FaultPanelResizeHandle'
 import { InactiveDevicesTab, type InactiveDevicesTabProps } from './InactiveDevicesTab'
 
@@ -22,12 +22,13 @@ export interface FaultPanelProps {
   tab: FaultTab
   onTabChange: (tab: FaultTab) => void
   activeFaults: FaultAlert[]
-  /** null until the backend reports resolved faults (US16): the tab says they are coming. */
-  resolvedFaults: FaultAlert[] | null
-  /** null hides the node counters (no data yet, or loading). */
+  /** Resolved tab: the alarms resolved in the window, with their own loading and error states (US16). */
+  resolved: FaultListProps
+  /** null hides the node counters (no data yet, or loading). Only the Active tab shows them. */
   counters: FaultCounters | null
   filters: Filters
   onFiltersChange: (patch: Partial<Filters>) => void
+  /** States of the active list. */
   isLoading: boolean
   isError: boolean
   onRetry: () => void
@@ -44,7 +45,7 @@ export function FaultPanel(props: FaultPanelProps) {
     tab,
     onTabChange,
     activeFaults,
-    resolvedFaults,
+    resolved,
     counters,
     filters,
     onFiltersChange,
@@ -56,16 +57,23 @@ export function FaultPanel(props: FaultPanelProps) {
   const { t } = useTranslation('dashboard')
   const panelRef = useRef<HTMLElement>(null)
   const resize = useResizablePanel()
-  const listState = { isLoading: props.isLoading, isError: props.isError, onRetry: props.onRetry }
-  // Tabs whose data the backend does not report yet show a placeholder instead of a list.
-  const listFaults = tab === 'ACTIVE' ? activeFaults : tab === 'RESOLVED' ? resolvedFaults : null
-  const comingSoonKey = tab === 'INACTIVE' ? 'panel.inactiveSoon' : 'panel.resolvedSoon'
+  const isResolvedTab = tab === 'RESOLVED'
+  // The Active and Resolved tabs list alarms, each with its own data and states.
+  const list: FaultListProps = isResolvedTab
+    ? resolved
+    : {
+        faults: activeFaults,
+        isLoading: props.isLoading,
+        isError: props.isError,
+        onRetry: props.onRetry,
+      }
+  const listCountKey = isResolvedTab ? 'panel.resolvedCount' : 'panel.activeCount'
   const inactiveTab = tab === 'INACTIVE' ? inactive : null
   const headerCount = inactiveTab
     ? t('inactive.nowCount', {
         count: inactiveTab.devices.filter((view) => view.isInactiveNow).length,
       })
-    : t('panel.activeCount', { count: activeFaults.length })
+    : t(listCountKey, { count: list.faults.length })
 
   useEffect(() => {
     if (!isMobileOpen || !onClose) return
@@ -150,13 +158,13 @@ export function FaultPanel(props: FaultPanelProps) {
           aria-labelledby={getTabId(ID_PREFIX, tab)}
           className="flex flex-col gap-3"
         >
-          {inactiveTab ? (
-            <InactiveDevicesTab {...inactiveTab} />
-          ) : listFaults === null ? (
-            <p className="p-6 text-center text-sm text-text-subtle">{t(comingSoonKey)}</p>
-          ) : (
+          {inactiveTab && <InactiveDevicesTab {...inactiveTab} />}
+          {tab === 'INACTIVE' && !inactiveTab && (
+            <p className="p-6 text-center text-sm text-text-subtle">{t('panel.inactiveSoon')}</p>
+          )}
+          {tab !== 'INACTIVE' && (
             <>
-              {counters && (
+              {!isResolvedTab && counters && (
                 <section
                   aria-label={t('panel.counters.label')}
                   className="grid grid-cols-2 gap-x-2.5 gap-y-2"
@@ -194,8 +202,12 @@ export function FaultPanel(props: FaultPanelProps) {
                   {t('panel.olderAlarms')}
                 </Link>
               </div>
-              <FaultFilters filters={filters} onChange={onFiltersChange} />
-              <FaultList faults={listFaults} {...listState} />
+              <FaultFilters
+                filters={filters}
+                onChange={onFiltersChange}
+                note={t(isResolvedTab ? 'panel.resolvedNote' : 'panel.sortNote')}
+              />
+              <FaultList {...list} />
             </>
           )}
         </div>

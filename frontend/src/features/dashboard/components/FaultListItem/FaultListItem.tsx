@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { Badge, type BadgeTone } from '@/design-system/atoms'
 import { DataField } from '@/design-system/molecules'
 import { cn } from '@/utils/cn'
-import { formatDateTime, formatDuration } from '@/utils/formatDateTime'
+import { formatClockTime, formatDateTime, formatDuration } from '@/utils/formatDateTime'
 import type { FaultAlert } from '../../model/liveMonitoring.types'
-import { SEVERITY_BG_CLASS } from '../networkStateStyles'
+import { RESOLVED_BG_CLASS, SEVERITY_BG_CLASS } from '../networkStateStyles'
 import { PhaseChips } from '../PhaseChips/PhaseChips'
 
 export interface FaultListItemProps {
@@ -51,6 +51,11 @@ export function FaultListItem({ fault }: FaultListItemProps) {
   ) : (
     classification
   )
+  // F-63: an open alarm counts up to the last refresh; a resolved one shows its total and when it closed.
+  const duration = formatDuration(fault.durationMinutes, i18n.language)
+  const durationValue = fault.endedAt
+    ? t('fault.durationClosed', { duration, time: formatClockTime(fault.endedAt, i18n.language) })
+    : duration
 
   return (
     <article
@@ -63,7 +68,10 @@ export function FaultListItem({ fault }: FaultListItemProps) {
     >
       <span
         aria-hidden="true"
-        className={cn('absolute inset-y-0 left-0 w-1', SEVERITY_BG_CLASS[fault.severity])}
+        className={cn(
+          'absolute inset-y-0 left-0 w-1',
+          fault.status === 'RESOLVED' ? RESOLVED_BG_CLASS : SEVERITY_BG_CLASS[fault.severity]
+        )}
       />
 
       <header className="flex items-center gap-2">
@@ -97,10 +105,7 @@ export function FaultListItem({ fault }: FaultListItemProps) {
           label={t('fault.started')}
           value={formatDateTime(fault.startedAt, i18n.language, 'short')}
         />
-        <DataField
-          label={t('fault.duration')}
-          value={formatDuration(fault.durationMinutes, i18n.language)}
-        />
+        <DataField label={t('fault.duration')} value={durationValue} />
       </dl>
 
       <footer className="flex items-baseline justify-between gap-2 border-t border-dashed border-border-default pt-2">

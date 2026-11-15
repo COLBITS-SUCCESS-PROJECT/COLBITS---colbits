@@ -94,6 +94,9 @@ export interface FaultAlert {
   /** As computed by the backend (F-49); null when the phases could not be classified. */
   classification: PhaseClassification | null
   startedAt: Date
+  /** When the device reported the condition back to normal (F-60); null while the alarm is open. */
+  endedAt: Date | null
+  /** Up to `endedAt` when resolved, up to the last refresh while open (F-63). */
   durationMinutes: number
   /** Clients of the affected fuse set (F-55); null when the number is not recorded. */
   customersAffected: number | null

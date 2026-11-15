@@ -53,6 +53,29 @@ describe('FaultListItem', () => {
     expect(screen.getByText('Resuelta')).toHaveAttribute('data-tone', 'success')
   })
 
+  it('shows a resolved alarm with its total duration, when it closed and a gray accent (F-63)', () => {
+    const resolved: FaultAlert = {
+      ...fault('f-7'),
+      startedAt: new Date(2026, 9, 2, 10, 0),
+      endedAt: new Date(2026, 9, 2, 10, 45),
+      durationMinutes: 45,
+    }
+    render(<FaultListItem fault={resolved} />)
+
+    const card = screen.getByRole('article', { name: 'Apertura de fusible · ND01120A02' })
+    expect(within(card).getByText('Resuelta')).toBeInTheDocument()
+    expect(within(card).getByText('45 min · cerrada 10:45')).toBeInTheDocument()
+    expect(card.querySelector('span[aria-hidden="true"]')).toHaveClass('bg-status-offline')
+  })
+
+  it('shows an open alarm with the duration so far and the accent of its severity (F-63)', () => {
+    render(<FaultListItem fault={{ ...fault('f-1'), durationMinutes: 90 }} />)
+
+    const card = screen.getByRole('article', { name: 'Apertura de fusible · ND04821A07' })
+    expect(within(card).getByText('1 h 30 min')).toBeInTheDocument()
+    expect(card.querySelector('span[aria-hidden="true"]')).toHaveClass('bg-status-critical')
+  })
+
   it('shows only the circuit when the service does not send the substation (GET /faults)', () => {
     render(<FaultListItem fault={{ ...fault('f-1'), zone: null, substation: null }} />)
 

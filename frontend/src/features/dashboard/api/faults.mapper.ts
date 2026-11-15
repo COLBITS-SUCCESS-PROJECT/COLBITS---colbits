@@ -44,6 +44,7 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
     phases: toPhaseStates(dto.phases),
     classification: dto.classification,
     startedAt: new Date(dto.started_at),
+    endedAt: dto.ended_at === null ? null : new Date(dto.ended_at),
     durationMinutes: Math.floor(dto.duration_seconds / SECONDS_PER_MINUTE),
     customersAffected: dto.client_count,
     transformerLoad: null,
