@@ -220,5 +220,48 @@
     "retry": "Reintentar",
     "notFound": "Este nodo no está disponible.",
     "volts": "{{value}} V"
+  },
+  "scenarios": {
+    "title": "Escenarios de demo",
+    "note": "Crean datos de prueba como los enviaría el equipo en campo. Solo existen en el entorno de demostración.",
+    "empty": "Este nodo no tiene equipos para simular escenarios.",
+    "fuses": "Escenarios de fusible",
+    "fuse": "Fusible",
+    "fuseOption": "{{id}} · {{state}} · {{voltage}}",
+    "voltage": {
+      "present": "con tensión",
+      "absent": "sin tensión",
+      "unknown": "tensión sin dato"
+    },
+    "transformer": "Escenarios del transformador",
+    "transformerId": "Transformador",
+    "channel": "Fase",
+    "channelOption": "Fase {{channel}} · {{volts}} V",
+    "channelOptionNoReading": "Fase {{channel}}",
+    "action": {
+      "OPEN_FUSE": "Abrir fusible",
+      "CLOSE_FUSE": "Cerrar fusible",
+      "CUT_VOLTAGE": "Cortar tensión",
+      "RESTORE_VOLTAGE": "Restaurar tensión",
+      "DROP_PHASE": "Quitar fase",
+      "RESTORE_PHASE": "Restaurar fase"
+    },
+    "result": {
+      "OPEN_FUSE": "Fusible abierto",
+      "CLOSE_FUSE": "Fusible cerrado",
+      "CUT_VOLTAGE": "Tensión cortada",
+      "RESTORE_VOLTAGE": "Tensión restaurada",
+      "DROP_PHASE": "Fase {{channel}} quitada",
+      "RESTORE_PHASE": "Fase {{channel}} restaurada"
+    },
+    "resultFallback": "{{code}} aplicado",
+    "done": "{{result}} en {{target}} ({{time}}).",
+    "failure": {
+      "ALREADY": "No cambió nada: {{target}} ya está en ese estado.",
+      "NOT_ALLOWED": "El modo demo está apagado o tu usuario no puede lanzar escenarios.",
+      "NOT_FOUND": "No se encontró {{target}} o está fuera de tu alcance.",
+      "INVALID": "El equipo no acepta esta acción. Revisa el fusible o la fase.",
+      "FAILED": "No se pudo lanzar el escenario. Intenta de nuevo."
+    }
   }
 }
