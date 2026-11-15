@@ -220,5 +220,48 @@
     "retry": "Retry",
     "notFound": "This node is not available.",
     "volts": "{{value}} V"
+  },
+  "scenarios": {
+    "title": "Demo scenarios",
+    "note": "They create test data as the field device would send it. They exist only in the demo environment.",
+    "empty": "This node has no device to simulate scenarios on.",
+    "fuses": "Fuse scenarios",
+    "fuse": "Fuse",
+    "fuseOption": "{{id}} · {{state}} · {{voltage}}",
+    "voltage": {
+      "present": "voltage present",
+      "absent": "no voltage",
+      "unknown": "voltage unknown"
+    },
+    "transformer": "Transformer scenarios",
+    "transformerId": "Transformer",
+    "channel": "Phase",
+    "channelOption": "Phase {{channel}} · {{volts}} V",
+    "channelOptionNoReading": "Phase {{channel}}",
+    "action": {
+      "OPEN_FUSE": "Open fuse",
+      "CLOSE_FUSE": "Close fuse",
+      "CUT_VOLTAGE": "Cut voltage",
+      "RESTORE_VOLTAGE": "Restore voltage",
+      "DROP_PHASE": "Drop phase",
+      "RESTORE_PHASE": "Restore phase"
+    },
+    "result": {
+      "OPEN_FUSE": "Fuse opened",
+      "CLOSE_FUSE": "Fuse closed",
+      "CUT_VOLTAGE": "Voltage cut",
+      "RESTORE_VOLTAGE": "Voltage restored",
+      "DROP_PHASE": "Phase {{channel}} dropped",
+      "RESTORE_PHASE": "Phase {{channel}} restored"
+    },
+    "resultFallback": "{{code}} applied",
+    "done": "{{result}} on {{target}} ({{time}}).",
+    "failure": {
+      "ALREADY": "Nothing changed: {{target}} is already in that state.",
+      "NOT_ALLOWED": "Demo mode is off or your user cannot run scenarios.",
+      "NOT_FOUND": "{{target}} was not found or is outside your scope.",
+      "INVALID": "The device does not accept this action. Check the fuse or the phase.",
+      "FAILED": "The scenario could not be run. Try again."
+    }
   }
 }

@@ -6,6 +6,7 @@ import { ApiError } from '@/services/http/httpClient'
 import { cn } from '@/utils/cn'
 import { useNodeDetailQuery } from '../../hooks/useNodeDetailQuery'
 import type { NodeDetail } from '../../model/nodeDetail.types'
+import { DemoScenarioPanel } from '../DemoScenarioPanel/DemoScenarioPanel'
 import { FuseSetCard } from '../FuseSetCard/FuseSetCard'
 import { TransformerCard } from '../TransformerCard/TransformerCard'
 
@@ -132,6 +133,8 @@ function NodeDetailBody({ detail }: NodeDetailBodyProps) {
       {detail.transformers.map((transformer) => (
         <TransformerCard key={transformer.id} transformer={transformer} />
       ))}
+      {/* US31: administrator in demo mode only. The key starts it afresh for each node. */}
+      <DemoScenarioPanel key={detail.nodeId} detail={detail} />
     </>
   )
 }
