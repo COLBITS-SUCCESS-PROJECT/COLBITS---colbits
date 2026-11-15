@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  NotImplementedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -35,7 +36,9 @@ import {
   isScenarioAction,
   isScenarioChannel,
   repeatsCurrentState,
+  scenarioActionDefinition,
 } from './scenario-actions';
+import { nextRecordedAt } from './scenario-timestamps';
 
 export const FUSE_TARGET_SQL = `
   SELECT f.custom_id, f.current_hw_id AS hw_id, fs.node_id,
@@ -115,6 +118,34 @@ export const INSERT_ALARM_SQL = `
   VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz)
 `;
 
+/**
+ * SCRUM-253: one scenario at a time per device. Held until the transaction ends, so the state
+ * check and the writes of one request never interleave with another request on the same device.
+ */
+export const LOCK_DEVICE_SQL = `
+  SELECT pg_advisory_xact_lock(hashtextextended('colbits.scenario-device:' || $1, 0))
+`;
+
+/**
+ * SCRUM-253: the database clock and the device's latest record (any reading table, any event),
+ * read under the device lock to stamp the next write (scenario-timestamps.ts).
+ */
+export const DEVICE_CLOCK_SQL = `
+  SELECT clock_timestamp() AS database_now,
+         GREATEST(
+           (SELECT recorded_at FROM public.last_falcon_values WHERE hw_id = $1),
+           (SELECT recorded_at FROM public.last_smac_vc_values WHERE hw_id = $1),
+           (SELECT recorded_at FROM public.last_smac_pw_values WHERE hw_id = $1),
+           (SELECT recorded_at FROM public.last_smac_pf_values WHERE hw_id = $1),
+           (SELECT max(recorded_at) FROM public.alarms WHERE hw_id = $1)
+         ) AS latest_at
+`;
+
+/** A repository or a transaction's entity manager: whatever the query runs on. */
+interface Queryable {
+  query(sql: string, parameters?: unknown[]): Promise<unknown>;
+}
+
 interface FuseTarget {
   custom_id: string;
   hw_id: string | null;
@@ -164,10 +195,15 @@ export class ScenariosService {
     };
   }
 
+  /**
+   * SCRUM-253: the target and the scope are resolved first (topology only). Then, in one
+   * transaction: the device is locked, its state is read again, the action is checked against that
+   * state, the writes are stamped with the database clock and written. A concurrent request on the
+   * same device waits for the lock and then sees this one's writes.
+   */
   async run(
     body: RunScenarioDto,
     scope: ScopeContext,
-    now: Date = new Date(),
   ): Promise<ScenarioResultDto> {
     if (!this.enabled()) {
       throw new ForbiddenException(
@@ -175,26 +211,55 @@ export class ScenariosService {
       );
     }
     const { action, target, channel } = parseBody(body);
-    const definition = SCENARIO_ACTIONS[action];
-
-    const resolved =
-      definition.device === 'FALCON'
-        ? await this.fuseTarget(target)
-        : await this.transformerTarget(target, channel as ScenarioChannel);
-    await this.assertInScope(resolved.nodeId, scope);
-
-    const active = await this.isActive(action, resolved, channel);
-    if (repeatsCurrentState(action, active)) {
-      throw new ConflictException(
-        `${action} would not change anything: the ${definition.device === 'FALCON' ? 'fuse' : 'phase'} is already in that state`,
+    const definition = scenarioActionDefinition(action);
+    if (definition.kind !== 'event') {
+      throw new NotImplementedException(
+        `${action} (${definition.kind}) has no handler`,
       );
     }
 
-    const firmware = await this.firmwareOf(resolved.hwId);
-    const eventCode = eventCodeOf(action, firmware, channel);
-    const recordedAt = now.toISOString();
+    // Which device and node: only to lock the device and check the scope. The state read here is
+    // not used; it is read again under the lock.
+    const located = await this.resolveTarget(
+      this.nodesRepository,
+      definition.device,
+      target,
+      channel,
+    );
+    await this.assertInScope(located.nodeId, scope);
 
-    await this.nodesRepository.manager.transaction(async (manager) => {
+    return this.nodesRepository.manager.transaction(async (manager) => {
+      await manager.query(LOCK_DEVICE_SQL, [located.hwId]);
+      const resolved = await this.resolveTarget(
+        manager,
+        definition.device,
+        target,
+        channel,
+      );
+      // The scope was checked for the node found before the lock: if the target moved to another
+      // node (or got another device) meanwhile, nothing is written; a retry checks the new node.
+      if (
+        resolved.hwId !== located.hwId ||
+        resolved.nodeId !== located.nodeId
+      ) {
+        throw new ConflictException(
+          `The device or node of ${target} changed during the request; try again`,
+        );
+      }
+
+      const active = await this.isActive(manager, action, resolved, channel);
+      if (repeatsCurrentState(action, active)) {
+        throw new ConflictException(
+          `${action} would not change anything: the ${definition.device === 'FALCON' ? 'fuse' : 'phase'} is already in that state`,
+        );
+      }
+
+      const firmware = await this.firmwareOf(manager, resolved.hwId);
+      const eventCode = eventCodeOf(action, firmware, channel);
+      const recordedAt = (
+        await this.recordedAtFor(manager, resolved.hwId)
+      ).toISOString();
+
       if (definition.device === 'FALCON') {
         await manager.query(INSERT_FALCON_READING_SQL, [
           resolved.hwId,
@@ -222,26 +287,63 @@ export class ScenariosService {
         alarmValueOf(action),
         recordedAt,
       ]);
-    });
 
-    return {
-      action,
-      node: resolved.nodeId,
-      target,
-      channel,
-      hw_id: resolved.hwId,
-      event_code: eventCode,
-      event_type: definition.eventType,
-      recorded_at: recordedAt,
-      effect: expectedEffectOf(action),
-    };
+      return {
+        action,
+        node: resolved.nodeId,
+        target,
+        channel,
+        hw_id: resolved.hwId,
+        event_code: eventCode,
+        event_type: definition.eventType,
+        recorded_at: recordedAt,
+        effect: expectedEffectOf(action),
+      };
+    });
   }
 
-  private async fuseTarget(target: string): Promise<ResolvedTarget> {
-    const [fuse]: FuseTarget[] = await this.nodesRepository.query(
-      FUSE_TARGET_SQL,
-      [target],
+  private resolveTarget(
+    runner: Queryable,
+    device: 'FALCON' | 'SMAC',
+    target: string,
+    channel: ScenarioChannel | null,
+  ): Promise<ResolvedTarget> {
+    return device === 'FALCON'
+      ? this.fuseTarget(runner, target)
+      : this.transformerTarget(runner, target, channel as ScenarioChannel);
+  }
+
+  /**
+   * Stamp for the next write of the device (scenario-timestamps.ts): the database clock, or 1 ms
+   * after the device's latest record. Refused (409, nothing written) when that record is too far
+   * ahead of the clock.
+   */
+  private async recordedAtFor(runner: Queryable, hwId: string): Promise<Date> {
+    const rows = (await runner.query(DEVICE_CLOCK_SQL, [hwId])) as {
+      database_now: Date | string;
+      latest_at: Date | string | null;
+    }[];
+    const row = rows[0];
+    if (!row) throw new Error('The database clock could not be read');
+    const decision = nextRecordedAt(
+      new Date(row.database_now),
+      row.latest_at === null ? null : new Date(row.latest_at),
     );
+    if (!decision.ok) {
+      throw new ConflictException(
+        `The latest record of device ${hwId} is ${decision.aheadMs} ms ahead of the database clock; a scenario does not write future-dated telemetry`,
+      );
+    }
+    return decision.recordedAt;
+  }
+
+  private async fuseTarget(
+    runner: Queryable,
+    target: string,
+  ): Promise<ResolvedTarget> {
+    const [fuse] = (await runner.query(FUSE_TARGET_SQL, [
+      target,
+    ])) as FuseTarget[];
     if (!fuse) throw new NotFoundException(`Fuse ${target} not found`);
     if (!fuse.hw_id) {
       throw new BadRequestException(`Fuse ${target} has no Falcon installed`);
@@ -256,13 +358,13 @@ export class ScenariosService {
   }
 
   private async transformerTarget(
+    runner: Queryable,
     target: string,
     channel: ScenarioChannel,
   ): Promise<ResolvedTarget> {
-    const [trafo]: TransformerTarget[] = await this.nodesRepository.query(
-      TRANSFORMER_TARGET_SQL,
-      [target],
-    );
+    const [trafo] = (await runner.query(TRANSFORMER_TARGET_SQL, [
+      target,
+    ])) as TransformerTarget[];
     if (!trafo) throw new NotFoundException(`Transformer ${target} not found`);
     if (!trafo.hw_id) {
       throw new BadRequestException(
@@ -299,6 +401,7 @@ export class ScenariosService {
 
   /** Current state from the alarms (the platform's source of truth, CL-01); telemetry if none. */
   private async isActive(
+    runner: Queryable,
     action: ScenarioAction,
     target: ResolvedTarget,
     channel: ScenarioChannel | null,
@@ -308,10 +411,11 @@ export class ScenariosService {
       device === 'FALCON'
         ? `^13[0-9]{2}${event}$`
         : `^05[0-9]{2}${event}(${channel}|${'ABC'.indexOf(channel as string) + 1})$`;
-    const rows: { event_type: string }[] = await this.nodesRepository.query(
-      LATEST_EVENT_SQL,
-      [target.targetId, target.hwId, pattern],
-    );
+    const rows = (await runner.query(LATEST_EVENT_SQL, [
+      target.targetId,
+      target.hwId,
+      pattern,
+    ])) as { event_type: string }[];
     if (rows.length > 0) return rows[0].event_type === 'SET';
     if (device === 'SMAC') return false;
     return event === '20'
@@ -319,11 +423,10 @@ export class ScenariosService {
       : target.voltageCutInTelemetry;
   }
 
-  private async firmwareOf(hwId: string): Promise<string> {
-    const rows: { firmware: string }[] = await this.nodesRepository.query(
-      FIRMWARE_SQL,
-      [hwId],
-    );
+  private async firmwareOf(runner: Queryable, hwId: string): Promise<string> {
+    const rows = (await runner.query(FIRMWARE_SQL, [hwId])) as {
+      firmware: string;
+    }[];
     const firmware = rows[0]?.firmware;
     return firmware && /^\d{2}$/.test(firmware) ? firmware : DEFAULT_FIRMWARE;
   }

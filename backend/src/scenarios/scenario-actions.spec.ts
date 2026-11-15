@@ -1,4 +1,6 @@
 import {
+  SCENARIO_ACTIONS,
+  SCENARIO_ACTION_KINDS,
   SCENARIO_ACTION_NAMES,
   alarmTextOf,
   alarmValueOf,
@@ -6,6 +8,7 @@ import {
   isScenarioAction,
   isScenarioChannel,
   repeatsCurrentState,
+  scenarioActionDefinition,
 } from './scenario-actions';
 import { classifyEventCode } from '../faults/fault-alert-types';
 
@@ -19,6 +22,80 @@ describe('scenario actions (US31 · F-100)', () => {
       'DROP_PHASE',
       'RESTORE_PHASE',
     ]);
+  });
+
+  it('gives every action a kind; the six SCRUM-252 actions are event actions with their fields (SCRUM-253)', () => {
+    expect(SCENARIO_ACTION_KINDS).toEqual(['event', 'telemetry', 'silence']);
+    expect(
+      SCENARIO_ACTION_NAMES.map((action) => [
+        action,
+        scenarioActionDefinition(action),
+      ]),
+    ).toEqual([
+      [
+        'OPEN_FUSE',
+        {
+          kind: 'event',
+          device: 'FALCON',
+          event: '20',
+          eventType: 'SET',
+          channel: false,
+        },
+      ],
+      [
+        'CLOSE_FUSE',
+        {
+          kind: 'event',
+          device: 'FALCON',
+          event: '20',
+          eventType: 'CLEAR',
+          channel: false,
+        },
+      ],
+      [
+        'CUT_VOLTAGE',
+        {
+          kind: 'event',
+          device: 'FALCON',
+          event: '21',
+          eventType: 'SET',
+          channel: false,
+        },
+      ],
+      [
+        'RESTORE_VOLTAGE',
+        {
+          kind: 'event',
+          device: 'FALCON',
+          event: '21',
+          eventType: 'CLEAR',
+          channel: false,
+        },
+      ],
+      [
+        'DROP_PHASE',
+        {
+          kind: 'event',
+          device: 'SMAC',
+          event: '21',
+          eventType: 'SET',
+          channel: true,
+        },
+      ],
+      [
+        'RESTORE_PHASE',
+        {
+          kind: 'event',
+          device: 'SMAC',
+          event: '21',
+          eventType: 'CLEAR',
+          channel: true,
+        },
+      ],
+    ]);
+    for (const action of SCENARIO_ACTION_NAMES) {
+      expect(scenarioActionDefinition(action)).toBe(SCENARIO_ACTIONS[action]);
+    }
   });
 
   it('writes Technical Annex §4.2 codes that the fault list classifies as the right alert', () => {

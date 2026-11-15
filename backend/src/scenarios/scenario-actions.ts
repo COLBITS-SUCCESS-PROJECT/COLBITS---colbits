@@ -5,50 +5,100 @@
  * and one alarm event with the Technical Annex §4.2 codes, exactly like a Falcon or a SMAC, so the
  * map (GET /nodes), the alarm list (GET /faults) and the node detail react through their normal
  * rules within one refresh. Javier's SCRUM-253 adds the other actions to SCENARIO_ACTIONS.
+ *
+ * SCRUM-253: every action has a `kind`, so actions that write differently can share the service:
+ *  - `event`: one reading plus one SET or CLEAR alarm event (the six SCRUM-252 actions);
+ *  - `telemetry`: one reading with the device's own fields changed, and optionally one MSG event
+ *    (the device conditions whose origin is telemetry: low energy, overload, free fall, solar panel);
+ *  - `silence`: the device stops or resumes reporting (inactivity).
  */
+export const SCENARIO_ACTION_KINDS = ['event', 'telemetry', 'silence'] as const;
+export type ScenarioActionKind = (typeof SCENARIO_ACTION_KINDS)[number];
+export type ScenarioDevice = 'FALCON' | 'SMAC';
+
+/** Reading plus one SET / CLEAR event with the Technical Annex §4.2 code (SCRUM-252). */
+export interface EventScenarioActionDefinition {
+  kind: 'event';
+  device: ScenarioDevice;
+  event: '20' | '21';
+  eventType: 'SET' | 'CLEAR';
+  channel: boolean;
+}
+
+/** Reading with the action's own fields changed; free fall also sends a 13xx01 MSG event. */
+export interface TelemetryScenarioActionDefinition {
+  kind: 'telemetry';
+  device: ScenarioDevice;
+  channel: false;
+  event?: '01';
+  eventType?: 'MSG';
+}
+
+/** The device stops or resumes reporting. */
+export interface SilenceScenarioActionDefinition {
+  kind: 'silence';
+  device: ScenarioDevice;
+  channel: false;
+}
+
+export type ScenarioActionDefinition =
+  | EventScenarioActionDefinition
+  | TelemetryScenarioActionDefinition
+  | SilenceScenarioActionDefinition;
+
 export const SCENARIO_ACTIONS = {
   OPEN_FUSE: {
+    kind: 'event',
     device: 'FALCON',
     event: '20',
     eventType: 'SET',
     channel: false,
   },
   CLOSE_FUSE: {
+    kind: 'event',
     device: 'FALCON',
     event: '20',
     eventType: 'CLEAR',
     channel: false,
   },
   CUT_VOLTAGE: {
+    kind: 'event',
     device: 'FALCON',
     event: '21',
     eventType: 'SET',
     channel: false,
   },
   RESTORE_VOLTAGE: {
+    kind: 'event',
     device: 'FALCON',
     event: '21',
     eventType: 'CLEAR',
     channel: false,
   },
-  DROP_PHASE: { device: 'SMAC', event: '21', eventType: 'SET', channel: true },
+  DROP_PHASE: {
+    kind: 'event',
+    device: 'SMAC',
+    event: '21',
+    eventType: 'SET',
+    channel: true,
+  },
   RESTORE_PHASE: {
+    kind: 'event',
     device: 'SMAC',
     event: '21',
     eventType: 'CLEAR',
     channel: true,
   },
-} as const satisfies Record<
-  string,
-  {
-    device: 'FALCON' | 'SMAC';
-    event: '20' | '21';
-    eventType: 'SET' | 'CLEAR';
-    channel: boolean;
-  }
->;
+} as const satisfies Record<string, ScenarioActionDefinition>;
 
 export type ScenarioAction = keyof typeof SCENARIO_ACTIONS;
+
+/** The definition of an action as the general union, so the service can dispatch on `kind`. */
+export function scenarioActionDefinition(
+  action: ScenarioAction,
+): ScenarioActionDefinition {
+  return SCENARIO_ACTIONS[action];
+}
 export const SCENARIO_ACTION_NAMES = Object.keys(
   SCENARIO_ACTIONS,
 ) as ScenarioAction[];
