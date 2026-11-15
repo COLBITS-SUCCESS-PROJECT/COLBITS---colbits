@@ -66,6 +66,8 @@ services:
       CHOKIDAR_USEPOLLING: 'true'
       FALCON_LOW_ENERGY_PERCENT: ${FALCON_LOW_ENERGY_PERCENT:-30}
       SMAC_LOW_ENERGY_PERCENT: ${SMAC_LOW_ENERGY_PERCENT:-30}
+      # Local data comes from the generator, so the demo scenario panel is on (US31).
+      DEMO_SCENARIOS_ENABLED: ${DEMO_SCENARIOS_ENABLED:-true}
       SMAC_OVERLOAD_PERCENT: ${SMAC_OVERLOAD_PERCENT:-90}
       SMAC_VOLTAGE_UNBALANCE_PERCENT: ${SMAC_VOLTAGE_UNBALANCE_PERCENT:-2}
       # Empty = disabled: TD-10 has no approved current-imbalance threshold yet.

@@ -9,6 +9,7 @@ import { NodesModule } from './nodes/nodes.module';
 import { ScopeModule } from './scope/scope.module';
 import { FaultsModule } from './faults/faults.module';
 import { UsersModule } from './users/users.module';
+import { ScenariosModule } from './scenarios/scenarios.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { UsersModule } from './users/users.module';
     }),
     FaultsModule,
     UsersModule,
+    ScenariosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

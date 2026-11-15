@@ -52,6 +52,8 @@ services:
         value: '30'
       - key: SMAC_LOW_ENERGY_PERCENT
         value: '30'
+      - key: DEMO_SCENARIOS_ENABLED
+        value: 'false'
       - key: SMAC_OVERLOAD_PERCENT
         value: '90'
       - key: SMAC_VOLTAGE_UNBALANCE_PERCENT
@@ -121,6 +123,8 @@ services:
         value: '30'
       - key: SMAC_LOW_ENERGY_PERCENT
         value: '30'
+      - key: DEMO_SCENARIOS_ENABLED
+        value: 'true'
       - key: SMAC_OVERLOAD_PERCENT
         value: '90'
       - key: SMAC_VOLTAGE_UNBALANCE_PERCENT
