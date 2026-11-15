@@ -46,6 +46,10 @@ services:
       DATA_REFRESH_HOURS: 1
       FALCON_LOW_ENERGY_PERCENT: 30
       SMAC_LOW_ENERGY_PERCENT: 30
+      SMAC_OVERLOAD_PERCENT: 90
+      SMAC_VOLTAGE_UNBALANCE_PERCENT: 2
+      # SMAC_CURRENT_UNBALANCE_PERCENT is left unset on purpose: TD-10 has no approved value, so the
+      # current-imbalance condition is disabled. Add it here once the team agrees one.
     depends_on:
       db:
         condition: service_healthy

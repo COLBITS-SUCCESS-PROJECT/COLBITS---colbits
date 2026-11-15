@@ -6,6 +6,18 @@ import {
   ACTIVE_FAULT_EVENTS_SQL,
   ActiveFaultsService,
 } from './active-faults.service';
+import {
+  FREE_FALL_ALERT_PARAMETERS,
+  FREE_FALL_ALERTS_SQL,
+  FalconAlertRow,
+  OVERLOAD_ALERTS_SQL,
+  OverloadAlertRow,
+  SOLAR_PANEL_ALERTS_SQL,
+} from './device-alert-queries';
+import {
+  DeviceAlertThresholds,
+  ResolvedDeviceAlertThresholds,
+} from './device-alert-thresholds';
 import { ALERT_TYPE_DEFINITIONS, ALERT_TYPES } from './fault-alert-types';
 import { DEFAULT_SEVERITY_WEIGHTS, SeverityWeights } from './fault-ordering';
 import { FaultsService } from './faults.service';
@@ -83,6 +95,15 @@ function smacRow(overrides: Partial<SourceAlarmRow> = {}): SourceAlarmRow {
   });
 }
 
+const DEFAULT_THRESHOLDS: ResolvedDeviceAlertThresholds = {
+  thresholds: {
+    overloadPercent: 90,
+    voltageUnbalancePercent: 2,
+    currentUnbalancePercent: null,
+  } satisfies DeviceAlertThresholds,
+  warnings: [],
+};
+
 function serviceWith(
   rows: Row[],
   options: {
@@ -91,6 +112,10 @@ function serviceWith(
     weights?: SeverityWeights;
     sourceRows?: SourceAlarmRow[];
     resolvedRows?: SourceAlarmEpisodeRow[];
+    freeFallRows?: FalconAlertRow[];
+    solarRows?: FalconAlertRow[];
+    overloadRows?: OverloadAlertRow[];
+    thresholds?: ResolvedDeviceAlertThresholds;
   } = {},
 ) {
   const nodes = options.nodes ?? ['0000100002'];
@@ -102,15 +127,21 @@ function serviceWith(
   };
   const repository = {
     createQueryBuilder: jest.fn().mockReturnValue(builder),
-    // Each statement gets its own rows: fuse-opening events, active source alarms or resolved
-    // source-alarm episodes.
+    // Each statement gets its own rows: fuse-opening events, active source alarms, resolved
+    // source-alarm episodes or one of the three device alerts.
     query: jest.fn((sql: string) =>
       Promise.resolve(
         sql === ACTIVE_SOURCE_ALARMS_SQL
           ? (options.sourceRows ?? [])
           : sql === RESOLVED_SOURCE_ALARMS_SQL
             ? (options.resolvedRows ?? [])
-            : rows,
+            : sql === FREE_FALL_ALERTS_SQL
+              ? (options.freeFallRows ?? [])
+              : sql === SOLAR_PANEL_ALERTS_SQL
+                ? (options.solarRows ?? [])
+                : sql === OVERLOAD_ALERTS_SQL
+                  ? (options.overloadRows ?? [])
+                  : rows,
       ),
     ),
   };
@@ -119,6 +150,9 @@ function serviceWith(
     getSeverityWeights: jest
       .fn()
       .mockReturnValue(options.weights ?? DEFAULT_SEVERITY_WEIGHTS),
+    getDeviceAlertThresholds: jest
+      .fn()
+      .mockReturnValue(options.thresholds ?? DEFAULT_THRESHOLDS),
   };
   const service = new ActiveFaultsService(
     repository as unknown as Repository<Node>,
@@ -278,6 +312,8 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
                 closed_at: null,
               },
             ],
+            conditions: null,
+            transformer_load: null,
             warnings: [],
           },
         ],
@@ -730,14 +766,14 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
     const typesOf = (faults: { alert_type: string }[]) =>
       faults.map((fault) => fault.alert_type);
 
-    it('runs both statements with the same scoped nodes, the source query with the registry patterns', async () => {
+    it('runs the five statements with the same scoped nodes, the source query with the registry patterns', async () => {
       const { service, repository } = serviceWith([], {
         nodes: ['0000100001', '0000100002'],
       });
 
       await service.activeFaults(UNRESTRICTED, NOW);
 
-      expect(repository.query).toHaveBeenCalledTimes(2);
+      expect(repository.query).toHaveBeenCalledTimes(5);
       expect(repository.query).toHaveBeenCalledWith(ACTIVE_SOURCE_ALARMS_SQL, [
         ['0000100001', '0000100002'],
         ALERT_TYPE_DEFINITIONS.NO_VOLTAGE.eventCodePattern,
@@ -855,6 +891,8 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
             ended_at: null,
             duration_seconds: 1200,
             openings: [],
+            conditions: null,
+            transformer_load: null,
             warnings: [],
           },
         ],
@@ -1168,5 +1206,370 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
         'Active alarm event_code "051421D" on "0000100002-T1-3" not listed: UNKNOWN_CHANNEL',
       ]);
     });
+  });
+});
+
+/** An active free-fall alert on fuse 0000100002-A-R, started 40 minutes before NOW unless overridden. */
+function falconAlertRow(
+  overrides: Partial<FalconAlertRow> = {},
+): FalconAlertRow {
+  return {
+    source_id: '0000100002-A-R',
+    node_id: '0000100002',
+    circuit_id: 1,
+    circuit_name: 'CTO 1',
+    fuses_set_id: 2,
+    branch: 'A',
+    phase: 'R',
+    started_at: minutesAgo(40),
+    ...overrides,
+  };
+}
+
+/** An active overload alert on transformer 0000100002-T1-3, started 30 minutes before NOW. */
+function overloadRow(
+  overrides: Partial<OverloadAlertRow> = {},
+): OverloadAlertRow {
+  return {
+    source_id: '0000100002-T1-3',
+    node_id: '0000100002',
+    circuit_id: 1,
+    circuit_name: 'CTO 1',
+    started_at: minutesAgo(30),
+    load_percent: 92.5,
+    vuf_percent: 1.2,
+    cuf_percent: null,
+    ...overrides,
+  };
+}
+
+describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () => {
+  let warn: jest.SpyInstance;
+
+  beforeEach(() => {
+    warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  it('lists free fall and solar panel as fuse-level entries, with the fuse phase and no clients', async () => {
+    const { service } = serviceWith([], {
+      freeFallRows: [falconAlertRow()],
+      solarRows: [
+        falconAlertRow({
+          source_id: '0000100002-A-S',
+          phase: 'S2',
+          started_at: '2026-10-29T15:10:00.000Z',
+        }),
+      ],
+    });
+
+    const { faults, count } = await service.activeFaults(UNRESTRICTED, NOW);
+
+    expect(count).toBe(2);
+    expect(faults).toEqual([
+      {
+        id: 'FREE_FALL:0000100002-A-R:2026-10-29T14:40:00.000Z',
+        node: '0000100002',
+        circuit: { id: 1, name: 'CTO 1' },
+        fuses_set_id: 2,
+        branch: 'A',
+        alert_type: 'FREE_FALL',
+        device: 'FALCON',
+        source_id: '0000100002-A-R',
+        channel: null,
+        state: 'OPEN',
+        phases: ['R'],
+        classification: null,
+        client_count: null,
+        started_at: '2026-10-29T14:40:00.000Z',
+        ended_at: null,
+        duration_seconds: 2400,
+        openings: [],
+        conditions: null,
+        transformer_load: null,
+        warnings: [],
+      },
+      {
+        id: 'SOLAR_PANEL_FAILURE:0000100002-A-S:2026-10-29T15:10:00.000Z',
+        node: '0000100002',
+        circuit: { id: 1, name: 'CTO 1' },
+        fuses_set_id: 2,
+        branch: 'A',
+        alert_type: 'SOLAR_PANEL_FAILURE',
+        device: 'FALCON',
+        source_id: '0000100002-A-S',
+        channel: null,
+        state: 'OPEN',
+        phases: ['S'],
+        classification: null,
+        client_count: null,
+        started_at: '2026-10-29T15:10:00.000Z',
+        ended_at: null,
+        duration_seconds: 600,
+        openings: [],
+        conditions: null,
+        transformer_load: null,
+        warnings: [],
+      },
+    ]);
+  });
+
+  it('does not guess the phase of a fuse whose phase cannot be classified', async () => {
+    const { service } = serviceWith([], {
+      freeFallRows: [falconAlertRow({ phase: 'X' })],
+    });
+
+    const [fault] = (await service.activeFaults(UNRESTRICTED, NOW)).faults;
+
+    expect(fault.phases).toBeNull();
+    expect(fault.warnings).toEqual(['PHASES_UNCLASSIFIED']);
+  });
+
+  it('lists overload as one entry per transformer, with its conditions and last values', async () => {
+    const { service } = serviceWith([], {
+      overloadRows: [overloadRow({ load_percent: '92.5', vuf_percent: '2.5' })],
+    });
+
+    const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+    expect(faults).toEqual([
+      {
+        id: 'OVERLOAD_UNBALANCE:0000100002-T1-3:2026-10-29T14:50:00.000Z',
+        node: '0000100002',
+        circuit: { id: 1, name: 'CTO 1' },
+        fuses_set_id: null,
+        branch: null,
+        alert_type: 'OVERLOAD_UNBALANCE',
+        device: 'SMAC',
+        source_id: '0000100002-T1-3',
+        channel: null,
+        state: 'OPEN',
+        phases: null,
+        classification: null,
+        client_count: null,
+        started_at: '2026-10-29T14:50:00.000Z',
+        ended_at: null,
+        duration_seconds: 1800,
+        openings: [],
+        conditions: ['OVERLOAD', 'VOLTAGE_UNBALANCE'],
+        transformer_load: {
+          load_percent: 92.5,
+          vuf_percent: 2.5,
+          cuf_percent: null,
+        },
+        warnings: [],
+      },
+    ]);
+  });
+
+  it('keeps a measurement the transformer never reported as null, not zero', async () => {
+    const { service } = serviceWith([], {
+      overloadRows: [
+        overloadRow({
+          load_percent: null,
+          vuf_percent: 3,
+          cuf_percent: null,
+        }),
+      ],
+    });
+
+    const [fault] = (await service.activeFaults(UNRESTRICTED, NOW)).faults;
+
+    expect(fault.conditions).toEqual(['VOLTAGE_UNBALANCE']);
+    expect(fault.transformer_load).toEqual({
+      load_percent: null,
+      vuf_percent: 3,
+      cuf_percent: null,
+    });
+  });
+
+  describe('NF-22 thresholds and TD-10', () => {
+    const configured = (
+      overloadPercent: number,
+      currentUnbalancePercent: number | null = null,
+    ): ResolvedDeviceAlertThresholds => ({
+      thresholds: {
+        overloadPercent,
+        voltageUnbalancePercent: 2,
+        currentUnbalancePercent,
+      },
+      warnings: [],
+    });
+
+    it('passes the thresholds of FaultsService to the overload query, with the current-imbalance one unset (null)', async () => {
+      const { service, repository } = serviceWith([], {
+        nodes: ['0000100001', '0000100002'],
+      });
+
+      await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(repository.query).toHaveBeenCalledWith(OVERLOAD_ALERTS_SQL, [
+        ['0000100001', '0000100002'],
+        90,
+        2,
+        null,
+      ]);
+      expect(repository.query).toHaveBeenCalledWith(FREE_FALL_ALERTS_SQL, [
+        ['0000100001', '0000100002'],
+        ...FREE_FALL_ALERT_PARAMETERS,
+      ]);
+      expect(repository.query).toHaveBeenCalledWith(SOLAR_PANEL_ALERTS_SQL, [
+        ['0000100001', '0000100002'],
+      ]);
+    });
+
+    it('a lower overload threshold makes the same 85 % transformer an alert, and a higher one does not', async () => {
+      const row = overloadRow({ load_percent: 85, vuf_percent: 1 });
+
+      const at80 = serviceWith([], {
+        overloadRows: [row],
+        thresholds: configured(80),
+      });
+      const at90 = serviceWith([], { overloadRows: [row] });
+
+      const [fault] = (await at80.service.activeFaults(UNRESTRICTED, NOW))
+        .faults;
+      expect(fault.conditions).toEqual(['OVERLOAD']);
+      expect(at80.repository.query).toHaveBeenCalledWith(OVERLOAD_ALERTS_SQL, [
+        ['0000100002'],
+        80,
+        2,
+        null,
+      ]);
+      // At 90 % the query would not return the row; if it did, nothing is listed on a guess.
+      expect(
+        (await at90.service.activeFaults(UNRESTRICTED, NOW)).faults,
+      ).toEqual([]);
+    });
+
+    it('never names the current-imbalance condition while its threshold is unset, and names it once configured', async () => {
+      const row = overloadRow({
+        load_percent: 95,
+        vuf_percent: null,
+        cuf_percent: 40,
+      });
+
+      const unset = serviceWith([], { overloadRows: [row] });
+      const set = serviceWith([], {
+        overloadRows: [row],
+        thresholds: configured(90, 10),
+      });
+
+      expect(
+        (await unset.service.activeFaults(UNRESTRICTED, NOW)).faults[0]
+          .conditions,
+      ).toEqual(['OVERLOAD']);
+      expect(
+        (await set.service.activeFaults(UNRESTRICTED, NOW)).faults[0]
+          .conditions,
+      ).toEqual(['OVERLOAD', 'CURRENT_UNBALANCE']);
+    });
+
+    it('does not list a transformer only its unconfigured current imbalance would flag, and logs it once', async () => {
+      const { service } = serviceWith([], {
+        overloadRows: [
+          overloadRow({ load_percent: 50, vuf_percent: 1, cuf_percent: 40 }),
+        ],
+      });
+
+      expect((await service.activeFaults(UNRESTRICTED, NOW)).faults).toEqual(
+        [],
+      );
+      await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(
+        warn.mock.calls.filter((call) =>
+          String(call[0]).startsWith('Overload alert for transformer'),
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('logs each threshold notice once, at startup, and not again on every request', async () => {
+      const notice =
+        'SMAC_CURRENT_UNBALANCE_PERCENT is not set: the current-imbalance condition is disabled until the team approves a threshold (TD-10)';
+      const { service } = serviceWith([], {
+        thresholds: { ...DEFAULT_THRESHOLDS, warnings: [notice] },
+      });
+
+      service.onModuleInit();
+      await service.activeFaults(UNRESTRICTED, NOW);
+      await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([notice]);
+    });
+  });
+
+  it('does not run any statement for a user without nodes', async () => {
+    const { service, repository } = serviceWith([], { nodes: [] });
+
+    expect((await service.activeFaults(UNRESTRICTED, NOW)).faults).toEqual([]);
+    expect(repository.query).not.toHaveBeenCalled();
+  });
+
+  it('does not change the F-58 counters: they count only the four alert types of the original list', async () => {
+    const { service } = serviceWith([], {
+      freeFallRows: [falconAlertRow()],
+      solarRows: [falconAlertRow({ source_id: '0000100002-A-S' })],
+      overloadRows: [overloadRow()],
+    });
+
+    const { counters, count } = await service.activeFaults(UNRESTRICTED, NOW);
+
+    expect(count).toBe(3);
+    expect(counters).toEqual({
+      fuseAlarmNodes: 0,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 0,
+    });
+  });
+
+  it('leaves fuse faults and source alarms as they were, and orders everything by F-57 (clients, then oldest)', async () => {
+    const { service } = serviceWith([row()], {
+      sourceRows: [
+        {
+          event_code: '131421',
+          started_at: minutesAgo(35),
+          source_id: '0000100002-A-S',
+          node_id: '0000100002',
+          circuit_id: 1,
+          circuit_name: 'CTO 1',
+          fuses_set_id: 2,
+          branch: 'A',
+          phase: 'S',
+        },
+      ],
+      freeFallRows: [falconAlertRow({ started_at: minutesAgo(40) })],
+      overloadRows: [overloadRow({ started_at: minutesAgo(10) })],
+    });
+
+    const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+    // The fuse fault has 120 clients; the rest have none and go oldest first.
+    expect(faults.map((f) => f.alert_type)).toEqual([
+      'FUSE_OPENING',
+      'FREE_FALL',
+      'NO_VOLTAGE',
+      'OVERLOAD_UNBALANCE',
+    ]);
+  });
+
+  it('does not run the device-alert queries when listing resolved faults (not implemented for these types)', async () => {
+    const { service, repository } = serviceWith([]);
+
+    await service.resolvedFaults(UNRESTRICTED, '24h', NOW);
+
+    for (const sql of [
+      FREE_FALL_ALERTS_SQL,
+      SOLAR_PANEL_ALERTS_SQL,
+      OVERLOAD_ALERTS_SQL,
+    ]) {
+      expect(repository.query).not.toHaveBeenCalledWith(sql, expect.anything());
+    }
   });
 });

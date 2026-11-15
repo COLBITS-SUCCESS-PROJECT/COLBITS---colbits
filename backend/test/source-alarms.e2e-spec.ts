@@ -592,6 +592,8 @@ describe('GET /faults — loss-of-voltage and SMAC phase alarms (SCRUM-225, e2e)
           (Date.parse(body.generated_at) - Date.parse(ago(60))) / 1000,
         ),
         openings: [],
+        conditions: null,
+        transformer_load: null,
         warnings: [],
       });
     });
@@ -890,7 +892,11 @@ describe('GET /faults — loss-of-voltage and SMAC phase alarms (SCRUM-225, e2e)
       const after = await getFaults(tokens.admin);
 
       expect(sourceAlarms(after)).toEqual([]);
-      expect(after.faults.map(strip)).toEqual(
+      expect(
+        after.faults
+          .filter((fault) => fault.alert_type === 'FUSE_OPENING')
+          .map(strip),
+      ).toEqual(
         before.faults
           .filter((fault) => fault.alert_type === 'FUSE_OPENING')
           .map(strip),

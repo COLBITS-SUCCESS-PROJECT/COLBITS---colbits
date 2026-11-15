@@ -329,6 +329,9 @@ const IN_SCOPE_ENTRIES = [
   source('PHASE_LOSS', 'ADME2E0009', 1, 'ADME2E0009-T1-3', 'A', null, null),
 ];
 const OUT_OF_SCOPE_ENTRIES = [
+  // The seed's own free-fall event (131401 MSG on fuse 0000200001-T, never followed by a reading
+  // with the flag false): listed since SCRUM-245.
+  source('FREE_FALL', '0000200001', 3, '0000200001-T', null, 5, ['T']),
   opening('ADME2E0002', 3, 991_002, 'TRIPHASIC', ['R', 'S', 'T']),
   opening('ADME2E0003', 4, 991_003, 'MONOPHASIC', ['R']),
   source('NO_VOLTAGE', 'ADME2E0006', 3, 'ADME2E0006-R', null, 991_006, ['R']),
@@ -484,6 +487,7 @@ describe('F-04: the administrator sees the entire network (e2e)', () => {
 
       expect(ids).toEqual(
         [
+          'FREE_FALL:0000200001-T:2026-09-01T14:12:00.000Z', // the seed's own
           `NO_VOLTAGE:ADME2E0006-R:${at(T.voltageOut)}`,
           `NO_VOLTAGE:ADME2E0007-R:${at(T.voltageIn)}`,
           `PHASE_LOSS:ADME2E0008-T1-3:B:${at(T.lossOut)}`,

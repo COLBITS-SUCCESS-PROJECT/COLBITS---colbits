@@ -448,6 +448,10 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       body = await getFaults(tokens.admin);
     });
 
+    // The seed has one free-fall event (131401 MSG on fuse 0000200001-T, no later reading with the
+    // flag false), which GET /faults lists since SCRUM-245. Every other entry is a fuse-opening fault.
+    const SEEDED_FREE_FALL = 'FREE_FALL:0000200001-T:2026-09-01T14:12:00.000Z';
+
     it('returns the documented envelope and only open fuse-opening faults', () => {
       expect(Object.keys(body).sort((a, b) => a.localeCompare(b))).toEqual([
         'count',
@@ -456,14 +460,20 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
         'generated_at',
       ]);
       expect(body.count).toBe(body.faults.length);
+      const fuseFaults = body.faults.filter(
+        (f) => f.alert_type === 'FUSE_OPENING',
+      );
+      expect(
+        body.faults.filter((f) => f.alert_type !== 'FUSE_OPENING').map((f) => f.id),
+      ).toEqual([SEEDED_FREE_FALL]);
       expect(body.counters).toEqual({
-        fuseAlarmNodes: new Set(body.faults.map((f) => f.node)).size,
+        fuseAlarmNodes: new Set(fuseFaults.map((f) => f.node)).size,
         voltageAlarmNodes: 0,
         phaseOutOfRangeNodes: 0,
         phaseDroppedNodes: 0,
       });
       expect(Number.isNaN(Date.parse(body.generated_at))).toBe(false);
-      for (const fault of body.faults) {
+      for (const fault of fuseFaults) {
         expect(fault.alert_type).toBe('FUSE_OPENING');
         expect(fault.state).toBe('OPEN');
         expect(fault.ended_at).toBeNull();
@@ -648,6 +658,7 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
           'circuit',
           'classification',
           'client_count',
+          'conditions',
           'device',
           'duration_seconds',
           'ended_at',
@@ -659,6 +670,7 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
           'source_id',
           'started_at',
           'state',
+          'transformer_load',
           'warnings',
         ]);
         expect(fault).toMatchObject({
@@ -836,7 +848,9 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       const user = await getFaults(tokens.circuit1);
 
       expect(admin.count).toBeGreaterThan(user.count);
-      expect(admin.count - user.count).toBe(2); // the two sets outside circuit 1
+      // The two fuse sets outside circuit 1, plus the seeded free-fall alert (node 0000200001,
+      // circuit 3), which the circuit-1 user does not see (SCRUM-245).
+      expect(admin.count - user.count).toBe(3);
     });
 
     it('answers an empty list for a user deactivated after login', async () => {
