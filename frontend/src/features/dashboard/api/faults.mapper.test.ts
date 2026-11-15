@@ -49,6 +49,7 @@ describe('toFaultAlert', () => {
       phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'OK' },
       classification: 'BIPHASIC',
       startedAt: new Date(STARTED_AT),
+      endedAt: null,
       durationMinutes: 15,
       customersAffected: 80,
       transformerLoad: null,
@@ -136,6 +137,21 @@ describe('toFaultAlert — source alarms (SCRUM-225)', () => {
 
   it('keeps a fuse opening red', () => {
     expect(toFaultAlert(DTO).severity).toBe('CRITICAL')
+  })
+})
+
+describe('toFaultAlert — resolved alarms (US16)', () => {
+  it('maps a resolved alarm with its resolution time and its total duration (F-60, F-63)', () => {
+    const fault = toFaultAlert({
+      ...DTO,
+      state: 'RESOLVED',
+      ended_at: '2026-10-29T15:50:00.000Z',
+      duration_seconds: 2700,
+    })
+
+    expect(fault.status).toBe('RESOLVED')
+    expect(fault.endedAt).toEqual(new Date('2026-10-29T15:50:00.000Z'))
+    expect(fault.durationMinutes).toBe(45)
   })
 })
 

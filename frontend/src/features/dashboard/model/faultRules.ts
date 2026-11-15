@@ -18,10 +18,18 @@ export interface FaultFilters {
 
 const LAYER_DEVICE = { FUSES: 'FALCON', TRANSFORMERS: 'SMAC' } as const
 
-/** "Last hour / last day" only limits resolved faults: an active fault stays listed however old it is (F-62). */
+/** When a resolved fault ended (its start if the service did not say). */
+function resolvedAtOf(fault: FaultAlert): number {
+  return (fault.endedAt ?? fault.startedAt).getTime()
+}
+
+/**
+ * "Last hour / last day" only limits resolved faults, by the time they were resolved, as
+ * GET /faults/resolved counts them. An active fault stays listed however old it is (F-62).
+ */
 function isInsideTimeWindow(fault: FaultAlert, timeWindow: TimeWindow, now: number): boolean {
   if (fault.status === 'OPEN') return true
-  return fault.startedAt.getTime() >= now - TIME_WINDOWS[timeWindow] * MS_PER_MINUTE
+  return resolvedAtOf(fault) >= now - TIME_WINDOWS[timeWindow] * MS_PER_MINUTE
 }
 
 /**
@@ -52,6 +60,12 @@ export function compareFaults(a: FaultAlert, b: FaultAlert): number {
   )
 }
 
+/** Resolved faults: the most recent resolution first (F-62). */
+export function compareResolvedFaults(a: FaultAlert, b: FaultAlert): number {
+  return resolvedAtOf(b) - resolvedAtOf(a)
+}
+
+/** Faults of one status that match the filters: open ones by severity (F-57), resolved ones newest first (F-62). */
 export function selectFaults(
   faults: FaultAlert[],
   filters: FaultFilters,
@@ -63,7 +77,7 @@ export function selectFaults(
     .filter(
       (fault) => fault.status === status && matchesFilters(fault, filters, now, nodesInLocation)
     )
-    .sort(compareFaults)
+    .sort(status === 'RESOLVED' ? compareResolvedFaults : compareFaults)
 }
 
 /**

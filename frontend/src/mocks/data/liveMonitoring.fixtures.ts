@@ -9,7 +9,7 @@ import type {
   LiveMonitoringData,
 } from '@/features/dashboard/model/liveMonitoring.types'
 
-type FaultSeed = Omit<FaultAlert, 'startedAt' | 'zone'>
+type FaultSeed = Omit<FaultAlert, 'startedAt' | 'endedAt' | 'zone'>
 
 const FAULT_SEEDS: FaultSeed[] = [
   {
@@ -158,12 +158,16 @@ const FAULT_SEEDS: FaultSeed[] = [
   },
 ]
 
-/** Builds the sample data relative to `now`, so "last hour / last day" filters behave like real data. */
+/**
+ * Builds the sample data relative to `now`, so "last hour / last day" filters behave like real data.
+ * Every fault started `durationMinutes` ago; the resolved ones were resolved at `now`.
+ */
 export function buildLiveMonitoringMock(now: number): LiveMonitoringData {
   const faults = FAULT_SEEDS.map((seed) => ({
     ...seed,
     zone: 'Z-01',
     startedAt: new Date(now - seed.durationMinutes * MS_PER_MINUTE),
+    endedAt: seed.status === 'RESOLVED' ? new Date(now) : null,
   }))
   return {
     faults,
