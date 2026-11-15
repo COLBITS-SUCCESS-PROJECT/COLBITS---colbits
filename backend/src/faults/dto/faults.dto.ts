@@ -168,7 +168,7 @@ export class ActiveFaultDto {
     enum: ['OPEN', 'RESOLVED'],
     example: 'OPEN',
     description:
-      'A fuse-opening fault is OPEN while any of its phases has not reported a close, and RESOLVED when every involved phase has closed (F-61); a source alarm is OPEN while its last event is a SET, and RESOLVED after a CLEAR. Device alerts (FREE_FALL, SOLAR_PANEL_FAILURE, OVERLOAD_UNBALANCE) are listed only while open; their resolved episodes are not listed yet.',
+      'A fuse-opening fault is OPEN while any of its phases has not reported a close, and RESOLVED when every involved phase has closed (F-61); a source alarm is OPEN while its last event is a SET, and RESOLVED after a CLEAR. Device alerts (FREE_FALL, SOLAR_PANEL_FAILURE, OVERLOAD_UNBALANCE) are listed while open in GET /faults and after resolution in GET /faults/resolved.',
   })
   state: 'OPEN' | 'RESOLVED';
 
