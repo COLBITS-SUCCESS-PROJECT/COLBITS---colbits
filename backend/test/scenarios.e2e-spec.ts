@@ -133,7 +133,19 @@ describe('US31 demo scenarios (e2e)', () => {
       .expect(200);
 
     expect(response.body.enabled).toBe(true);
-    expect(response.body.actions).toHaveLength(6);
+    // SCRUM-253 adds its actions after these six.
+    expect(
+      (response.body.actions as { action: string }[])
+        .slice(0, 6)
+        .map((a) => a.action),
+    ).toEqual([
+      'OPEN_FUSE',
+      'CLOSE_FUSE',
+      'CUT_VOLTAGE',
+      'RESTORE_VOLTAGE',
+      'DROP_PHASE',
+      'RESTORE_PHASE',
+    ]);
   });
 
   it('OPEN_FUSE turns the node red and opens a FUSE_OPENING fault; repeating it is refused', async () => {

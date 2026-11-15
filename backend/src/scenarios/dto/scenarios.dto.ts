@@ -79,13 +79,22 @@ export class ScenarioResultDto {
   hw_id: string;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
     example: '131420',
-    description: 'Event code written to alarms (Annex §4.2).',
+    description:
+      'Event code written to alarms (Annex §4.2). null for the telemetry-only actions (low energy, overload, solar panel, the end of a free fall), which write a reading and no event (SCRUM-253).',
   })
-  event_code: string;
+  event_code: string | null;
 
-  @ApiProperty({ enum: ['SET', 'CLEAR'], example: 'SET' })
-  event_type: 'SET' | 'CLEAR';
+  @ApiProperty({
+    enum: ['SET', 'CLEAR', 'MSG'],
+    nullable: true,
+    example: 'SET',
+    description:
+      'SET or CLEAR for the SCRUM-252 actions; MSG for FREE_FALL (13xx01); null when no event is written.',
+  })
+  event_type: 'SET' | 'CLEAR' | 'MSG' | null;
 
   @ApiProperty({
     format: 'date-time',
