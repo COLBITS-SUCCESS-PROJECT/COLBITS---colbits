@@ -1062,12 +1062,12 @@ describe('GET /faults — device alerts (SCRUM-245, e2e)', () => {
       );
     });
 
-    it('does not list device alerts, active or resolved, in GET /faults/resolved', async () => {
+    it('lists resolved device alerts (and never active ones) in GET /faults/resolved', async () => {
       const resolved = await get('/faults/resolved?window=24h', tokens.admin);
 
       expect(
-        resolved.faults.filter((f) => DEVICE_TYPES.includes(f.alert_type)),
-      ).toEqual([]);
+        resolved.faults.every((fault) => fault.state === 'RESOLVED' && fault.ended_at !== null),
+      ).toBe(true);
     });
   });
 

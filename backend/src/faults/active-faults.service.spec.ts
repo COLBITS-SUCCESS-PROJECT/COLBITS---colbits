@@ -12,6 +12,11 @@ import {
   FalconAlertRow,
   OVERLOAD_ALERTS_SQL,
   OverloadAlertRow,
+  RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_OVERLOAD_ALERTS_SQL,
+  RESOLVED_SOLAR_PANEL_ALERTS_SQL,
+  ResolvedFalconAlertRow,
+  ResolvedOverloadAlertRow,
   SOLAR_PANEL_ALERTS_SQL,
 } from './device-alert-queries';
 import {
@@ -115,6 +120,9 @@ function serviceWith(
     freeFallRows?: FalconAlertRow[];
     solarRows?: FalconAlertRow[];
     overloadRows?: OverloadAlertRow[];
+    resolvedFreeFallRows?: ResolvedFalconAlertRow[];
+    resolvedSolarRows?: ResolvedFalconAlertRow[];
+    resolvedOverloadRows?: ResolvedOverloadAlertRow[];
     thresholds?: ResolvedDeviceAlertThresholds;
   } = {},
 ) {
@@ -141,7 +149,13 @@ function serviceWith(
                 ? (options.solarRows ?? [])
                 : sql === OVERLOAD_ALERTS_SQL
                   ? (options.overloadRows ?? [])
-                  : rows,
+                  : sql === RESOLVED_FREE_FALL_ALERTS_SQL
+                    ? (options.resolvedFreeFallRows ?? [])
+                    : sql === RESOLVED_SOLAR_PANEL_ALERTS_SQL
+                      ? (options.resolvedSolarRows ?? [])
+                      : sql === RESOLVED_OVERLOAD_ALERTS_SQL
+                        ? (options.resolvedOverloadRows ?? [])
+                        : rows,
       ),
     ),
   };
@@ -1559,10 +1573,27 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
     ]);
   });
 
-  it('does not run the device-alert queries when listing resolved faults (not implemented for these types)', async () => {
-    const { service, repository } = serviceWith([]);
+  it('lists resolved free-fall, solar-panel and overload episodes in resolvedFaults with their duration (US16 · F-62, F-63)', async () => {
+    const { service, repository } = serviceWith([], {
+      resolvedFreeFallRows: [
+        { ...falconAlertRow({ started_at: minutesAgo(50) }), ended_at: minutesAgo(20) },
+      ],
+      resolvedSolarRows: [
+        { ...falconAlertRow({ source_id: '0000100002-A-S', phase: 'S', started_at: minutesAgo(40) }), ended_at: minutesAgo(10) },
+      ],
+      resolvedOverloadRows: [
+        {
+          source_id: '0000100002-T1-3',
+          node_id: '0000100002',
+          circuit_id: 1,
+          circuit_name: 'CTO 1',
+          started_at: minutesAgo(30),
+          ended_at: minutesAgo(5),
+        },
+      ],
+    });
 
-    await service.resolvedFaults(UNRESTRICTED, '24h', NOW);
+    const { faults } = await service.resolvedFaults(UNRESTRICTED, '24h', NOW);
 
     for (const sql of [
       FREE_FALL_ALERTS_SQL,
@@ -1571,5 +1602,14 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
     ]) {
       expect(repository.query).not.toHaveBeenCalledWith(sql, expect.anything());
     }
+    expect(faults.map((f) => ({
+      alert_type: f.alert_type,
+      state: f.state,
+      duration_seconds: f.duration_seconds,
+    }))).toEqual([
+      { alert_type: 'OVERLOAD_UNBALANCE', state: 'RESOLVED', duration_seconds: 25 * 60 },
+      { alert_type: 'SOLAR_PANEL_FAILURE', state: 'RESOLVED', duration_seconds: 30 * 60 },
+      { alert_type: 'FREE_FALL', state: 'RESOLVED', duration_seconds: 30 * 60 },
+    ]);
   });
 });
