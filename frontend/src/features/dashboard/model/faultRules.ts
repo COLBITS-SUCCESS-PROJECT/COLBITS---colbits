@@ -58,7 +58,8 @@ export function matchesFilters(
 /**
  * Resolved faults: the most recent resolution first (F-62), as GET /faults/resolved lists them. The
  * panel sorts them again only because it merges them with the inactivity alarms (US17), which come
- * from another service.
+ * from another service. TEMPORARY: once GET /faults/resolved lists DEVICE_INACTIVITY, its order can
+ * be kept as it comes, like the open list.
  */
 export function compareResolvedFaults(a: FaultAlert, b: FaultAlert): number {
   return resolvedAtOf(b) - resolvedAtOf(a)

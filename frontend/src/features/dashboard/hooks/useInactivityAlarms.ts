@@ -1,4 +1,11 @@
-/** useInactivityAlarms — inactivity alarms of one window, from GET /device/inactive, for the Active and Resolved tabs (US17). */
+/**
+ * useInactivityAlarms — inactivity alarms of one window, from GET /device/inactive, for the Active and Resolved tabs (US17).
+ *
+ * TEMPORARY: GET /faults and GET /faults/resolved do not list DEVICE_INACTIVITY yet. When they do,
+ * delete this hook and inactivityAlarms.rules.ts and stop merging them (temporaryAlarms.rules.ts);
+ * the resolved ones then come from GET /faults/resolved too. The Inactive devices tab
+ * (useInactiveDevicesPanel) is a list of devices, not of alarms: it keeps reading GET /device/inactive.
+ */
 import { useMemo } from 'react'
 import { toInactivityAlarms } from '../model/inactivityAlarms.rules'
 import type { TimeWindow } from '../model/liveMonitoring.constants'

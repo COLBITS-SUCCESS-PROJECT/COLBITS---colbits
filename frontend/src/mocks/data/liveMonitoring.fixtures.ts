@@ -30,6 +30,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 318,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   },
   {
     id: 'f-2',
@@ -49,6 +50,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 142,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   },
   {
     id: 'f-3',
@@ -68,6 +70,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 142,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   },
   {
     id: 'f-4',
@@ -87,6 +90,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 96,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   },
   {
     id: 'f-5',
@@ -106,6 +110,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 64,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   },
   {
     id: 'f-6',
@@ -125,6 +130,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 0,
     transformerLoad: { loadPct: 118, voltageUnbalancePct: 3.4, currentUnbalancePct: null },
     conditions: ['OVERLOAD', 'VOLTAGE_UNBALANCE'],
+    energy: null,
   },
   {
     id: 'f-9',
@@ -144,6 +150,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 0,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   },
   {
     id: 'f-7',
@@ -163,6 +170,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 87,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   },
   {
     id: 'f-8',
@@ -182,6 +190,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     customersAffected: 12,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   },
 ]
 

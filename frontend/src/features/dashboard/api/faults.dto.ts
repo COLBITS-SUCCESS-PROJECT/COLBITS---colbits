@@ -2,7 +2,12 @@
 
 export type FaultClassificationDto = 'MONOPHASIC' | 'BIPHASIC' | 'TRIPHASIC'
 
-/** Alert types GET /faults lists: fuse openings (US10), source alarms (SCRUM-225) and device alerts (US18). */
+/**
+ * Alert types GET /faults lists: fuse openings (US10), source alarms (SCRUM-225) and device alerts (US18).
+ * LOW_ENERGY and DEVICE_INACTIVITY belong to the same closed list (backend fault-alert-types.ts, F-47)
+ * but the backend does not send them yet; they are accepted here so the panel shows them, open and
+ * resolved, the day it does (and the TEMPORARY merges stop adding their own, temporaryAlarms.rules.ts).
+ */
 export type ActiveFaultAlertTypeDto =
   | 'FUSE_OPENING'
   | 'NO_VOLTAGE'
@@ -11,6 +16,8 @@ export type ActiveFaultAlertTypeDto =
   | 'FREE_FALL'
   | 'SOLAR_PANEL_FAILURE'
   | 'OVERLOAD_UNBALANCE'
+  | 'LOW_ENERGY'
+  | 'DEVICE_INACTIVITY'
 
 /** Device that reports the alert. */
 export type FaultDeviceDto = 'FALCON' | 'SMAC'

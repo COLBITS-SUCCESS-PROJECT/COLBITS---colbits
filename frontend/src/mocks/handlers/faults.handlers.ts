@@ -2,7 +2,11 @@
 import { http, HttpResponse } from 'msw'
 import { FAULTS_ENDPOINT, RESOLVED_FAULTS_ENDPOINT } from '@/features/dashboard/api/faults.api'
 import type { ActiveFaultDto } from '@/features/dashboard/api/faults.dto'
-import { activeFaultFixtures, resolvedFaultFixtures } from '../data/faults.fixtures'
+import {
+  activeFaultFixtures,
+  activeFuseOpeningFixtures,
+  resolvedFaultFixtures,
+} from '../data/faults.fixtures'
 import { MOCK_SCOPES } from '../data/nodes.fixtures'
 import { isTokenRevoked } from '../data/revokedTokens'
 import { bearerToken } from './bearerToken'
@@ -50,15 +54,26 @@ function faultsResponse(faults: ActiveFaultDto[], scope: string[] | null, now: n
   })
 }
 
-export const faultsHandlers = [
-  http.get(`*${FAULTS_ENDPOINT}`, ({ request }) => {
+/** GET /faults over the open faults that `fixtures` builds at the request time. */
+function activeFaultsHandler(fixtures: (now: number) => ActiveFaultDto[]) {
+  return http.get(`*${FAULTS_ENDPOINT}`, ({ request }) => {
     const scope = scopeOf(request)
     if (scope === undefined) {
       return problem(UNAUTHORIZED, 'Unauthorized', 'Missing or invalid access token')
     }
     const now = Date.now()
-    return faultsResponse(activeFaultFixtures(now).sort(byClientsThenAge), scope, now)
-  }),
+    return faultsResponse(fixtures(now).sort(byClientsThenAge), scope, now)
+  })
+}
+
+/**
+ * GET /faults with the fuse openings only (US10), without the device alerts of US18. For tests that
+ * count the fuse faults, which would otherwise also list the sample device alerts.
+ */
+export const fuseOpeningsOnlyHandler = activeFaultsHandler(activeFuseOpeningFixtures)
+
+export const faultsHandlers = [
+  activeFaultsHandler(activeFaultFixtures),
 
   // US16: resolved inside the window (1h, 24h or 1d; 24h when absent), newest resolution first (F-62).
   http.get(`*${RESOLVED_FAULTS_ENDPOINT}`, ({ request }) => {

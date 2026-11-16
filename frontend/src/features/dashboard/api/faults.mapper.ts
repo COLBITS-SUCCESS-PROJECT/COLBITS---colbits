@@ -35,10 +35,12 @@ function toPhaseStates(phases: string[] | null): PhaseStates | null {
  * Accent of the card (Figma "Fault List Item"): an open fuse is red, the same red as its node on the
  * map (F-15). The other alarms are amber: no voltage, phase out of range and one SMAC channel down.
  * "2+ SMAC phases down = red" is not applied: a SMAC channel is not a phase, so the backend sends
- * one entry per channel and the frontend does not add them up.
+ * one entry per channel and the frontend does not add them up. An inactive device is gray, the
+ * same as the inactivity alarms built from GET /device/inactive (inactivityAlarms.rules.ts).
  */
 function severityOf(dto: ActiveFaultDto): FaultSeverity {
-  return dto.alert_type === 'FUSE_OPENING' ? 'CRITICAL' : 'WARNING'
+  if (dto.alert_type === 'FUSE_OPENING') return 'CRITICAL'
+  return dto.alert_type === 'DEVICE_INACTIVITY' ? 'INACTIVE' : 'WARNING'
 }
 
 /** Last load and unbalance values of an OVERLOAD_UNBALANCE alert; null on every other alert. */
@@ -73,6 +75,9 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
     customersAffected: dto.client_count,
     transformerLoad: toTransformerLoad(dto.transformer_load),
     conditions: dto.conditions,
+    // GET /faults has no energy field yet: a LOW_ENERGY from it shows without its level until the
+    // backend adds one (then map it here, like transformer_load).
+    energy: null,
   }
 }
 

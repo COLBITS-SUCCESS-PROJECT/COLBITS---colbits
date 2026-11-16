@@ -14,6 +14,7 @@ import { useInactiveDevicesPanel } from '../hooks/useInactiveDevicesPanel'
 import { useInactivityAlarms } from '../hooks/useInactivityAlarms'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
+import { useLowEnergyAlarms } from '../hooks/useLowEnergyAlarms'
 import { useNodesQuery } from '../hooks/useNodesQuery'
 import { useResolvedFaultsPanel } from '../hooks/useResolvedFaultsPanel'
 import { selectFaults, type FaultFilters } from '../model/faultRules'
@@ -27,6 +28,7 @@ import {
 } from '../model/mapFilters'
 import type { NetworkNode } from '../model/liveMonitoring.types'
 import { deriveScopeOptions } from '../model/scopeOptions'
+import { mergeTemporaryAlarms } from '../model/temporaryAlarms.rules'
 
 export function LiveMonitoringPage() {
   const { t } = useTranslation('dashboard')
@@ -59,12 +61,23 @@ export function LiveMonitoringPage() {
     () => (hasLocationFilter(location) ? new Set(visibleNodes.map((node) => node.id)) : undefined),
     [location, visibleNodes]
   )
-  // US17: GET /faults does not list inactivity alarms; they come from the periods of
-  // GET /device/inactive (F-38 opens, F-39 resolves). Open ones join Active, closed ones Resolved.
+  // TEMPORARY (temporaryAlarms.rules.ts): GET /faults does not list DEVICE_INACTIVITY or LOW_ENERGY
+  // yet. Inactivity alarms come from the periods of GET /device/inactive (US17 · F-38 opens, F-39
+  // resolves): open ones join Active, closed ones Resolved. Low-energy alarms come from
+  // GET /device/low-energy (US18 · F-44, F-45), open only. When GET /faults lists both types, remove
+  // these two hooks and pass `faults` to selectFaults as it is.
   const inactivity = useInactivityAlarms(filters.timeWindow)
+  const lowEnergy = useLowEnergyAlarms()
   const activeFaults = useMemo(
-    () => selectFaults([...faults, ...inactivity.alarms], filters, 'OPEN', now, nodesInLocation),
-    [faults, inactivity.alarms, filters, now, nodesInLocation]
+    () =>
+      selectFaults(
+        mergeTemporaryAlarms(faults, lowEnergy.alarms, inactivity.alarms),
+        filters,
+        'OPEN',
+        now,
+        nodesInLocation
+      ),
+    [faults, lowEnergy.alarms, inactivity.alarms, filters, now, nodesInLocation]
   )
   // US16: asked only while the Resolved tab is open; it follows the same map filter.
   const resolved = useResolvedFaultsPanel(
@@ -172,10 +185,11 @@ export function LiveMonitoringPage() {
           filters={filters}
           onFiltersChange={updateFilters}
           isLoading={query.isPending}
-          isError={query.isError || inactivity.isError}
+          isError={query.isError || inactivity.isError || lowEnergy.isError}
           onRetry={() => {
             void query.refetch()
             inactivity.refetch()
+            lowEnergy.refetch()
           }}
           closeLabel={t('panel.closeMobile')}
           isMobileOpen={mobilePanelOpen && !isDesktopViewport}

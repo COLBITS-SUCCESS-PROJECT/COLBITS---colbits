@@ -64,6 +64,7 @@ describe('toFaultAlert', () => {
       customersAffected: 80,
       transformerLoad: null,
       conditions: null,
+      energy: null,
     })
   })
 
@@ -190,6 +191,51 @@ describe('toFaultAlert — resolved alarms (US16)', () => {
     expect(fault.status).toBe('RESOLVED')
     expect(fault.endedAt).toEqual(new Date('2026-10-29T15:50:00.000Z'))
     expect(fault.durationMinutes).toBe(45)
+  })
+})
+
+describe('toFaultAlert — types GET /faults does not send yet (LOW_ENERGY, DEVICE_INACTIVITY)', () => {
+  const DEVICE: ActiveFaultDto = {
+    ...DTO,
+    fuses_set_id: null,
+    branch: null,
+    phases: null,
+    classification: null,
+    client_count: null,
+    openings: [],
+  }
+
+  it('maps an open low-energy alert as an amber alarm', () => {
+    const fault = toFaultAlert({
+      ...DEVICE,
+      id: `LOW_ENERGY:T-1:${STARTED_AT}`,
+      alert_type: 'LOW_ENERGY',
+      device: 'SMAC',
+      source_id: 'T-1',
+    })
+
+    expect(fault).toMatchObject({ type: 'LOW_ENERGY', device: 'SMAC', severity: 'WARNING' })
+    expect(fault.status).toBe('OPEN')
+  })
+
+  it('maps a resolved device inactivity as a gray alarm with its resolution time', () => {
+    const fault = toFaultAlert({
+      ...DEVICE,
+      id: `DEVICE_INACTIVITY:0000100002-A-R:${STARTED_AT}`,
+      alert_type: 'DEVICE_INACTIVITY',
+      source_id: '0000100002-A-R',
+      state: 'RESOLVED',
+      ended_at: '2026-10-29T16:05:00.000Z',
+      duration_seconds: 3600,
+    })
+
+    expect(fault).toMatchObject({
+      type: 'DEVICE_INACTIVITY',
+      severity: 'INACTIVE',
+      status: 'RESOLVED',
+      endedAt: new Date('2026-10-29T16:05:00.000Z'),
+      durationMinutes: 60,
+    })
   })
 })
 

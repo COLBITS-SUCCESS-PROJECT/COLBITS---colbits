@@ -11,7 +11,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/i18n'
-import { noInactiveDevicesHandler } from '@/mocks/handlers/device.handlers'
+import {
+  noInactiveDevicesHandler,
+  noLowEnergyAlertsHandler,
+} from '@/mocks/handlers/device.handlers'
+import { fuseOpeningsOnlyHandler } from '@/mocks/handlers/faults.handlers'
 import { server } from '@/mocks/server'
 import { resetMockMap } from '@/mocks/leafletMap.mock'
 import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
@@ -59,8 +63,9 @@ async function filterMap(level: string, option: string) {
 describe('SCRUM-113 · US15 — the alarm panel follows the map filter (F-56)', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
   beforeEach(() => {
-    // These criteria count the alarms of GET /faults; inactivity alarms have their own (SCRUM-115 AC6).
-    server.use(noInactiveDevicesHandler)
+    // These criteria count the fuse faults of GET /faults; inactivity (SCRUM-115 AC6) and device alerts
+    // (US18, LiveMonitoringPage.deviceAlerts.acceptance.test.tsx) have their own.
+    server.use(fuseOpeningsOnlyHandler, noInactiveDevicesHandler, noLowEnergyAlertsHandler)
     useAuthStore.getState().clearAuth()
     resetMockMap()
   })

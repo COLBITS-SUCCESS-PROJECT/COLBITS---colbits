@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { fuseOpeningsOnlyHandler } from '@/mocks/handlers/faults.handlers'
 import { server } from '@/mocks/server'
 import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
 import { useAuthStore, type AuthUser } from '@/stores/auth.store'
@@ -19,6 +20,8 @@ function wrapper({ children }: { children: ReactNode }) {
 describe('useLiveMonitoringQuery', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
   beforeEach(() => {
+    // Counts the fuse faults only; the device alerts of US18 have their own tests.
+    server.use(fuseOpeningsOnlyHandler)
     useDataFreshnessStore.getState().reset()
     useAuthStore.getState().setSession(USER, MOCK_TOKENS.NORTH)
   })

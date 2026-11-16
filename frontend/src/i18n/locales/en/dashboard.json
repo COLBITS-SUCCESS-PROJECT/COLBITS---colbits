@@ -151,6 +151,10 @@
     "branch": "Branch",
     "channel": "Channel",
     "transformer": "Transformer",
+    "fuse": "Fuse",
+    "supercapacitor": "Supercapacitor",
+    "battery": "Battery",
+    "energyValue": "{{level}} % · threshold {{threshold}} %",
     "conditions": "Conditions",
     "condition": {
       "OVERLOAD": "Overload",

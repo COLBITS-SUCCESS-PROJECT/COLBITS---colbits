@@ -80,6 +80,13 @@ export interface TransformerLoad {
   currentUnbalancePct: number | null
 }
 
+/** Energy level of a LOW_ENERGY alarm: supercapacitor (Falcon, F-44) or battery (SMAC, F-45), in %. */
+export interface DeviceEnergy {
+  levelPct: number
+  /** Threshold the level is below (NF-08), as the backend applied it. */
+  thresholdPct: number
+}
+
 /** One alarm of the fault panel (Figma: Fault List Item — F-51, F-55). */
 export interface FaultAlert {
   id: string
@@ -112,6 +119,8 @@ export interface FaultAlert {
   transformerLoad: TransformerLoad | null
   /** Active conditions of an OVERLOAD_UNBALANCE alarm; null on every other alarm. */
   conditions: OverloadCondition[] | null
+  /** Energy level and threshold of a LOW_ENERGY alarm; null on every other alarm. */
+  energy: DeviceEnergy | null
 }
 
 export interface FaultCounters {
