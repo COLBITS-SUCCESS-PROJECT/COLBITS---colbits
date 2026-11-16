@@ -228,3 +228,147 @@ describe('database load with F-95 data gaps', { skip: url ? false : 'set TEST_DA
     assert.equal(total.rows[0].n, plan.alarms.length, 'the other scenarios still store their alarm events');
   });
 });
+
+// SCRUM-253: the synthetic-dataset marker is valid only after a successful generation. A reset
+// removes it with the data, and a run that fails (with or without --reset) leaves no marker.
+// Kept in this file so it never runs in parallel with the other tests on the same database.
+/** The same client, except that the Falcon insert fails: a generation that breaks half-way. */
+function failingHalfWay(client: pg.Client): pg.Client {
+  return new Proxy(client, {
+    get(target, property, receiver) {
+      if (property === 'query') {
+        return (text: unknown, ...rest: unknown[]) =>
+          typeof text === 'string' && text.startsWith('INSERT INTO public.falcon_values')
+            ? Promise.reject(new Error('simulated failure half-way through the generation'))
+            : (target.query as (...args: unknown[]) => unknown)(text, ...rest);
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
+}
+
+describe('synthetic-dataset marker (SCRUM-253)', { skip: url ? false : 'set TEST_DATABASE_URL to run' }, () => {
+  const client = new pg.Client({ connectionString: url });
+  const { config } = parseArgs(['--start', '2026-09-01T00:00:00Z', '--end', '2026-09-01T12:00:00Z', '--interval', '60']);
+  const network = buildNetwork(config);
+  let database = '';
+
+  const markers = async (): Promise<{ database_name: string; source: string }[]> =>
+    (await client.query('SELECT database_name, source FROM public.synthetic_dataset ORDER BY database_name')).rows;
+  const count = async (table: string): Promise<number> =>
+    Number((await client.query(`SELECT count(*) FROM public.${table}`)).rows[0].count);
+
+  before(async () => {
+    await client.connect();
+    database = (await client.query('SELECT current_database() AS name')).rows[0].name as string;
+    if (!/_test$/.test(database)) {
+      await client.end();
+      throw new Error(`refusing to reset "${database}": this test only runs on a dedicated *_test database`);
+    }
+    await applySchema(client);
+  });
+  after(async () => {
+    await client.end();
+  });
+
+  it('a successful generation leaves exactly one marker, naming this database', async () => {
+    await resetData(client);
+    await writeDataset(client, network, config);
+
+    assert.deepEqual(await markers(), [{ database_name: database, source: 'generator' }]);
+    assert.ok((await count('falcon_values')) > 0);
+  });
+
+  it('a reset removes the marker together with the data', async () => {
+    await resetData(client);
+
+    assert.deepEqual(await markers(), []);
+    assert.equal(await count('nodes'), 0);
+  });
+
+  it('a reset followed by a failed generation leaves no marker and no data', async () => {
+    await resetData(client);
+    await writeDataset(client, network, config);
+    await resetData(client);
+
+    await assert.rejects(writeDataset(failingHalfWay(client), network, config), /simulated failure/);
+
+    assert.deepEqual(await markers(), []);
+    assert.equal(await count('nodes'), 0);
+    assert.equal(await count('falcon_values'), 0);
+  });
+
+  it('a failed generation without a reset invalidates the previous marker (the old data is kept)', async () => {
+    await resetData(client);
+    await writeDataset(client, network, config);
+    const nodes = await count('nodes');
+    assert.equal((await markers()).length, 1);
+
+    await assert.rejects(writeDataset(failingHalfWay(client), network, config));
+
+    assert.deepEqual(await markers(), []);
+    assert.equal(await count('nodes'), nodes, 'the failed run was rolled back');
+  });
+});
+
+// SCRUM-253: the demo silences (demo_silenced_devices) describe one dataset: every run empties them,
+// with or without --reset, before it writes anything, so none can outlive the data it was about.
+describe('demo silences (SCRUM-253)', { skip: url ? false : 'set TEST_DATABASE_URL to run' }, () => {
+  const client = new pg.Client({ connectionString: url });
+  const { config } = parseArgs(['--start', '2026-09-01T00:00:00Z', '--end', '2026-09-01T12:00:00Z', '--interval', '60']);
+  const network = buildNetwork(config);
+
+  const silences = async (): Promise<number> =>
+    Number((await client.query('SELECT count(*) FROM public.demo_silenced_devices')).rows[0].count);
+  const silence = async (): Promise<void> => {
+    await client.query(
+      `INSERT INTO public.demo_silenced_devices (hw_id, source_id, cutoff, silenced_at)
+       VALUES ('1300000001', 'X-R', now() - interval '9 hours', now())
+       ON CONFLICT (hw_id) DO NOTHING`,
+    );
+  };
+
+  before(async () => {
+    await client.connect();
+    const database = (await client.query('SELECT current_database() AS name')).rows[0].name as string;
+    if (!/_test$/.test(database)) {
+      await client.end();
+      throw new Error(`refusing to reset "${database}": this test only runs on a dedicated *_test database`);
+    }
+    await applySchema(client);
+  });
+  after(async () => {
+    await client.end();
+  });
+
+  it('a run creates the table, empty', async () => {
+    await resetData(client);
+    await writeDataset(client, network, config);
+
+    assert.equal(await silences(), 0);
+  });
+
+  it('a reset empties it together with the data', async () => {
+    await silence();
+    await resetData(client);
+
+    assert.equal(await silences(), 0);
+  });
+
+  it('a run without --reset empties it too', async () => {
+    await resetData(client);
+    await silence();
+    await writeDataset(client, network, config);
+
+    assert.equal(await silences(), 0);
+  });
+
+  it('a run that fails half-way leaves no silence either', async () => {
+    await silence();
+
+    await assert.rejects(writeDataset(failingHalfWay(client), network, config));
+
+    assert.equal(await silences(), 0);
+  });
+});

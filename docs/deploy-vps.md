@@ -79,3 +79,4 @@ Do not run `docker compose down -v`: `-v` deletes the database volume.
 ## Pending
 - **Test passwords:** the test users have known passwords that are written in this public repo. Change them before sharing the link outside the team.
 - **Data refresh:** unlike Render, this server never sleeps, so the data is not refreshed by itself and the map turns gray after some hours.
+- **Demo scenarios (US31):** off here (`deploy/docker-compose.yml` sets no `DEMO_SCENARIOS_*`). How to enable them, and what that requires, is in [`docs/demo-scenarios.md`](demo-scenarios.md); agree it with the team and Colbits first.
