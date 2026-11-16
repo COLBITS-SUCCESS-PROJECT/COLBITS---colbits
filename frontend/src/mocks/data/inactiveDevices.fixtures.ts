@@ -16,7 +16,9 @@ const minutesAgo = (now: number, minutes: number) =>
   new Date(now - minutes * MS_PER_MINUTE).toISOString()
 
 /** Zone › substation › circuit of a sample node, the same ones the map shows. */
-function locationOf(nodeName: string): Pick<InactiveDeviceDto, 'zone' | 'substation' | 'circuit'> {
+export function locationOf(
+  nodeName: string
+): Pick<InactiveDeviceDto, 'zone' | 'substation' | 'circuit'> {
   const node = NODE_FIXTURES.find((candidate) => candidate.name === nodeName)
   const { zone, substation, circuit } = node ?? {}
   if (!zone || !substation || !circuit) throw new Error(`No location for sample node ${nodeName}`)

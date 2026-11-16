@@ -14,6 +14,7 @@ import { useInactiveDevicesPanel } from '../hooks/useInactiveDevicesPanel'
 import { useInactivityAlarms } from '../hooks/useInactivityAlarms'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
+import { useLowEnergyAlarms } from '../hooks/useLowEnergyAlarms'
 import { useNodesQuery } from '../hooks/useNodesQuery'
 import { useResolvedFaultsPanel } from '../hooks/useResolvedFaultsPanel'
 import { selectFaults, type FaultFilters } from '../model/faultRules'
@@ -62,9 +63,19 @@ export function LiveMonitoringPage() {
   // US17: GET /faults does not list inactivity alarms; they come from the periods of
   // GET /device/inactive (F-38 opens, F-39 resolves). Open ones join Active, closed ones Resolved.
   const inactivity = useInactivityAlarms(filters.timeWindow)
+  // US18 · F-44, F-45 — TEMPORARY: GET /faults does not list LOW_ENERGY yet, so its open alarms come
+  // from GET /device/low-energy. Remove this merge when GET /faults lists them.
+  const lowEnergy = useLowEnergyAlarms()
   const activeFaults = useMemo(
-    () => selectFaults([...faults, ...inactivity.alarms], filters, 'OPEN', now, nodesInLocation),
-    [faults, inactivity.alarms, filters, now, nodesInLocation]
+    () =>
+      selectFaults(
+        [...faults, ...lowEnergy.alarms, ...inactivity.alarms],
+        filters,
+        'OPEN',
+        now,
+        nodesInLocation
+      ),
+    [faults, lowEnergy.alarms, inactivity.alarms, filters, now, nodesInLocation]
   )
   // US16: asked only while the Resolved tab is open; it follows the same map filter.
   const resolved = useResolvedFaultsPanel(
@@ -172,10 +183,11 @@ export function LiveMonitoringPage() {
           filters={filters}
           onFiltersChange={updateFilters}
           isLoading={query.isPending}
-          isError={query.isError || inactivity.isError}
+          isError={query.isError || inactivity.isError || lowEnergy.isError}
           onRetry={() => {
             void query.refetch()
             inactivity.refetch()
+            lowEnergy.refetch()
           }}
           closeLabel={t('panel.closeMobile')}
           isMobileOpen={mobilePanelOpen && !isDesktopViewport}
