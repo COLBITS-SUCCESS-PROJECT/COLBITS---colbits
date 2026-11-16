@@ -64,6 +64,7 @@ describe('toFaultAlert', () => {
       customersAffected: 80,
       transformerLoad: null,
       conditions: null,
+      energy: null,
     })
   })
 

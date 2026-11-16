@@ -73,6 +73,7 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
     customersAffected: dto.client_count,
     transformerLoad: toTransformerLoad(dto.transformer_load),
     conditions: dto.conditions,
+    energy: null,
   }
 }
 

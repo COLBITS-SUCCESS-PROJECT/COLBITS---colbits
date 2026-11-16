@@ -36,6 +36,7 @@ function toAlarm(
     customersAffected: null,
     transformerLoad: null,
     conditions: null,
+    energy: null,
   }
 }
 
