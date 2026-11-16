@@ -45,8 +45,6 @@
     "emailPlaceholder": "usuario@colbits.com",
     "password": "Contraseña temporal",
     "passwordPlaceholder": "Autogenerada · se envía por correo",
-    "role": "Rol",
-    "roleViewer": "Usuario de consulta",
     "cancel": "Cancelar",
     "create": "Crear usuario",
     "validation": {

@@ -69,14 +69,30 @@ Loading and error states arrive with the API (`TODO SCRUM-117`).
 
 ## 6. Data and endpoints (PROVISIONAL)
 Not defined by the backend yet. The domain types are in `src/features/users/model/users.types.ts`.
+What the views need from the backend (paths to be confirmed by the backend team):
+
+| Purpose | Needed by |
+|---|---|
+| List users with name, email, status and scope | User table |
+| Create a consultation user (name, email, scope); the backend sets the password and emails it (Q3) | Create drawer |
+| Update name, email and scope | Edit drawer |
+| Change the status (deactivate / reactivate) | Power button, confirm dialog |
+| Send a password reset email (Q3) | *Send password reset link* |
+| Network tree (zones › substations › circuits › nodes › devices) with device counts | Scope picker |
+
+**Gaps found in the backend today (2026-11-11):**
+- `users` has no column for the full name (`username` holds the email).
+- `user_scopes.entity_type` covers `zone`, `substation`, `circuit` and `node`, but not `device`, which F-08 requires.
+- There is no email sending and no password reset token.
 
 ## 7. Open questions
 
 | ID | Question | Owner | Blocking | Answer |
 |---|---|---|---|---|
-| Q1 | Does reactivating a user need a confirmation too? The design only shows the deactivate dialog. | Paola (PO) | No | OPEN — reactivates directly for now |
-| Q2 | The Role select only offers *Consultation user*. Will the administrator create other roles from here? | Paola (PO) | No | OPEN |
-| Q3 | Who sends the temporary password and the reset link: backend email? | Backend | No | OPEN — the field is read-only and the reset link shows a notice |
+| Q1 | Does reactivating a user need a confirmation too? The design only shows the deactivate dialog. | Paola (PO) | No | ANSWERED 2026-11-11 — no: reactivating is not destructive and the user gets back the scope they had |
+| Q2 | The Role select only offers *Consultation user*. Will the administrator create other roles from here? | Paola (PO) | No | ANSWERED 2026-11-11 — F-03 defines only Colbits administrator (`ADMIN`) and consultation user (`VIEWER`). For now this form creates consultation users only, so the Role select was removed. `OPERATOR` has no requirement behind it and is removed from the code |
+| Q3 | Who sends the temporary password and the reset link: backend email? | Backend | No | ANSWERED 2026-11-11 — the backend. It generates the password (stored as a bcrypt hash, NF-04), emails it, and sends the reset link. The views keep the informative field and the link; the link shows a notice until the endpoint exists. Needs a backend story |
+| Q4 | Scope model: store exactly what is ticked; a ticked element covers its whole subtree, including elements added later; nothing is promoted upwards (ticking the only node of a circuit assigns the node, not the circuit). | Paola (PO) | No | ANSWERED 2026-11-11 — approved. The backend must apply the same rule when it filters data (F-10) |
 
 ## 8. Acceptance test results
 

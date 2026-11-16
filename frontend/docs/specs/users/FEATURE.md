@@ -21,7 +21,8 @@ Let administrators create, edit and deactivate platform users and decide which p
 
 ### Out of scope
 - Login and session (→ `auth`)
-- Self-registration and password reset (not planned)
+- Self-registration (not planned)
+- Self-service password reset from the login page (not planned). The administrator can still send a reset email from the edit drawer (SCRUM-250 Q3).
 
 ## 3. Stories
 
@@ -64,4 +65,4 @@ Not defined yet — pending backend OpenAPI (OQ-02). SCRUM-250 builds the views 
 
 | ID | Question | Owner | Answer | Date |
 |---|---|---|---|---|
-| Q1 | Exact roles and what each can see? (`auth.store` has `ADMIN`, `OPERATOR`, `VIEWER`) | Paola (PO) | OPEN | — |
+| Q1 | Exact roles and what each can see? (`auth.store` has `ADMIN`, `OPERATOR`, `VIEWER`) | Paola (PO) | F-03: Colbits administrator (`ADMIN`, sees the whole network, F-04) and consultation user (`VIEWER`, sees only their scope, F-10). `OPERATOR` is removed. The user form creates consultation users only (SCRUM-250 Q2). | 2026-11-11 |

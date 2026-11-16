@@ -4,7 +4,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { Button, IconButton } from '@/design-system/atoms'
-import { FormField, Select } from '@/design-system/molecules'
+import { FormField } from '@/design-system/molecules'
 import { cn } from '@/utils/cn'
 import { useDialogFocus } from '../../hooks/useDialogFocus'
 import type { ManagedUser, ScopeNode } from '../../model/users.types'
@@ -114,7 +114,7 @@ export function UserFormDrawer({
             />
             {isEdit ? (
               <div className="flex flex-col items-center gap-1">
-                {/* TODO SCRUM-117: call the password reset endpoint once it exists (spec Q3). */}
+                {/* TODO SCRUM-117: call the backend reset endpoint, which emails the link (spec Q3). */}
                 <Button
                   label={t('form.resetPassword')}
                   variant="ghost"
@@ -133,11 +133,7 @@ export function UserFormDrawer({
                 disabled
               />
             )}
-            <Select
-              label={t('form.role')}
-              options={[{ value: 'VIEWER', label: t('form.roleViewer') }]}
-              defaultValue="VIEWER"
-            />
+            {/* No role selector: this form creates consultation users only (spec Q2, F-03). */}
             <hr className="border-border-default" />
             <Controller
               control={control}

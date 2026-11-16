@@ -45,8 +45,6 @@
     "emailPlaceholder": "user@colbits.com",
     "password": "Temporary password",
     "passwordPlaceholder": "Auto-generated · sent by email",
-    "role": "Role",
-    "roleViewer": "Consultation user",
     "cancel": "Cancel",
     "create": "Create user",
     "validation": {

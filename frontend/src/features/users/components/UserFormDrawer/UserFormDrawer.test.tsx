@@ -39,7 +39,7 @@ describe('UserFormDrawer', () => {
     )
     expect(screen.getByRole('textbox', { name: /Nombre completo/ })).toHaveFocus()
     expect(screen.getByRole('textbox', { name: 'Contraseña temporal' })).toBeDisabled()
-    expect(screen.getByRole('combobox', { name: 'Rol' })).toHaveValue('VIEWER')
+    expect(screen.queryByRole('combobox', { name: 'Rol' })).not.toBeInTheDocument()
   })
 
   it('creates the user with the trimmed data and the chosen scope', async () => {
