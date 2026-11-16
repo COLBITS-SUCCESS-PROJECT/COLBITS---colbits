@@ -2,7 +2,11 @@
 import { http, HttpResponse } from 'msw'
 import { FAULTS_ENDPOINT, RESOLVED_FAULTS_ENDPOINT } from '@/features/dashboard/api/faults.api'
 import type { ActiveFaultDto } from '@/features/dashboard/api/faults.dto'
-import { activeFaultFixtures, resolvedFaultFixtures } from '../data/faults.fixtures'
+import {
+  activeFaultFixtures,
+  activeFuseOpeningFixtures,
+  resolvedFaultFixtures,
+} from '../data/faults.fixtures'
 import { MOCK_SCOPES } from '../data/nodes.fixtures'
 import { isTokenRevoked } from '../data/revokedTokens'
 import { bearerToken } from './bearerToken'
@@ -22,25 +26,54 @@ function scopeOf(request: Request): string[] | null | undefined {
   return token in MOCK_SCOPES && !isTokenRevoked(token) ? MOCK_SCOPES[token] : undefined
 }
 
-/** Same shape as backend/src/faults/active-faults.service.ts → { generated_at, count, faults }. */
+/** Distinct nodes per alert type, like countNodesByAlertType in the backend (US15 · F-58). */
+function countersOf(faults: ActiveFaultDto[]) {
+  const nodesOf = (type: ActiveFaultDto['alert_type']) =>
+    new Set(faults.filter((fault) => fault.alert_type === type).map((fault) => fault.node)).size
+  return {
+    fuseAlarmNodes: nodesOf('FUSE_OPENING'),
+    voltageAlarmNodes: nodesOf('NO_VOLTAGE'),
+    phaseOutOfRangeNodes: nodesOf('PHASE_OUT_OF_RANGE'),
+    phaseDroppedNodes: nodesOf('PHASE_LOSS'),
+  }
+}
+
+/** Backend order of the active list with the default weights: most clients first, then oldest (F-57). */
+const byClientsThenAge = (a: ActiveFaultDto, b: ActiveFaultDto) =>
+  (b.client_count ?? 0) - (a.client_count ?? 0) ||
+  Date.parse(a.started_at) - Date.parse(b.started_at)
+
+/** Same shape as backend/src/faults/active-faults.service.ts → { generated_at, count, counters, faults }. */
 function faultsResponse(faults: ActiveFaultDto[], scope: string[] | null, now: number) {
   const inScope = faults.filter((fault) => scope === null || scope.includes(fault.node))
   return HttpResponse.json({
     generated_at: new Date(now).toISOString(),
     count: inScope.length,
+    counters: countersOf(inScope),
     faults: inScope,
   })
 }
 
-export const faultsHandlers = [
-  http.get(`*${FAULTS_ENDPOINT}`, ({ request }) => {
+/** GET /faults over the open faults that `fixtures` builds at the request time. */
+function activeFaultsHandler(fixtures: (now: number) => ActiveFaultDto[]) {
+  return http.get(`*${FAULTS_ENDPOINT}`, ({ request }) => {
     const scope = scopeOf(request)
     if (scope === undefined) {
       return problem(UNAUTHORIZED, 'Unauthorized', 'Missing or invalid access token')
     }
     const now = Date.now()
-    return faultsResponse(activeFaultFixtures(now), scope, now)
-  }),
+    return faultsResponse(fixtures(now).sort(byClientsThenAge), scope, now)
+  })
+}
+
+/**
+ * GET /faults with the fuse openings only (US10), without the device alerts of US18. For tests that
+ * count the fuse faults, which would otherwise also list the sample device alerts.
+ */
+export const fuseOpeningsOnlyHandler = activeFaultsHandler(activeFuseOpeningFixtures)
+
+export const faultsHandlers = [
+  activeFaultsHandler(activeFaultFixtures),
 
   // US16: resolved inside the window (1h, 24h or 1d; 24h when absent), newest resolution first (F-62).
   http.get(`*${RESOLVED_FAULTS_ENDPOINT}`, ({ request }) => {
@@ -58,6 +91,7 @@ export const faultsHandlers = [
     const resolved = resolvedFaultFixtures(now).filter(
       (fault) => fault.ended_at !== null && Date.parse(fault.ended_at) >= since
     )
+    resolved.sort((a, b) => Date.parse(b.ended_at ?? '') - Date.parse(a.ended_at ?? ''))
     return faultsResponse(resolved, scope, now)
   }),
 ]

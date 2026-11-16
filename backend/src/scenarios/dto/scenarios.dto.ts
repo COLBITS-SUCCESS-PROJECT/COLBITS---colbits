@@ -31,7 +31,7 @@ export class ScenariosStatusDto {
   @ApiProperty({
     example: true,
     description:
-      'Demo mode: true only where DEMO_SCENARIOS_ENABLED=true. The frontend shows the scenario panel only when it is true; POST /scenarios answers 403 otherwise.',
+      'Demo mode: true only where DEMO_SCENARIOS_ENABLED=true, DEMO_SCENARIOS_DATABASE names the connected database and that database has its synthetic-dataset marker. The frontend shows the scenario panel only when it is true; POST /scenarios answers 403 otherwise.',
   })
   enabled: boolean;
 
@@ -46,7 +46,7 @@ export class RunScenarioDto {
   @ApiProperty({
     example: '0000100002-A-R',
     description:
-      'Fuse custom_id for OPEN_FUSE, CLOSE_FUSE, CUT_VOLTAGE, RESTORE_VOLTAGE; transformer custom_id for DROP_PHASE, RESTORE_PHASE.',
+      'A fuse custom_id for the actions whose target is FUSE (its Falcon), a transformer custom_id for those whose target is TRANSFORMER (its SMAC), as GET /scenarios lists them.',
   })
   target: string;
 
@@ -79,17 +79,27 @@ export class ScenarioResultDto {
   hw_id: string;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
     example: '131420',
-    description: 'Event code written to alarms (Annex §4.2).',
+    description:
+      'Event code written to alarms (Annex §4.2). null for the telemetry-only actions (low energy, overload, solar panel, the end of a free fall), which write a reading and no event (SCRUM-253).',
   })
-  event_code: string;
+  event_code: string | null;
 
-  @ApiProperty({ enum: ['SET', 'CLEAR'], example: 'SET' })
-  event_type: 'SET' | 'CLEAR';
+  @ApiProperty({
+    enum: ['SET', 'CLEAR', 'MSG'],
+    nullable: true,
+    example: 'SET',
+    description:
+      'SET or CLEAR for the SCRUM-252 actions; MSG for FREE_FALL (13xx01); null when no event is written.',
+  })
+  event_type: 'SET' | 'CLEAR' | 'MSG' | null;
 
   @ApiProperty({
     format: 'date-time',
-    description: 'Timestamp of the reading and the event.',
+    description:
+      'Timestamp of the reading and the event (database clock). For SILENCE_*, which writes no reading, the database time of the silence.',
   })
   recorded_at: string;
 

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { fuseOpeningsOnlyHandler } from '@/mocks/handlers/faults.handlers'
 import { server } from '@/mocks/server'
 import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
 import { useAuthStore, type AuthUser } from '@/stores/auth.store'
@@ -19,6 +20,8 @@ function wrapper({ children }: { children: ReactNode }) {
 describe('useLiveMonitoringQuery', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
   beforeEach(() => {
+    // Counts the fuse faults only; the device alerts of US18 have their own tests.
+    server.use(fuseOpeningsOnlyHandler)
     useDataFreshnessStore.getState().reset()
     useAuthStore.getState().setSession(USER, MOCK_TOKENS.NORTH)
   })
@@ -35,7 +38,13 @@ describe('useLiveMonitoringQuery', () => {
       'ND04821A07',
       'ND04821A07',
     ]) // the third mock fault is outside the north user's scope (F-10)
-    expect(result.current.data?.counters).toBeNull() // no counters endpoint yet (US15)
+    // The node counters come from the service (F-58), over its whole in-scope list
+    expect(result.current.data?.counters).toEqual({
+      fuseAlarmNodes: 1,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 0,
+    })
   })
 
   it('leaves the last update time to the map refresh (F-32)', async () => {
@@ -55,7 +64,15 @@ describe('useLiveMonitoringQuery', () => {
   })
 
   it('handles a network without faults', async () => {
-    const empty = async () => ({ faults: [], counters: null })
+    const empty = async () => ({
+      faults: [],
+      counters: {
+        fuseAlarmNodes: 0,
+        voltageAlarmNodes: 0,
+        phaseOutOfRangeNodes: 0,
+        phaseDroppedNodes: 0,
+      },
+    })
 
     const { result } = renderHook(() => useLiveMonitoringQuery(empty), { wrapper })
 

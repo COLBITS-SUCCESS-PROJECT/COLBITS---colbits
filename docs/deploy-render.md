@@ -40,5 +40,21 @@ If you change `VITE_API_BASE_URL` later, run **Manual Deploy** on `colbits-web`:
 2. Log in as `admin@colbits.com` → 50 nodes on the map. Log out and log in as `client@colbits.com` → 10 nodes.
 3. If something looks wrong, the `colbits-api` **Logs** show the `[prepare-db]` lines of the last start.
 
+## Demo scenarios (staging only)
+Reference of the 20 actions and their rules: [`docs/demo-scenarios.md`](demo-scenarios.md).
+
+The scenario panel (US31) writes synthetic telemetry, so the backend refuses every scenario (`POST /scenarios` answers 403 and writes nothing) unless all three hold, and `GET /scenarios` reports `enabled: false` otherwise:
+
+| Condition | Where it comes from |
+|---|---|
+| `DEMO_SCENARIOS_ENABLED=true` | `render.yaml`: `true` on `colbits-api-dev`, `false` on production |
+| `DEMO_SCENARIOS_DATABASE` names the database the API is connected to (`current_database()`) | `render.yaml`: `colbits_dev` on `colbits-api-dev`; **not set** on production |
+| A row in `public.synthetic_dataset` naming that same database | Written only by the synthetic loaders: `backend/database/02_dummy_inserts.sql` on an empty database, and the generator on every successful data refresh. A failed refresh leaves no marker. |
+
+- The inactivity scenarios (`SILENCE_FALCON` / `SILENCE_SMAC`) also record each silence in `public.demo_silenced_devices`, which the same synthetic loaders create (empty) and the generator empties on every run. Until that table exists, SILENCE is refused and nothing is written.
+- **Before relying on it (prerequisite):** confirm on Render that the staging database is really called `colbits_dev` (the `DB_NAME` of `colbits-api-dev`, or `SELECT current_database();` in a shell on it). If it differs, `DEMO_SCENARIOS_DATABASE` must be changed to match.
+- `render.yaml` is read from `main`, so the new setting reaches staging only after a release, or if it is added by hand on the service. Until then, and until the generator has refreshed the data once, staging refuses scenarios: the safe default.
+- What it does not do: it does not prove that a database holds only synthetic data. Someone who inserts the marker by hand, or restores real data into a marked database, defeats it. Real data always goes into a new database. The platform's database account is not read-only (NF-03); that is outside SCRUM-253.
+
 ## Run the preparation locally
 Same script against any database (with `MAINTENANCE_DB_NAME` set to an existing database, it also creates `DB_NAME` when missing): `cd backend && node scripts/prepare-db.mjs` with `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` and `DB_NAME` set (`npm ci --prefix ../generator` first). `PREPARE_DB=false` skips it.

@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth.store'
 import { SCENARIOS_ENDPOINT } from '../api/scenarios.api'
 import { INACTIVE_DEVICES_QUERY_KEY } from './useInactiveDevicesQuery'
 import { LIVE_MONITORING_QUERY_KEY } from './useLiveMonitoringQuery'
+import { LOW_ENERGY_ALERTS_QUERY_KEY } from './useLowEnergyAlarms'
 import { NODES_QUERY_KEY } from './useNodesQuery'
 import { useRunScenarioMutation } from './useRunScenarioMutation'
 import { SCENARIOS_QUERY_KEY } from './useScenariosQuery'
@@ -40,7 +41,7 @@ describe('useRunScenarioMutation', () => {
   })
   afterAll(() => server.close())
 
-  it('asks the map, the node detail, the fault list and the inactive devices again at once', async () => {
+  it('asks the map, the node detail, the fault list, the inactive devices and the low-energy alarms again at once', async () => {
     const { result, askedAgain } = runOnce()
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -49,6 +50,7 @@ describe('useRunScenarioMutation', () => {
       NODES_QUERY_KEY,
       LIVE_MONITORING_QUERY_KEY,
       INACTIVE_DEVICES_QUERY_KEY,
+      LOW_ENERGY_ALERTS_QUERY_KEY,
     ])
   })
 

@@ -75,11 +75,23 @@ function resolvedOpening(node: string, startedAt: [number, number], endedAt: [nu
   } satisfies ActiveFaultDto
 }
 
+const NO_COUNTERS = {
+  fuseAlarmNodes: 0,
+  voltageAlarmNodes: 0,
+  phaseOutOfRangeNodes: 0,
+  phaseDroppedNodes: 0,
+}
+
 /** From now on the given service answers these faults. */
 function serviceAnswers(endpoint: string, faults: ActiveFaultDto[]) {
   server.use(
     http.get(`*${endpoint}`, () =>
-      HttpResponse.json({ generated_at: new Date().toISOString(), count: faults.length, faults })
+      HttpResponse.json({
+        generated_at: new Date().toISOString(),
+        count: faults.length,
+        counters: NO_COUNTERS,
+        faults,
+      })
     )
   )
 }
@@ -185,7 +197,12 @@ describe('SCRUM-114 · US16 — active and resolved alarms', () => {
       http.get(`*${RESOLVED_FAULTS_ENDPOINT}`, () =>
         fails
           ? HttpResponse.json({ title: 'Error' }, { status: 500 })
-          : HttpResponse.json({ generated_at: new Date().toISOString(), count: 0, faults: [] })
+          : HttpResponse.json({
+              generated_at: new Date().toISOString(),
+              count: 0,
+              counters: NO_COUNTERS,
+              faults: [],
+            })
       )
     )
     const user = userEvent.setup()

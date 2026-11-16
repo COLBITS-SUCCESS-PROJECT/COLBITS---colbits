@@ -33,6 +33,95 @@ describe('FaultListItem', () => {
     expect(within(card).getByText('clientes sin servicio')).toBeInTheDocument()
   })
 
+  it('says so when a fuse alarm belongs to a node with a single fuse set (no branch letter)', () => {
+    const single: FaultAlert = { ...fault('f-1'), branch: null }
+
+    render(<FaultListItem fault={single} />)
+
+    expect(screen.getByText('Conjunto único')).toBeInTheDocument()
+  })
+
+  it('shows only the load and unbalance values the transformer reported', () => {
+    const partial: FaultAlert = {
+      ...fault('f-6'),
+      transformerLoad: { loadPct: 92.5, voltageUnbalancePct: null, currentUnbalancePct: 1.2 },
+    }
+
+    render(<FaultListItem fault={partial} />)
+
+    expect(screen.getByText('Carga 92.5 % · Desb. I 1.2 %')).toBeInTheDocument()
+  })
+
+  it('shows the transformer and the SMAC channel instead of branch and phases', () => {
+    const smacAlarm: FaultAlert = {
+      ...fault('f-4'),
+      sourceId: 'TR-0007',
+      channel: 'B',
+      phases: null,
+      classification: null,
+    }
+
+    render(<FaultListItem fault={smacAlarm} />)
+
+    const card = screen.getByRole('article', { name: /Pérdida de fase/ })
+    expect(within(card).getByText('Transformador')).toBeInTheDocument()
+    expect(within(card).getByText('TR-0007')).toBeInTheDocument()
+    expect(within(card).getByText('Canal')).toBeInTheDocument()
+    expect(within(card).getByText('B')).toBeInTheDocument()
+    expect(within(card).queryByText('Ramal')).not.toBeInTheDocument()
+    expect(within(card).queryByText('Fases')).not.toBeInTheDocument()
+  })
+
+  describe('low energy (F-44, F-45)', () => {
+    const lowEnergy = (device: FaultAlert['device'], sourceId: string): FaultAlert => ({
+      ...fault('f-3'),
+      type: 'LOW_ENERGY',
+      device,
+      severity: 'WARNING',
+      sourceId,
+      branch: null,
+      channel: null,
+      phases: null,
+      classification: null,
+      customersAffected: null,
+      transformerLoad: null,
+      conditions: null,
+      energy: { levelPct: 12, thresholdPct: 30 },
+    })
+
+    it('shows the fuse and the supercapacitor level of a Falcon against its threshold', () => {
+      render(<FaultListItem fault={lowEnergy('FALCON', 'ND08890C04-A-R')} />)
+
+      const card = screen.getByRole('article', { name: /Baja energía/ })
+      expect(within(card).getByText('Fusible').nextSibling).toHaveTextContent('ND08890C04-A-R')
+      expect(within(card).getByText('Supercondensador').nextSibling).toHaveTextContent(
+        '12 % · umbral 30 %'
+      )
+      expect(within(card).getByText('Abierta')).toHaveAttribute('data-tone', 'warning')
+      expect(within(card).queryByText('Ramal')).not.toBeInTheDocument()
+      expect(within(card).queryByText('Fases')).not.toBeInTheDocument()
+    })
+
+    it('shows the transformer and the battery level of a SMAC, without conditions or channel', () => {
+      render(<FaultListItem fault={lowEnergy('SMAC', 'ND09931A01-T1-3')} />)
+
+      const card = screen.getByRole('article', { name: /Baja energía/ })
+      expect(within(card).getByText('Transformador').nextSibling).toHaveTextContent(
+        'ND09931A01-T1-3'
+      )
+      expect(within(card).getByText('Batería').nextSibling).toHaveTextContent('12 % · umbral 30 %')
+      expect(within(card).queryByText('Condiciones')).not.toBeInTheDocument()
+      expect(within(card).queryByText('Canal')).not.toBeInTheDocument()
+    })
+
+    it('shows a dash for the level when the service does not send it (GET /faults for now)', () => {
+      render(<FaultListItem fault={{ ...lowEnergy('SMAC', 'T-1'), energy: null }} />)
+
+      expect(screen.getByText('Batería').nextSibling).toHaveAttribute('data-empty')
+      expect(screen.getByText('T-1')).toBeInTheDocument()
+    })
+  })
+
   it('uses the warning tone for warning faults', () => {
     render(<FaultListItem fault={fault('f-3')} />)
 
@@ -43,7 +132,12 @@ describe('FaultListItem', () => {
     render(<FaultListItem fault={fault('f-6')} />)
 
     const empties = screen.getAllByRole('definition').filter((dd) => dd.dataset.empty)
-    expect(empties).toHaveLength(2) // branch and phases
+    expect(empties).toHaveLength(1) // the transformer id is not recorded; branch and phases do not apply
+    expect(screen.queryByText('Ramal')).not.toBeInTheDocument()
+    expect(screen.queryByText('Fases')).not.toBeInTheDocument()
+    expect(screen.getByText('Condiciones').nextSibling).toHaveTextContent(
+      'Sobrecarga, Desbalance de tensión'
+    )
     expect(screen.getByText('clientes afectados')).toBeInTheDocument()
     expect(screen.getByText('Carga 118 % · Desb. V 3.4 %')).toBeInTheDocument()
   })

@@ -149,6 +149,19 @@
   },
   "fault": {
     "branch": "Branch",
+    "channel": "Channel",
+    "transformer": "Transformer",
+    "fuse": "Fuse",
+    "supercapacitor": "Supercapacitor",
+    "battery": "Battery",
+    "energyValue": "{{level}} % · threshold {{threshold}} %",
+    "conditions": "Conditions",
+    "condition": {
+      "OVERLOAD": "Overload",
+      "VOLTAGE_UNBALANCE": "Voltage unbalance",
+      "CURRENT_UNBALANCE": "Current unbalance"
+    },
+    "singleSet": "Single fuse set",
     "phases": "Phases",
     "started": "Started",
     "duration": "Duration",
@@ -157,7 +170,9 @@
     "customersOut": "customers without service",
     "customersAffected": "customers affected",
     "customersUnknown": "No client data",
-    "load": "Load {{load}} % · V unb. {{unbalance}} %",
+    "load": "Load {{value}} %",
+    "voltageUnbalance": "V unb. {{value}} %",
+    "currentUnbalance": "I unb. {{value}} %",
     "phase": "Phase {{phase}}: {{state}}",
     "phaseState": {
       "CRITICAL": "down",

@@ -6,10 +6,9 @@ import type { LiveMonitoringData } from '../model/liveMonitoring.types'
 
 export const LIVE_MONITORING_QUERY_KEY = ['live-monitoring'] as const
 
-/** Open faults and alarms from GET /faults (US10, SCRUM-225). The node counters have no endpoint (US15): the page derives them from these faults. */
-async function fetchLiveMonitoring(signal?: AbortSignal): Promise<LiveMonitoringData> {
-  return { faults: await fetchActiveFaults(signal), counters: null }
-}
+/** Open faults and alarms from GET /faults (US10, SCRUM-225), in backend order (F-57), with the node counters it computes (US15 · F-58). */
+const fetchLiveMonitoring = (signal?: AbortSignal): Promise<LiveMonitoringData> =>
+  fetchActiveFaults(signal)
 
 /** Refreshes with the map. The "last update" time follows the map's own request (`useNodesQuery`, F-32). */
 export function useLiveMonitoringQuery(

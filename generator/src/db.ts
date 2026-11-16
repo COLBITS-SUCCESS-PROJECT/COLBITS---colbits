@@ -16,6 +16,26 @@ const TABLES = [
   'fuses', 'trafos', 'fuses_sets', 'devices', 'nodes', 'circuits', 'substations', 'zones', 'departments',
 ];
 
+// SCRUM-253: the synthetic-dataset marker. It is not part of Colbits' schema and only the synthetic
+// loaders write it (this generator and backend/database/02_dummy_inserts.sql). The backend's demo
+// scenarios write data only to a database that has a marker naming that very database.
+const MARKER_TABLE = 'synthetic_dataset';
+const CREATE_MARKER_TABLE = `CREATE TABLE IF NOT EXISTS public.${MARKER_TABLE} (
+  database_name text PRIMARY KEY,
+  source text NOT NULL CHECK (source IN ('seed', 'generator')),
+  created_at timestamptz NOT NULL DEFAULT now()
+)`;
+
+// SCRUM-253: deliberate silences of the backend's demo scenarios (SILENCE_FALCON / SILENCE_SMAC).
+// They describe the data of one generation, so every run empties them, with or without --reset.
+const SILENCE_TABLE = 'demo_silenced_devices';
+const CREATE_SILENCE_TABLE = `CREATE TABLE IF NOT EXISTS public.${SILENCE_TABLE} (
+  hw_id text PRIMARY KEY,
+  source_id text NOT NULL,
+  cutoff timestamptz NOT NULL,
+  silenced_at timestamptz NOT NULL
+)`;
+
 export type InsertSummary = Record<string, number>;
 
 async function insertRows(client: pg.ClientBase, table: string, columns: string[], rows: Iterable<unknown[]>): Promise<number> {
@@ -52,7 +72,22 @@ export async function applySchema(client: pg.ClientBase): Promise<void> {
 }
 
 export async function resetData(client: pg.ClientBase): Promise<void> {
-  await client.query(`TRUNCATE ${TABLES.map((t) => `public.${t}`).join(', ')}`);
+  // SCRUM-253: the marker and the demo silences go in the same TRUNCATE as the data they describe.
+  await client.query(CREATE_MARKER_TABLE);
+  await client.query(CREATE_SILENCE_TABLE);
+  await client.query(`TRUNCATE ${[...TABLES, MARKER_TABLE, SILENCE_TABLE].map((t) => `public.${t}`).join(', ')}`);
+}
+
+/**
+ * SCRUM-253: removes the marker and the demo silences and commits that before any data is
+ * written, with or without --reset, so a run that fails or stops half-way never leaves a marker
+ * standing, and no silence of an earlier dataset outlives it.
+ */
+async function invalidateMarker(client: pg.ClientBase): Promise<void> {
+  await client.query(CREATE_MARKER_TABLE);
+  await client.query(CREATE_SILENCE_TABLE);
+  await client.query(`DELETE FROM public.${MARKER_TABLE}`);
+  await client.query(`DELETE FROM public.${SILENCE_TABLE}`);
 }
 
 export async function writeDataset(client: pg.ClientBase, network: Network, config: GeneratorConfig, log: (msg: string) => void = () => {}): Promise<InsertSummary> {
@@ -64,6 +99,7 @@ export async function writeDataset(client: pg.ClientBase, network: Network, conf
     log(`  ${table.padEnd(16)} ${summary[table]}`);
   };
 
+  await invalidateMarker(client);
   await client.query('BEGIN');
   try {
     await step('departments', ['id', 'name'], network.departments.map((d) => [d.id, d.name]));
@@ -104,6 +140,12 @@ export async function writeDataset(client: pg.ClientBase, network: Network, conf
 
     // F-93 / F-94: device-reported events of the induced scenarios (Technical Annex §4.2 codes).
     await step('alarms', ['hw_id', 'custom_id', 'event_code', 'event_type', 'alarm', 'value', 'recorded_at'], plan.alarms);
+
+    // SCRUM-253: the new marker is the last write, committed together with the data or not at all.
+    await client.query(
+      `INSERT INTO public.${MARKER_TABLE} (database_name, source) VALUES (current_database(), 'generator')
+       ON CONFLICT (database_name) DO UPDATE SET source = EXCLUDED.source, created_at = now()`,
+    );
 
     await client.query('COMMIT');
   } catch (error) {

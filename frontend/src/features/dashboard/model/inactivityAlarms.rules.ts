@@ -3,6 +3,9 @@
  * GET /faults: each inactivity period of GET /device/inactive is one alarm. It opens at the period
  * start (last record + threshold, F-38) and resolves by itself at the next stored record, the
  * period end (F-39). Every time comes from the server, never from the browser clock (F-46).
+ *
+ * TEMPORARY: the frontend builds here the alarm the backend should send. Delete this file when
+ * GET /faults and GET /faults/resolved list DEVICE_INACTIVITY (see useInactivityAlarms).
  */
 import { MS_PER_MINUTE } from './liveMonitoring.constants'
 import type { InactiveDevice, InactiveDevicesSnapshot } from './inactiveDevices.types'
@@ -25,6 +28,8 @@ function toAlarm(
     substation: device.location.substation.name,
     circuit: device.location.circuit.name,
     branch: null,
+    sourceId: null,
+    channel: null,
     phases: null,
     classification: null,
     startedAt: start,
@@ -33,6 +38,8 @@ function toAlarm(
     durationMinutes: Math.floor(((end?.getTime() ?? serverNow) - start.getTime()) / MS_PER_MINUTE),
     customersAffected: null,
     transformerLoad: null,
+    conditions: null,
+    energy: null,
   }
 }
 

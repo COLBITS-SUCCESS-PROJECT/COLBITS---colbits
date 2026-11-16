@@ -5,7 +5,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/i18n'
-import { noInactiveDevicesHandler } from '@/mocks/handlers/device.handlers'
+import {
+  noInactiveDevicesHandler,
+  noLowEnergyAlertsHandler,
+} from '@/mocks/handlers/device.handlers'
+import { fuseOpeningsOnlyHandler } from '@/mocks/handlers/faults.handlers'
 import { server } from '@/mocks/server'
 import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
 import { DEV_USER } from '@/mocks/devSession'
@@ -29,8 +33,9 @@ function renderPage() {
 describe('LiveMonitoringPage', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
   beforeEach(() => {
-    // These criteria count the alarms of GET /faults; inactivity alarms have their own (SCRUM-115 AC6).
-    server.use(noInactiveDevicesHandler)
+    // These criteria count the fuse faults of GET /faults; inactivity (SCRUM-115 AC6) and device alerts
+    // (US18, LiveMonitoringPage.deviceAlerts.acceptance.test.tsx) have their own.
+    server.use(fuseOpeningsOnlyHandler, noInactiveDevicesHandler, noLowEnergyAlertsHandler)
     useDataFreshnessStore.getState().reset()
     useAuthStore.getState().setSession(DEV_USER, MOCK_TOKENS.DEV)
   })

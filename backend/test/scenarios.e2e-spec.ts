@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import { ActiveFaultsService } from '../src/faults/active-faults.service';
 import { NodesService } from '../src/nodes/nodes.service';
 import {
+  ISOLATED_TEST_DB,
   IsolatedApp,
   createFalconNodes,
   createSmacNodes,
@@ -84,6 +85,8 @@ describe('US31 demo scenarios (e2e)', () => {
 
   beforeAll(async () => {
     process.env.DEMO_SCENARIOS_ENABLED = 'true';
+    // SCRUM-253: and the isolated database is the one designated for demo scenarios.
+    process.env.DEMO_SCENARIOS_DATABASE = ISOLATED_TEST_DB;
     started = await startIsolatedApp(LABEL, { remove, create });
     const login = async (username: string) =>
       (
@@ -99,6 +102,7 @@ describe('US31 demo scenarios (e2e)', () => {
   afterAll(async () => {
     await stopIsolatedApp(started, LABEL, remove);
     delete process.env.DEMO_SCENARIOS_ENABLED;
+    delete process.env.DEMO_SCENARIOS_DATABASE;
   });
 
   const run = (body: object, token = adminToken) =>
@@ -129,7 +133,19 @@ describe('US31 demo scenarios (e2e)', () => {
       .expect(200);
 
     expect(response.body.enabled).toBe(true);
-    expect(response.body.actions).toHaveLength(6);
+    // SCRUM-253 adds its actions after these six.
+    expect(
+      (response.body.actions as { action: string }[])
+        .slice(0, 6)
+        .map((a) => a.action),
+    ).toEqual([
+      'OPEN_FUSE',
+      'CLOSE_FUSE',
+      'CUT_VOLTAGE',
+      'RESTORE_VOLTAGE',
+      'DROP_PHASE',
+      'RESTORE_PHASE',
+    ]);
   });
 
   it('OPEN_FUSE turns the node red and opens a FUSE_OPENING fault; repeating it is refused', async () => {

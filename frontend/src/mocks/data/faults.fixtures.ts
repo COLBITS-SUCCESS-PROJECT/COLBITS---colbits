@@ -78,11 +78,85 @@ function fuseOpening(
       closed_at: endedAt,
     })),
     warnings: [],
+    conditions: null,
+    transformer_load: null,
   }
 }
 
-export function activeFaultFixtures(now: number): ActiveFaultDto[] {
+/** A device alert of US18 (F-47) open for `minutesOpen`: one entry per source, never grouped. */
+function deviceAlert(
+  alertType: 'FREE_FALL' | 'SOLAR_PANEL_FAILURE' | 'OVERLOAD_UNBALANCE',
+  sourceId: string,
+  seed: Omit<FaultSeed, 'minutesOpen' | 'classification' | 'client_count'>,
+  now: number,
+  minutesOpen: number
+): ActiveFaultDto {
+  const opening = fuseOpening(
+    { ...seed, classification: null, client_count: null },
+    now,
+    minutesOpen,
+    null
+  )
+  return {
+    ...opening,
+    id: `${alertType}:${sourceId}:${opening.started_at}`,
+    alert_type: alertType,
+    device: alertType === 'OVERLOAD_UNBALANCE' ? 'SMAC' : 'FALCON',
+    source_id: sourceId,
+    openings: [],
+  }
+}
+
+/**
+ * Device alerts (US18 · F-47), on south-user nodes for the Falcon ones and a north transformer for
+ * the overload: a free fall on ND06420A08, a solar-panel failure on ND07120D05 and an overload with
+ * voltage unbalance on the transformer of ND07740D02 (current unbalance is off until TD-10).
+ */
+function deviceAlertFixtures(now: number): ActiveFaultDto[] {
+  const southCircuit = { id: 3, name: 'CTO 1' }
+  const overload = deviceAlert(
+    'OVERLOAD_UNBALANCE',
+    'ND07740D02-T1',
+    {
+      node: 'ND07740D02',
+      circuit: { id: 2, name: 'CTO 2' },
+      fuses_set_id: null,
+      branch: null,
+      phases: null,
+    },
+    now,
+    35
+  )
+  return [
+    deviceAlert(
+      'FREE_FALL',
+      'ND06420A08-A-S',
+      { node: 'ND06420A08', circuit: southCircuit, fuses_set_id: 64, branch: 'A', phases: ['S'] },
+      now,
+      18
+    ),
+    deviceAlert(
+      'SOLAR_PANEL_FAILURE',
+      'ND07120D05-A-T',
+      { node: 'ND07120D05', circuit: southCircuit, fuses_set_id: 71, branch: 'A', phases: ['T'] },
+      now,
+      240
+    ),
+    {
+      ...overload,
+      conditions: ['OVERLOAD', 'VOLTAGE_UNBALANCE'],
+      transformer_load: { load_percent: 118, vuf_percent: 3.4, cuf_percent: 1.1 },
+    },
+  ]
+}
+
+/** The open fuse openings only (US10), without the device alerts, for tests that count them. */
+export function activeFuseOpeningFixtures(now: number): ActiveFaultDto[] {
   return FAULT_SEEDS.map(({ minutesOpen, ...seed }) => fuseOpening(seed, now, minutesOpen, null))
+}
+
+export function activeFaultFixtures(now: number): ActiveFaultDto[] {
+  return [...activeFuseOpeningFixtures(now), ...deviceAlertFixtures(now)]
 }
 
 const CTO_1 = { id: 1, name: 'CTO 1' }

@@ -1,13 +1,7 @@
 /** Unit tests for the fault panel business rules. */
 import { describe, it, expect } from 'vitest'
 import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
-import {
-  compareFaults,
-  countAlarmNodes,
-  matchesFilters,
-  selectFaults,
-  type FaultFilters,
-} from './faultRules'
+import { matchesFilters, selectFaults, type FaultFilters } from './faultRules'
 import { ALL, MS_PER_MINUTE } from './liveMonitoring.constants'
 
 const NOW = new Date(2026, 9, 2, 6, 0).getTime()
@@ -75,22 +69,15 @@ describe('matchesFilters', () => {
 })
 
 describe('selectFaults', () => {
-  it('returns open faults sorted by customers affected, then oldest first', () => {
-    // Arrange & Act
-    const open = selectFaults(faults, NO_FILTERS, 'OPEN', NOW)
+  it('keeps the open faults in the order the backend sent them (F-57, NF-11)', () => {
+    // Arrange: an order the frontend would never choose by clients or age
+    const backendOrder = [byId('f-9'), byId('f-1'), byId('f-5'), byId('f-2')]
+
+    // Act
+    const open = selectFaults(backendOrder, NO_FILTERS, 'OPEN', NOW)
 
     // Assert
-    expect(open.map((fault) => fault.id)).toEqual(['f-1', 'f-2', 'f-3', 'f-4', 'f-5', 'f-6', 'f-9'])
-  })
-
-  it('breaks ties by the oldest start', () => {
-    expect(compareFaults(byId('f-2'), byId('f-3'))).toBeLessThan(0) // same customers, f-2 older
-  })
-
-  it('sorts a fault without a client count after the faults that affect clients', () => {
-    const unknown = { ...byId('f-1'), customersAffected: null }
-
-    expect(compareFaults(unknown, byId('f-5'))).toBeGreaterThan(0)
+    expect(open.map((fault) => fault.id)).toEqual(['f-9', 'f-1', 'f-5', 'f-2'])
   })
 
   it('returns resolved faults newest resolution first (F-62)', () => {
@@ -109,69 +96,5 @@ describe('selectFaults', () => {
 
   it('returns an empty list when nothing matches', () => {
     expect(selectFaults(faults, { ...NO_FILTERS, search: 'nope' }, 'OPEN', NOW)).toEqual([])
-  })
-})
-
-describe('countAlarmNodes', () => {
-  it('counts the nodes in alarm per alert type', () => {
-    const open = selectFaults(faults, NO_FILTERS, 'OPEN', NOW)
-
-    expect(countAlarmNodes(open)).toEqual({
-      fuseAlarmNodes: 2,
-      voltageAlarmNodes: 1,
-      phaseOutOfRangeNodes: 1,
-      phaseDroppedNodes: 2,
-    })
-  })
-
-  it('counts PHASE_OUT_OF_RANGE as phase out of range and never OVERLOAD_UNBALANCE', () => {
-    const outOfRange = byId('f-9')
-    const overload = byId('f-6')
-
-    expect(countAlarmNodes([overload]).phaseOutOfRangeNodes).toBe(0)
-    expect(countAlarmNodes([outOfRange]).phaseOutOfRangeNodes).toBe(1)
-    expect(countAlarmNodes([overload, outOfRange])).toEqual({
-      fuseAlarmNodes: 0,
-      voltageAlarmNodes: 0,
-      phaseOutOfRangeNodes: 1,
-      phaseDroppedNodes: 0,
-    })
-  })
-
-  it('counts a node with open fuses on two fuse sets once, and a dropped phase on its own counter', () => {
-    const twoSets = [byId('f-1'), { ...byId('f-1'), id: 'f-1b' }]
-
-    expect(countAlarmNodes([...twoSets, byId('f-4')])).toEqual({
-      fuseAlarmNodes: 1,
-      voltageAlarmNodes: 0,
-      phaseOutOfRangeNodes: 0,
-      phaseDroppedNodes: 1,
-    })
-  })
-
-  it('counts a node once per type even when it has several faults', () => {
-    const sameNode = [byId('f-1'), { ...byId('f-1'), id: 'f-1b' }]
-
-    expect(countAlarmNodes(sameNode).fuseAlarmNodes).toBe(1)
-  })
-
-  it('follows the map filter: only the faults that remain are counted', () => {
-    const fusesOnly = selectFaults(faults, { ...NO_FILTERS, layers: ['FUSES'] }, 'OPEN', NOW)
-
-    expect(countAlarmNodes(fusesOnly)).toEqual({
-      fuseAlarmNodes: 2,
-      voltageAlarmNodes: 1,
-      phaseOutOfRangeNodes: 0,
-      phaseDroppedNodes: 0,
-    })
-  })
-
-  it('returns zeros when there are no faults', () => {
-    expect(countAlarmNodes([])).toEqual({
-      fuseAlarmNodes: 0,
-      voltageAlarmNodes: 0,
-      phaseOutOfRangeNodes: 0,
-      phaseDroppedNodes: 0,
-    })
   })
 })
