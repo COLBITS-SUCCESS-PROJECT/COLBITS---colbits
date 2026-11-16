@@ -102,6 +102,61 @@ describe('SCRUM-246 · US18 — device alerts in the alarm panel', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('F-47 — a Falcon free fall is listed as an active alarm on its fuse, with branch and phase', async () => {
+    // Given a free fall reported by the Falcon of ND06420A08 (faults.fixtures.ts), in the south scope
+    const panel = openMapAs(MOCK_TOKENS.SOUTH)
+
+    // When the active alarms load
+    const card = within(
+      await panel.findByRole('article', { name: 'Caída libre o movimiento anormal · ND06420A08' })
+    )
+
+    // Then it shows the device, the branch of its fuse and the open state
+    expect(card.getByText('FALCON')).toBeInTheDocument()
+    expect(card.getByText('Ramal A')).toBeInTheDocument()
+    expect(card.getByRole('img', { name: 'Fase S: caída' })).toBeInTheDocument()
+    expect(card.getByText('Abierta')).toHaveAttribute('data-tone', 'warning')
+  })
+
+  it('F-47 — a Falcon solar-panel failure is listed as an active alarm', async () => {
+    const panel = openMapAs(MOCK_TOKENS.SOUTH)
+
+    const card = within(
+      await panel.findByRole('article', { name: 'Falla de panel solar · ND07120D05' })
+    )
+
+    expect(card.getByText('FALCON')).toBeInTheDocument()
+    expect(card.getByText('Duración').nextSibling).toHaveTextContent('4 h 00 min')
+  })
+
+  it('F-47 — an overloaded and unbalanced transformer shows its active conditions and the values it reported', async () => {
+    // Given the transformer of ND07740D02 above 90 % load and 2 % voltage unbalance, in the north scope
+    const panel = openMapAs(MOCK_TOKENS.NORTH)
+    await showTransformerAlarms()
+
+    // When the active alarms load
+    const card = within(
+      await panel.findByRole('article', { name: 'Sobrecarga y desbalance · ND07740D02' })
+    )
+
+    // Then it shows the transformer, its conditions and its load and unbalance values
+    expect(card.getByText('SMAC')).toBeInTheDocument()
+    expect(card.getByText('Transformador').nextSibling).toHaveTextContent('ND07740D02-T1')
+    expect(card.getByText('Condiciones').nextSibling).toHaveTextContent(
+      'Sobrecarga, Desbalance de tensión'
+    )
+    expect(card.getByText('Carga 118 % · Desb. V 3.4 % · Desb. I 1.1 %')).toBeInTheDocument()
+  })
+
+  it('F-10 — the device alerts outside the user scope are not listed', async () => {
+    const panel = openMapAs(MOCK_TOKENS.NORTH)
+    await showTransformerAlarms()
+
+    await panel.findByRole('article', { name: 'Sobrecarga y desbalance · ND07740D02' })
+    expect(panel.queryByRole('article', { name: /Caída libre/ })).not.toBeInTheDocument()
+    expect(panel.queryByRole('article', { name: /Falla de panel solar/ })).not.toBeInTheDocument()
+  })
+
   it('when the low-energy service fails, the panel shows the error and asks again on retry', async () => {
     const requests = { count: 0 }
     server.use(
