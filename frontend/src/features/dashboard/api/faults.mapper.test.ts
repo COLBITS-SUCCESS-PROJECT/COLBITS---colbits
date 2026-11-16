@@ -33,6 +33,8 @@ const DTO: ActiveFaultDto = {
     { fuse_id: '0000100002-B-S1', phase: 'S1', opened_at: STARTED_AT, closed_at: null },
   ],
   warnings: [],
+  conditions: null,
+  transformer_load: null,
 }
 
 describe('toFaultAlert', () => {
@@ -65,6 +67,23 @@ describe('toFaultAlert', () => {
 
   it('keeps a missing client count as unknown instead of 0', () => {
     expect(toFaultAlert({ ...DTO, client_count: null }).customersAffected).toBeNull()
+  })
+
+  it('maps the load and unbalance values of an overload alert, keeping the ones never reported as null', () => {
+    const fault = toFaultAlert({
+      ...DTO,
+      device: 'SMAC',
+      alert_type: 'OVERLOAD_UNBALANCE',
+      conditions: ['OVERLOAD'],
+      transformer_load: { load_percent: 92.5, vuf_percent: null, cuf_percent: 1.2 },
+    })
+
+    expect(fault.transformerLoad).toEqual({
+      loadPct: 92.5,
+      voltageUnbalancePct: null,
+      currentUnbalancePct: 1.2,
+    })
+    expect(toFaultAlert(DTO).transformerLoad).toBeNull()
   })
 
   it('keeps the SMAC channel of a transformer alarm and never turns it into phases', () => {

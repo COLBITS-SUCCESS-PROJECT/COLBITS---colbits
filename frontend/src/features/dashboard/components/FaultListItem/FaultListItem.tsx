@@ -1,4 +1,5 @@
 /** FaultListItem molecule — alarm card of the fault panel (Figma: Fault List Item — F-51, F-55). */
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { Badge, type BadgeTone } from '@/design-system/atoms'
 import { DataField } from '@/design-system/molecules'
@@ -45,6 +46,20 @@ function CustomersAffected({ count }: { count: number | null }) {
   )
 }
 
+/** "Carga 118 % · Desb. V 3.4 %": only the values the transformer reported. null when there are none. */
+function transformerLoadSummary(fault: FaultAlert, t: TFunction<'dashboard'>): string | null {
+  const load = fault.transformerLoad
+  if (!load) return null
+  const parts = [
+    load.loadPct !== null && t('fault.load', { value: load.loadPct }),
+    load.voltageUnbalancePct !== null &&
+      t('fault.voltageUnbalance', { value: load.voltageUnbalancePct }),
+    load.currentUnbalancePct !== null &&
+      t('fault.currentUnbalance', { value: load.currentUnbalancePct }),
+  ].filter((part): part is string => part !== false)
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
 export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
   const { t, i18n } = useTranslation('dashboard')
   const classification = fault.classification && t(`classification.${fault.classification}`)
@@ -55,6 +70,14 @@ export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
   ) : (
     classification
   )
+  // A fuse alarm without a branch letter belongs to a node with a single fuse set; SMAC and inactivity alarms have no fuse set.
+  const branchValue = fault.branch
+    ? t('fault.branchValue', { branch: fault.branch })
+    : fault.device === 'FALCON' && fault.type !== 'DEVICE_INACTIVITY'
+      ? t('fault.singleSet')
+      : null
+  // Load and unbalance the transformer reported; a value it never reported is left out.
+  const loadSummary = transformerLoadSummary(fault, t)
   // F-63: an open alarm counts up to the last refresh; a resolved one shows its total and when it closed.
   const duration = formatDuration(fault.durationMinutes, i18n.language)
   const durationValue = fault.endedAt
@@ -107,10 +130,7 @@ export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
         {fault.channel ? (
           <DataField label={t('fault.channel')} value={fault.channel} />
         ) : (
-          <DataField
-            label={t('fault.branch')}
-            value={fault.branch && t('fault.branchValue', { branch: fault.branch })}
-          />
+          <DataField label={t('fault.branch')} value={branchValue} />
         )}
         <DataField label={t('fault.phases')} value={phases} />
         <DataField
@@ -122,13 +142,8 @@ export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
 
       <footer className="flex items-baseline justify-between gap-2 border-t border-dashed border-border-default pt-2">
         <CustomersAffected count={fault.customersAffected} />
-        {fault.transformerLoad && (
-          <span className="text-overline whitespace-nowrap text-text-secondary">
-            {t('fault.load', {
-              load: fault.transformerLoad.loadPct,
-              unbalance: fault.transformerLoad.voltageUnbalancePct,
-            })}
-          </span>
+        {loadSummary && (
+          <span className="text-overline whitespace-nowrap text-text-secondary">{loadSummary}</span>
         )}
       </footer>
     </article>

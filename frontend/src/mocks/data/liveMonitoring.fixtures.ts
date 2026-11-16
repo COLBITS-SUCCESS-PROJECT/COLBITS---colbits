@@ -112,7 +112,7 @@ const FAULT_SEEDS: FaultSeed[] = [
     classification: null,
     durationMinutes: 250,
     customersAffected: 0,
-    transformerLoad: { loadPct: 118, voltageUnbalancePct: 3.4 },
+    transformerLoad: { loadPct: 118, voltageUnbalancePct: 3.4, currentUnbalancePct: null },
   },
   {
     id: 'f-9',

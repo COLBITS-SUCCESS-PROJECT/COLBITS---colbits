@@ -5,8 +5,14 @@ import type {
   FaultSeverity,
   LiveMonitoringData,
   PhaseStates,
+  TransformerLoad,
 } from '../model/liveMonitoring.types'
-import type { ActiveFaultDto, ActiveFaultsResponseDto, FaultNodeCountersDto } from './faults.dto'
+import type {
+  ActiveFaultDto,
+  ActiveFaultsResponseDto,
+  FaultNodeCountersDto,
+  TransformerLoadDto,
+} from './faults.dto'
 
 const SECONDS_PER_MINUTE = 60
 const DRAWN_PHASES: (keyof PhaseStates)[] = ['R', 'S', 'T']
@@ -35,6 +41,16 @@ function severityOf(dto: ActiveFaultDto): FaultSeverity {
   return dto.alert_type === 'FUSE_OPENING' ? 'CRITICAL' : 'WARNING'
 }
 
+/** Last load and unbalance values of an OVERLOAD_UNBALANCE alert; null on every other alert. */
+function toTransformerLoad(dto: TransformerLoadDto | null): TransformerLoad | null {
+  if (!dto) return null
+  return {
+    loadPct: dto.load_percent,
+    voltageUnbalancePct: dto.vuf_percent,
+    currentUnbalancePct: dto.cuf_percent,
+  }
+}
+
 export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
   return {
     id: dto.id,
@@ -54,7 +70,7 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
     endedAt: dto.ended_at === null ? null : new Date(dto.ended_at),
     durationMinutes: Math.floor(dto.duration_seconds / SECONDS_PER_MINUTE),
     customersAffected: dto.client_count,
-    transformerLoad: null,
+    transformerLoad: toTransformerLoad(dto.transformer_load),
   }
 }
 

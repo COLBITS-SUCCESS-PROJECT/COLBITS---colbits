@@ -71,8 +71,10 @@ export type FaultSeverity = 'CRITICAL' | 'WARNING' | 'INACTIVE'
 export type FaultStatus = 'OPEN' | 'RESOLVED'
 
 export interface TransformerLoad {
-  loadPct: number
-  voltageUnbalancePct: number
+  /** A value the transformer never reported is null. */
+  loadPct: number | null
+  voltageUnbalancePct: number | null
+  currentUnbalancePct: number | null
 }
 
 /** One alarm of the fault panel (Figma: Fault List Item — F-51, F-55). */

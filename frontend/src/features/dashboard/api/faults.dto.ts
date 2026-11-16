@@ -2,9 +2,15 @@
 
 export type FaultClassificationDto = 'MONOPHASIC' | 'BIPHASIC' | 'TRIPHASIC'
 
-/** Alert types GET /faults lists: fuse openings (US10) and source alarms (SCRUM-225). */
+/** Alert types GET /faults lists: fuse openings (US10), source alarms (SCRUM-225) and device alerts (US18). */
 export type ActiveFaultAlertTypeDto =
-  'FUSE_OPENING' | 'NO_VOLTAGE' | 'PHASE_LOSS' | 'PHASE_OUT_OF_RANGE'
+  | 'FUSE_OPENING'
+  | 'NO_VOLTAGE'
+  | 'PHASE_LOSS'
+  | 'PHASE_OUT_OF_RANGE'
+  | 'FREE_FALL'
+  | 'SOLAR_PANEL_FAILURE'
+  | 'OVERLOAD_UNBALANCE'
 
 /** Device that reports the alert. */
 export type FaultDeviceDto = 'FALCON' | 'SMAC'
@@ -17,6 +23,16 @@ export type ResolvedWindowDto = '1h' | '24h'
 
 /** PHASES_UNCLASSIFIED: the phases could not be classified, so `phases` and `classification` are null. */
 export type FaultWarningDto = 'PHASES_UNCLASSIFIED'
+
+/** Conditions of an OVERLOAD_UNBALANCE alert (backend OVERLOAD_CONDITIONS). */
+export type OverloadConditionDto = 'OVERLOAD' | 'VOLTAGE_UNBALANCE' | 'CURRENT_UNBALANCE'
+
+/** Last values the transformer reported, as stored (TD-08); null for a value it never reported. */
+export interface TransformerLoadDto {
+  load_percent: number | null
+  vuf_percent: number | null
+  cuf_percent: number | null
+}
 
 export interface FaultOpeningDto {
   /** Stable fuse identifier (fuses.custom_id), e.g. 0000100002-A-R. */
@@ -58,6 +74,10 @@ export interface ActiveFaultDto {
   duration_seconds: number
   openings: FaultOpeningDto[]
   warnings: FaultWarningDto[]
+  /** OVERLOAD_UNBALANCE only: the conditions active now; null on every other alert type. */
+  conditions: OverloadConditionDto[] | null
+  /** OVERLOAD_UNBALANCE only: the last load and unbalance values of the transformer; null otherwise. */
+  transformer_load: TransformerLoadDto | null
 }
 
 /** Distinct nodes of the returned list per alarm kind (US15 · F-58). Same names as backend FaultNodeCountersDto. */

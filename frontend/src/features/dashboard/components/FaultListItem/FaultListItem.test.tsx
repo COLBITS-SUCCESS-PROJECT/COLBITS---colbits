@@ -33,6 +33,25 @@ describe('FaultListItem', () => {
     expect(within(card).getByText('clientes sin servicio')).toBeInTheDocument()
   })
 
+  it('says so when a fuse alarm belongs to a node with a single fuse set (no branch letter)', () => {
+    const single: FaultAlert = { ...fault('f-1'), branch: null }
+
+    render(<FaultListItem fault={single} />)
+
+    expect(screen.getByText('Conjunto único')).toBeInTheDocument()
+  })
+
+  it('shows only the load and unbalance values the transformer reported', () => {
+    const partial: FaultAlert = {
+      ...fault('f-6'),
+      transformerLoad: { loadPct: 92.5, voltageUnbalancePct: null, currentUnbalancePct: 1.2 },
+    }
+
+    render(<FaultListItem fault={partial} />)
+
+    expect(screen.getByText('Carga 92.5 % · Desb. I 1.2 %')).toBeInTheDocument()
+  })
+
   it('shows the SMAC channel instead of the branch, and no phase it cannot know', () => {
     const smacAlarm: FaultAlert = {
       ...fault('f-4'),

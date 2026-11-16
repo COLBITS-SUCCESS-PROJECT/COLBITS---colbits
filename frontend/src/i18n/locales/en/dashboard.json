@@ -150,6 +150,7 @@
   "fault": {
     "branch": "Branch",
     "channel": "Channel",
+    "singleSet": "Single fuse set",
     "phases": "Phases",
     "started": "Started",
     "duration": "Duration",
@@ -158,7 +159,9 @@
     "customersOut": "customers without service",
     "customersAffected": "customers affected",
     "customersUnknown": "No client data",
-    "load": "Load {{load}} % · V unb. {{unbalance}} %",
+    "load": "Load {{value}} %",
+    "voltageUnbalance": "V unb. {{value}} %",
+    "currentUnbalance": "I unb. {{value}} %",
     "phase": "Phase {{phase}}: {{state}}",
     "phaseState": {
       "CRITICAL": "down",
