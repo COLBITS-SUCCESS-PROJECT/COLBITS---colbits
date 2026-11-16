@@ -11,6 +11,7 @@ import { FaultPanel } from '../components/FaultPanel/FaultPanel'
 import { FaultPanelToggle } from '../components/FaultPanel/FaultPanelToggle'
 import { NodeDetailPanel } from '../components/NodeDetailPanel/NodeDetailPanel'
 import { useInactiveDevicesPanel } from '../hooks/useInactiveDevicesPanel'
+import { useInactivityAlarms } from '../hooks/useInactivityAlarms'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
@@ -24,6 +25,7 @@ import {
   isInLocation,
   layersOf,
 } from '../model/mapFilters'
+import type { NetworkNode } from '../model/liveMonitoring.types'
 import { deriveScopeOptions } from '../model/scopeOptions'
 
 export function LiveMonitoringPage() {
@@ -45,7 +47,7 @@ export function LiveMonitoringPage() {
   const { zone, substation, circuit } = filters
   const location = useMemo(() => ({ zone, substation, circuit }), [zone, substation, circuit])
   // F-41: the inactive-device list follows the same map filter; it has no location filter of its own.
-  const inactive = useInactiveDevicesPanel(now, location)
+  const inactive = useInactiveDevicesPanel(location)
   // F-33: the map shows only the nodes of the selected zone / substation / circuit.
   const visibleNodes = useMemo(
     () => filterNodesByLocation(allNodes, location),
@@ -57,12 +59,21 @@ export function LiveMonitoringPage() {
     () => (hasLocationFilter(location) ? new Set(visibleNodes.map((node) => node.id)) : undefined),
     [location, visibleNodes]
   )
+  // US17: GET /faults does not list inactivity alarms; they come from the periods of
+  // GET /device/inactive (F-38 opens, F-39 resolves). Open ones join Active, closed ones Resolved.
+  const inactivity = useInactivityAlarms(filters.timeWindow)
   const activeFaults = useMemo(
-    () => selectFaults(faults, filters, 'OPEN', now, nodesInLocation),
-    [faults, filters, now, nodesInLocation]
+    () => selectFaults([...faults, ...inactivity.alarms], filters, 'OPEN', now, nodesInLocation),
+    [faults, inactivity.alarms, filters, now, nodesInLocation]
   )
   // US16: asked only while the Resolved tab is open; it follows the same map filter.
-  const resolved = useResolvedFaultsPanel(filters, now, nodesInLocation, tab === 'RESOLVED')
+  const resolved = useResolvedFaultsPanel(
+    filters,
+    now,
+    nodesInLocation,
+    tab === 'RESOLVED',
+    inactivity
+  )
 
   // The summary counts the faults the list shows, so it follows the map filter.
   // BACKEND EXPECTED: there is no counters endpoint (US15), so they are derived from GET /faults.
@@ -80,8 +91,12 @@ export function LiveMonitoringPage() {
     if (query.trim() === '') return setSearchResult(null)
     const node = findNodeByIdentifier(allNodes, query)
     if (!node) return setSearchResult({ found: false, query: query.trim() })
+    focusOnNode(node)
+    setSearchResult({ found: true, nodeId: node.id })
+  }
 
-    // Make the node visible: clear a location filter that hides it and turn on a layer that draws it.
+  /** Centers the map on a node, first making it visible: clears a location filter that hides it and turns on a layer that draws it. */
+  function focusOnNode(node: NetworkNode) {
     const patch: Partial<FaultFilters> = {}
     if (!isInLocation(node, location))
       Object.assign(patch, { zone: ALL, substation: ALL, circuit: ALL })
@@ -92,7 +107,18 @@ export function LiveMonitoringPage() {
     }
     if (Object.keys(patch).length > 0) updateFilters(patch)
     setFocusRequest((current) => ({ nodeId: node.id, requestId: (current?.requestId ?? 0) + 1 }))
-    setSearchResult({ found: true, nodeId: node.id })
+  }
+
+  /**
+   * M13: a card of the panel (active, resolved or inactive) centers the map on its node and opens its
+   * detail, as clicking the marker does (F-27). On mobile the sheet closes so the map shows.
+   */
+  function handleSelectCard(nodeId: string) {
+    const node = allNodes.find((candidate) => candidate.id === nodeId)
+    if (!node) return
+    focusOnNode(node)
+    setSelectedNodeId(node.id)
+    closeMobilePanel()
   }
 
   useEffect(() => {
@@ -145,11 +171,15 @@ export function LiveMonitoringPage() {
           resolved={resolved}
           counters={query.isSuccess ? counters : null}
           inactive={inactive}
+          onSelectCard={handleSelectCard}
           filters={filters}
           onFiltersChange={updateFilters}
           isLoading={query.isPending}
-          isError={query.isError}
-          onRetry={() => void query.refetch()}
+          isError={query.isError || inactivity.isError}
+          onRetry={() => {
+            void query.refetch()
+            inactivity.refetch()
+          }}
           closeLabel={t('panel.closeMobile')}
           isMobileOpen={mobilePanelOpen && !isDesktopViewport}
           onClose={closeMobilePanel}

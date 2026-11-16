@@ -61,6 +61,7 @@
     "TRANSFORMERS": "Transformadores · SMAC"
   },
   "panel": {
+    "showOnMap": "Ver {{nodeId}} en el mapa y su detalle",
     "title": "Gestión de fallas",
     "openMobile": "Fallas ({{count}})",
     "closeMobile": "Cerrar panel de fallas",
@@ -117,7 +118,7 @@
       "silent": "Sin datos {{duration}}",
       "neverReported": "Nunca ha reportado",
       "reporting": "Reportando",
-      "location": "{{substation}} › {{circuit}} · {{deviceId}}",
+      "location": "{{substation}} › {{circuit}} · {{sourceId}}",
       "total": "Total inactivo en el periodo",
       "periodsLabel": "Periodos de inactividad",
       "period": "{{start}} → {{end}}",

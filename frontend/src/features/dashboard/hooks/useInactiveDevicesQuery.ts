@@ -1,33 +1,34 @@
 /** useInactiveDevicesQuery — inactive devices of the user's scope from GET /device/inactive (US17). */
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { fetchInactiveDevices } from '../api/inactiveDevices.api'
-import type { InactiveDevice } from '../model/inactiveDevices.types'
+import type { InactiveDevicesSnapshot } from '../model/inactiveDevices.types'
 import {
   LIVE_REFETCH_INTERVAL_MS,
   MINUTES_PER_HOUR,
   TIME_WINDOWS,
+  type TimeWindow,
 } from '../model/liveMonitoring.constants'
 
-/**
- * The widest window of the tab (last day). The tab cuts it to the chosen window on the client, so
- * switching between "last hour" and "last day" needs no new request.
- */
-export const INACTIVE_DEVICES_WINDOW_HOURS =
-  Math.max(...Object.values(TIME_WINDOWS)) / MINUTES_PER_HOUR
+/** Prefix of every window: invalidating it asks all of them again. */
+export const INACTIVE_DEVICES_QUERY_KEY = ['inactive-devices'] as const
 
-export const INACTIVE_DEVICES_QUERY_KEY = [
-  'inactive-devices',
-  INACTIVE_DEVICES_WINDOW_HOURS,
-] as const
+/** "Last hour" → ?hours=1, "last day" → ?hours=24. */
+export const inactiveDevicesHours = (timeWindow: TimeWindow) =>
+  TIME_WINDOWS[timeWindow] / MINUTES_PER_HOUR
 
 /**
- * Polled like the map: an inactivity alarm opens only because time passes (F-38), so the list has to
- * be asked again without new data; it closes at the next stored record (F-39).
+ * One request per window, so the server decides which devices and periods fall in it and gives the
+ * time (`to`) the silence is measured against. Polled like the map: an inactivity alarm opens only
+ * because time passes (F-38), so the list has to be asked again without new data; it closes at the
+ * next stored record (F-39).
  */
-export function useInactiveDevicesQuery(): UseQueryResult<InactiveDevice[]> {
+export function useInactiveDevicesQuery(
+  timeWindow: TimeWindow
+): UseQueryResult<InactiveDevicesSnapshot> {
+  const hours = inactiveDevicesHours(timeWindow)
   return useQuery({
-    queryKey: INACTIVE_DEVICES_QUERY_KEY,
-    queryFn: ({ signal }) => fetchInactiveDevices(INACTIVE_DEVICES_WINDOW_HOURS, signal),
+    queryKey: [...INACTIVE_DEVICES_QUERY_KEY, hours],
+    queryFn: ({ signal }) => fetchInactiveDevices(hours, signal),
     refetchInterval: LIVE_REFETCH_INTERVAL_MS,
   })
 }

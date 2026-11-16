@@ -1,5 +1,5 @@
 /** Inactive-device DTO → domain model. The only place that knows the field names of GET /device/inactive. */
-import type { InactiveDevice } from '../model/inactiveDevices.types'
+import type { InactiveDevice, InactiveDevicesSnapshot } from '../model/inactiveDevices.types'
 import type { NetworkPlace } from '../model/liveMonitoring.types'
 import type {
   InactiveDeviceDto,
@@ -16,6 +16,7 @@ const toPlace = (ref: LocationRefDto): NetworkPlace => ({ id: String(ref.id), na
 export function toInactiveDevice(dto: InactiveDeviceDto): InactiveDevice {
   return {
     id: dto.hw_id,
+    sourceId: dto.source_id,
     kind: dto.kind,
     nodeId: dto.node,
     location: {
@@ -33,6 +34,13 @@ export function toInactiveDevice(dto: InactiveDeviceDto): InactiveDevice {
   }
 }
 
-export function toInactiveDevices(response: InactiveDevicesResponseDto): InactiveDevice[] {
-  return response.devices.map(toInactiveDevice)
+/** `from` / `to` are the server's window; the devices keep the backend order (F-40). */
+export function toInactiveDevicesSnapshot(
+  response: InactiveDevicesResponseDto
+): InactiveDevicesSnapshot {
+  return {
+    from: new Date(response.from),
+    to: new Date(response.to),
+    devices: response.devices.map(toInactiveDevice),
+  }
 }

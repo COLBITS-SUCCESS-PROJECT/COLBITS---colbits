@@ -3,13 +3,17 @@ import { useTranslation } from 'react-i18next'
 import { Badge } from '@/design-system/atoms'
 import { formatDateTime, formatDuration } from '@/utils/formatDateTime'
 import type { InactiveDeviceView } from '../../model/inactiveDevices.types'
+import { cn } from '@/utils/cn'
 import { SEVERITY_BG_CLASS } from '../networkStateStyles'
+import { SELECTABLE_CARD_CLASS, SelectCardButton } from '../SelectCardButton'
 
 export interface InactiveDeviceCardProps {
   view: InactiveDeviceView
+  /** Clicking the card centers the map on its node (M13). Without it the card is not clickable. */
+  onSelect?: (nodeId: string) => void
 }
 
-export function InactiveDeviceCard({ view }: InactiveDeviceCardProps) {
+export function InactiveDeviceCard({ view, onSelect }: InactiveDeviceCardProps) {
   const { t, i18n } = useTranslation('dashboard')
   const { device, isInactiveNow, silentMinutes, totalMinutes, periods } = view
   const duration = (minutes: number) => formatDuration(minutes, i18n.language)
@@ -23,8 +27,12 @@ export function InactiveDeviceCard({ view }: InactiveDeviceCardProps) {
     <article
       aria-label={t('inactive.card.label', { nodeId: device.nodeId, state })}
       data-inactive-now={isInactiveNow}
-      className="relative flex flex-col gap-2 overflow-hidden rounded-lg border border-border-default bg-bg-surface py-3 pr-3 pl-4"
+      className={cn(
+        'relative flex flex-col gap-2 overflow-hidden rounded-lg border border-border-default bg-bg-surface py-3 pr-3 pl-4',
+        onSelect && SELECTABLE_CARD_CLASS
+      )}
     >
+      {onSelect && <SelectCardButton nodeId={device.nodeId} onSelect={onSelect} />}
       <span
         aria-hidden="true"
         className={`absolute inset-y-0 left-0 w-1 ${SEVERITY_BG_CLASS.INACTIVE}`}
@@ -50,7 +58,7 @@ export function InactiveDeviceCard({ view }: InactiveDeviceCardProps) {
           {t('inactive.card.location', {
             substation: device.location.substation.name,
             circuit: device.location.circuit.name,
-            deviceId: device.id,
+            sourceId: device.sourceId,
           })}
         </span>
       </p>

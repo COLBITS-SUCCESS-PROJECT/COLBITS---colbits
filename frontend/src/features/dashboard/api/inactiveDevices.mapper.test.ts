@@ -1,7 +1,7 @@
 /** Tests for the GET /device/inactive mapper. */
 import { describe, it, expect } from 'vitest'
 import type { InactiveDeviceDto } from './inactiveDevices.dto'
-import { toInactiveDevice, toInactiveDevices } from './inactiveDevices.mapper'
+import { toInactiveDevice, toInactiveDevicesSnapshot } from './inactiveDevices.mapper'
 
 const DTO: InactiveDeviceDto = {
   hw_id: '1301000004',
@@ -23,9 +23,10 @@ const DTO: InactiveDeviceDto = {
 }
 
 describe('toInactiveDevice', () => {
-  it('maps the device, its location (ids as text, like the map) and its periods', () => {
+  it('maps the device, what it monitors, its location (ids as text, like the map) and its periods', () => {
     expect(toInactiveDevice(DTO)).toEqual({
       id: '1301000004',
+      sourceId: '0000100002-A-R',
       kind: 'FALCON',
       nodeId: '0000100002',
       location: {
@@ -61,8 +62,8 @@ describe('toInactiveDevice', () => {
   })
 })
 
-describe('toInactiveDevices', () => {
-  it('keeps the backend order', () => {
+describe('toInactiveDevicesSnapshot', () => {
+  it('keeps the server window and the backend order', () => {
     const second = { ...DTO, hw_id: '0501000001', kind: 'SMAC' as const }
     const response = {
       from: '2026-11-11T12:00:00.000Z',
@@ -77,9 +78,10 @@ describe('toInactiveDevices', () => {
       devices: [DTO, second],
     }
 
-    expect(toInactiveDevices(response).map((device) => device.id)).toEqual([
-      '1301000004',
-      '0501000001',
-    ])
+    const snapshot = toInactiveDevicesSnapshot(response)
+
+    expect(snapshot.from).toEqual(new Date('2026-11-11T12:00:00.000Z'))
+    expect(snapshot.to).toEqual(new Date('2026-11-12T12:00:00.000Z'))
+    expect(snapshot.devices.map((device) => device.id)).toEqual(['1301000004', '0501000001'])
   })
 })

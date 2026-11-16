@@ -7,13 +7,17 @@ import { formatClockTime, formatDateTime, formatDuration } from '@/utils/formatD
 import type { FaultAlert } from '../../model/liveMonitoring.types'
 import { RESOLVED_BG_CLASS, SEVERITY_BG_CLASS } from '../networkStateStyles'
 import { PhaseChips } from '../PhaseChips/PhaseChips'
+import { SELECTABLE_CARD_CLASS, SelectCardButton } from '../SelectCardButton'
 
 export interface FaultListItemProps {
   fault: FaultAlert
+  /** Clicking the card centers the map on its node (M13). Without it the card is not clickable. */
+  onSelect?: (nodeId: string) => void
 }
 
 function statusTone(fault: FaultAlert): BadgeTone {
   if (fault.status === 'RESOLVED') return 'success'
+  if (fault.severity === 'INACTIVE') return 'neutral'
   return fault.severity === 'CRITICAL' ? 'danger' : 'warning'
 }
 
@@ -41,7 +45,7 @@ function CustomersAffected({ count }: { count: number | null }) {
   )
 }
 
-export function FaultListItem({ fault }: FaultListItemProps) {
+export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
   const { t, i18n } = useTranslation('dashboard')
   const classification = fault.classification && t(`classification.${fault.classification}`)
   // Phase squares with the classification; only the classification when the phases cannot be
@@ -64,8 +68,12 @@ export function FaultListItem({ fault }: FaultListItemProps) {
         nodeId: fault.nodeId,
       })}
       data-severity={fault.severity}
-      className="relative flex flex-col gap-2 overflow-hidden rounded-lg border border-border-default bg-bg-surface py-3 pr-3 pl-4"
+      className={cn(
+        'relative flex flex-col gap-2 overflow-hidden rounded-lg border border-border-default bg-bg-surface py-3 pr-3 pl-4',
+        onSelect && SELECTABLE_CARD_CLASS
+      )}
     >
+      {onSelect && <SelectCardButton nodeId={fault.nodeId} onSelect={onSelect} />}
       <span
         aria-hidden="true"
         className={cn(

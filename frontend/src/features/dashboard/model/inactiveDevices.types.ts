@@ -9,8 +9,10 @@ export interface InactivePeriod {
 
 /** A device that stopped reporting at least once, with its full inactivity history. */
 export interface InactiveDevice {
-  /** Hardware code shown next to the node, e.g. FAL-03090-C. */
+  /** Hardware id of the device (hw_id), e.g. 1301000004. */
   id: string
+  /** custom_id of what the device monitors: the fuse (Falcon) or the transformer (SMAC), e.g. 0000100002-A-R. */
+  sourceId: string
   kind: DeviceKind
   /** 10-character node ID, e.g. ND03090C04. */
   nodeId: string
@@ -23,6 +25,19 @@ export interface InactiveDevice {
   /** Latest stored record; null when the device never reported (it then has no period). */
   lastRecordAt: Date | null
   periods: InactivePeriod[]
+}
+
+/**
+ * One answer of GET /device/inactive for a time window. `from` and `to` are the server's clock, so
+ * the silence and the cut of each period never depend on the browser clock (F-46).
+ */
+export interface InactiveDevicesSnapshot {
+  /** Start of the window: `to` minus the hours asked for. */
+  from: Date
+  /** Moment of the request on the server. */
+  to: Date
+  /** In the backend order (F-40); the frontend does not sort them again. */
+  devices: InactiveDevice[]
 }
 
 /** One inactivity period cut to the selected time window. */

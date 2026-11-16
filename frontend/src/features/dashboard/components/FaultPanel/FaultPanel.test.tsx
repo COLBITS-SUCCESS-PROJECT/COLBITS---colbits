@@ -7,7 +7,7 @@ import '@/i18n'
 import { DEFAULT_FILTERS } from '../../hooks/useLiveMonitoringFilters'
 import { selectFaults, type FaultFilters } from '../../model/faultRules'
 import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
-import { buildInactiveDevicesMock } from '@/mocks/data/inactiveDevices.fixtures'
+import { buildInactiveDevicesSnapshot } from '@/mocks/data/inactiveDevices.fixtures'
 import { selectInactiveDevices } from '../../model/inactiveDevices.rules'
 import { ALL } from '../../model/liveMonitoring.constants'
 import { FaultPanel, type FaultPanelProps } from './FaultPanel'
@@ -97,7 +97,7 @@ describe('FaultPanel', () => {
 
   describe('inactive devices tab', () => {
     const everywhere = { zone: ALL, substation: ALL, circuit: ALL }
-    const views = selectInactiveDevices(buildInactiveDevicesMock(NOW), 'LAST_DAY', everywhere, NOW)
+    const views = selectInactiveDevices(buildInactiveDevicesSnapshot(NOW), everywhere)
 
     function renderInactive(overrides: Partial<InactiveDevicesTabProps> = {}) {
       const inactive: InactiveDevicesTabProps = {
