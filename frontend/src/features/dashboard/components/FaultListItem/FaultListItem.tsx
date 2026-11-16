@@ -78,7 +78,8 @@ export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
       : null
   // A SMAC alarm belongs to a transformer, not to a fuse set: it has no branch and no phases, so the
   // card shows the transformer and, instead, its channel or its active conditions.
-  const isTransformerAlarm = fault.device === 'SMAC' && fault.type !== 'DEVICE_INACTIVITY'
+  const isTransformerAlarm =
+    fault.device === 'SMAC' && fault.type !== 'DEVICE_INACTIVITY' && fault.type !== 'LOW_ENERGY'
   const conditions = fault.conditions?.length
     ? fault.conditions.map((condition) => t(`fault.condition.${condition}`)).join(', ')
     : null
@@ -133,7 +134,22 @@ export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
       </p>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
-        {isTransformerAlarm ? (
+        {fault.energy ? (
+          // F-44, F-45: the device it monitors and its level against the threshold; no branch or phases.
+          <>
+            <DataField
+              label={t(fault.device === 'SMAC' ? 'fault.transformer' : 'fault.fuse')}
+              value={fault.sourceId}
+            />
+            <DataField
+              label={t(fault.device === 'SMAC' ? 'fault.battery' : 'fault.supercapacitor')}
+              value={t('fault.energyValue', {
+                level: fault.energy.levelPct,
+                threshold: fault.energy.thresholdPct,
+              })}
+            />
+          </>
+        ) : isTransformerAlarm ? (
           <>
             <DataField label={t('fault.transformer')} value={fault.sourceId} />
             {fault.channel ? (

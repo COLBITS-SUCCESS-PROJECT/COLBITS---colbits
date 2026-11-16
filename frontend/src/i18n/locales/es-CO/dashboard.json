@@ -151,6 +151,10 @@
     "branch": "Ramal",
     "channel": "Canal",
     "transformer": "Transformador",
+    "fuse": "Fusible",
+    "supercapacitor": "Supercondensador",
+    "battery": "Batería",
+    "energyValue": "{{level}} % · umbral {{threshold}} %",
     "conditions": "Condiciones",
     "condition": {
       "OVERLOAD": "Sobrecarga",

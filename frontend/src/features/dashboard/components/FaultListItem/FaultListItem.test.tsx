@@ -72,6 +72,49 @@ describe('FaultListItem', () => {
     expect(within(card).queryByText('Fases')).not.toBeInTheDocument()
   })
 
+  describe('low energy (F-44, F-45)', () => {
+    const lowEnergy = (device: FaultAlert['device'], sourceId: string): FaultAlert => ({
+      ...fault('f-3'),
+      type: 'LOW_ENERGY',
+      device,
+      severity: 'WARNING',
+      sourceId,
+      branch: null,
+      channel: null,
+      phases: null,
+      classification: null,
+      customersAffected: null,
+      transformerLoad: null,
+      conditions: null,
+      energy: { levelPct: 12, thresholdPct: 30 },
+    })
+
+    it('shows the fuse and the supercapacitor level of a Falcon against its threshold', () => {
+      render(<FaultListItem fault={lowEnergy('FALCON', 'ND08890C04-A-R')} />)
+
+      const card = screen.getByRole('article', { name: /Baja energía/ })
+      expect(within(card).getByText('Fusible').nextSibling).toHaveTextContent('ND08890C04-A-R')
+      expect(within(card).getByText('Supercondensador').nextSibling).toHaveTextContent(
+        '12 % · umbral 30 %'
+      )
+      expect(within(card).getByText('Abierta')).toHaveAttribute('data-tone', 'warning')
+      expect(within(card).queryByText('Ramal')).not.toBeInTheDocument()
+      expect(within(card).queryByText('Fases')).not.toBeInTheDocument()
+    })
+
+    it('shows the transformer and the battery level of a SMAC, without conditions or channel', () => {
+      render(<FaultListItem fault={lowEnergy('SMAC', 'ND09931A01-T1-3')} />)
+
+      const card = screen.getByRole('article', { name: /Baja energía/ })
+      expect(within(card).getByText('Transformador').nextSibling).toHaveTextContent(
+        'ND09931A01-T1-3'
+      )
+      expect(within(card).getByText('Batería').nextSibling).toHaveTextContent('12 % · umbral 30 %')
+      expect(within(card).queryByText('Condiciones')).not.toBeInTheDocument()
+      expect(within(card).queryByText('Canal')).not.toBeInTheDocument()
+    })
+  })
+
   it('uses the warning tone for warning faults', () => {
     render(<FaultListItem fault={fault('f-3')} />)
 
