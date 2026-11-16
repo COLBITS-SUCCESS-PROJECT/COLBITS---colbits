@@ -28,6 +28,7 @@ import {
 } from '../model/mapFilters'
 import type { NetworkNode } from '../model/liveMonitoring.types'
 import { deriveScopeOptions } from '../model/scopeOptions'
+import { mergeTemporaryAlarms } from '../model/temporaryAlarms.rules'
 
 export function LiveMonitoringPage() {
   const { t } = useTranslation('dashboard')
@@ -60,16 +61,17 @@ export function LiveMonitoringPage() {
     () => (hasLocationFilter(location) ? new Set(visibleNodes.map((node) => node.id)) : undefined),
     [location, visibleNodes]
   )
-  // US17: GET /faults does not list inactivity alarms; they come from the periods of
-  // GET /device/inactive (F-38 opens, F-39 resolves). Open ones join Active, closed ones Resolved.
+  // TEMPORARY (temporaryAlarms.rules.ts): GET /faults does not list DEVICE_INACTIVITY or LOW_ENERGY
+  // yet. Inactivity alarms come from the periods of GET /device/inactive (US17 · F-38 opens, F-39
+  // resolves): open ones join Active, closed ones Resolved. Low-energy alarms come from
+  // GET /device/low-energy (US18 · F-44, F-45), open only. When GET /faults lists both types, remove
+  // these two hooks and pass `faults` to selectFaults as it is.
   const inactivity = useInactivityAlarms(filters.timeWindow)
-  // US18 · F-44, F-45 — TEMPORARY: GET /faults does not list LOW_ENERGY yet, so its open alarms come
-  // from GET /device/low-energy. Remove this merge when GET /faults lists them.
   const lowEnergy = useLowEnergyAlarms()
   const activeFaults = useMemo(
     () =>
       selectFaults(
-        [...faults, ...lowEnergy.alarms, ...inactivity.alarms],
+        mergeTemporaryAlarms(faults, lowEnergy.alarms, inactivity.alarms),
         filters,
         'OPEN',
         now,

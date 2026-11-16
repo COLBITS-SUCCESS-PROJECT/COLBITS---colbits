@@ -113,6 +113,13 @@ describe('FaultListItem', () => {
       expect(within(card).queryByText('Condiciones')).not.toBeInTheDocument()
       expect(within(card).queryByText('Canal')).not.toBeInTheDocument()
     })
+
+    it('shows a dash for the level when the service does not send it (GET /faults for now)', () => {
+      render(<FaultListItem fault={{ ...lowEnergy('SMAC', 'T-1'), energy: null }} />)
+
+      expect(screen.getByText('Batería').nextSibling).toHaveAttribute('data-empty')
+      expect(screen.getByText('T-1')).toBeInTheDocument()
+    })
   })
 
   it('uses the warning tone for warning faults', () => {
