@@ -343,3 +343,205 @@ export function toOverloadAlertDto(
     warnings: [],
   };
 }
+
+/**
+ * Resolved free-fall episodes inside [$4, $5] ($1 nodes, $2 code pattern, $3 event types).
+ * Each episode starts at the first 13xx01 activation after the previous false reading and ends at
+ * the first subsequent reading with is_free_fall_alarm = false inside the window.
+ */
+export const RESOLVED_FREE_FALL_ALERTS_SQL = `
+  WITH scoped AS (
+    SELECT f.custom_id AS source_id, f.current_hw_id AS hw_id, f.phase,
+           fs.node_id, fs.id AS fuses_set_id, fs.set_id AS branch
+    FROM public.fuses_sets fs
+    JOIN public.fuses f ON f.fuses_set_id = fs.id
+    WHERE fs.node_id = ANY($1::text[]) AND f.current_hw_id IS NOT NULL
+  ), clears AS (
+    SELECT s.*, v.recorded_at AS ended_at,
+           COALESCE(
+             LAG(v.recorded_at) OVER (PARTITION BY s.source_id ORDER BY v.recorded_at),
+             '-infinity'::timestamptz
+           ) AS prev_clear
+    FROM scoped s
+    JOIN public.falcon_values v ON v.hw_id = s.hw_id AND v.is_free_fall_alarm = false
+  ), episodes AS (
+    SELECT cl.source_id, cl.node_id, cl.fuses_set_id, cl.branch, cl.phase, cl.ended_at,
+           (SELECT min(a.recorded_at) FROM public.alarms a
+             WHERE a.custom_id = cl.source_id
+               AND a.event_code ~ $2::text
+               AND a.event_type ~* $3::text
+               AND a.recorded_at >= cl.prev_clear
+               AND a.recorded_at < cl.ended_at) AS started_at
+    FROM clears cl
+    WHERE cl.ended_at >= $4::timestamptz AND cl.ended_at <= $5::timestamptz
+  )
+  SELECT ep.source_id, ep.node_id, c.id AS circuit_id, c.name AS circuit_name,
+         ep.fuses_set_id, ep.branch, ep.phase, ep.started_at, ep.ended_at
+  FROM episodes ep
+  JOIN public.nodes n ON n.name = ep.node_id
+  JOIN public.circuits c ON c.id = n.circuit_id
+  WHERE ep.started_at IS NOT NULL
+  ORDER BY ep.ended_at DESC, ep.started_at DESC, ep.source_id
+`;
+
+/**
+ * Resolved solar-panel episodes inside [$2, $3] ($1 nodes).
+ * Each episode starts at the first reading with is_solar_panel_alarm = true after the previous
+ * false reading and ends at the first reading with is_solar_panel_alarm = false inside the window.
+ */
+export const RESOLVED_SOLAR_PANEL_ALERTS_SQL = `
+  WITH scoped AS (
+    SELECT f.custom_id AS source_id, f.current_hw_id AS hw_id, f.phase,
+           fs.node_id, fs.id AS fuses_set_id, fs.set_id AS branch
+    FROM public.fuses_sets fs
+    JOIN public.fuses f ON f.fuses_set_id = fs.id
+    WHERE fs.node_id = ANY($1::text[]) AND f.current_hw_id IS NOT NULL
+  ), clears AS (
+    SELECT s.*, v.recorded_at AS ended_at,
+           COALESCE(
+             LAG(v.recorded_at) OVER (PARTITION BY s.source_id ORDER BY v.recorded_at),
+             '-infinity'::timestamptz
+           ) AS prev_clear
+    FROM scoped s
+    JOIN public.falcon_values v ON v.hw_id = s.hw_id AND v.is_solar_panel_alarm = false
+  ), episodes AS (
+    SELECT cl.source_id, cl.node_id, cl.fuses_set_id, cl.branch, cl.phase, cl.ended_at,
+           (SELECT min(v.recorded_at) FROM public.falcon_values v
+             WHERE v.hw_id = cl.hw_id
+               AND v.is_solar_panel_alarm = true
+               AND v.recorded_at > cl.prev_clear
+               AND v.recorded_at < cl.ended_at) AS started_at
+    FROM clears cl
+    WHERE cl.ended_at >= $2::timestamptz AND cl.ended_at <= $3::timestamptz
+  )
+  SELECT ep.source_id, ep.node_id, c.id AS circuit_id, c.name AS circuit_name,
+         ep.fuses_set_id, ep.branch, ep.phase, ep.started_at, ep.ended_at
+  FROM episodes ep
+  JOIN public.nodes n ON n.name = ep.node_id
+  JOIN public.circuits c ON c.id = n.circuit_id
+  WHERE ep.started_at IS NOT NULL
+  ORDER BY ep.ended_at DESC, ep.started_at DESC, ep.source_id
+`;
+
+/**
+ * Resolved overload and imbalance episodes inside [$5, $6] ($1 nodes, $2-$4 thresholds).
+ */
+export const RESOLVED_OVERLOAD_ALERTS_SQL = `
+  WITH scoped AS (
+    SELECT t.custom_id AS source_id, t.node_id, t.current_hw_id AS hw_id
+    FROM public.trafos t
+    WHERE t.node_id = ANY($1::text[]) AND t.current_hw_id IS NOT NULL
+  ), readings AS (
+    SELECT v.hw_id, v.recorded_at,
+           ${finite('v.load_percent')} AS load_percent,
+           ${finite('v.vuf_percent')} AS vuf_percent,
+           ${finite('v.cuf_percent')} AS cuf_percent
+    FROM public.smac_vc_values v
+    WHERE v.hw_id IN (SELECT hw_id FROM scoped)
+  ), numbered AS (
+    SELECT r.*,
+           count(r.load_percent) OVER w AS load_n,
+           count(r.vuf_percent) OVER w AS vuf_n,
+           count(r.cuf_percent) OVER w AS cuf_n
+    FROM readings r
+    WINDOW w AS (PARTITION BY r.hw_id ORDER BY r.recorded_at)
+  ), carried AS (
+    SELECT n.hw_id, n.recorded_at,
+           first_value(n.load_percent) OVER (PARTITION BY n.hw_id, n.load_n ORDER BY n.recorded_at) AS load_percent,
+           first_value(n.vuf_percent) OVER (PARTITION BY n.hw_id, n.vuf_n ORDER BY n.recorded_at) AS vuf_percent,
+           first_value(n.cuf_percent) OVER (PARTITION BY n.hw_id, n.cuf_n ORDER BY n.recorded_at) AS cuf_percent
+    FROM numbered n
+  ), flagged AS (
+    SELECT k.*,
+           (COALESCE(k.load_percent > $2::float8, false)
+            OR COALESCE(k.vuf_percent > $3::float8, false)
+            OR COALESCE(k.cuf_percent > $4::float8, false)) AS is_active
+    FROM carried k
+  ), transitions AS (
+    SELECT f.*,
+           COALESCE(LAG(f.is_active) OVER (PARTITION BY f.hw_id ORDER BY f.recorded_at), false) AS prev_active
+    FROM flagged f
+  ), clears AS (
+    SELECT t.hw_id, t.recorded_at AS ended_at,
+           COALESCE(
+             LAG(t.recorded_at) OVER (PARTITION BY t.hw_id ORDER BY t.recorded_at),
+             '-infinity'::timestamptz
+           ) AS prev_clear
+    FROM transitions t
+    WHERE NOT t.is_active AND t.prev_active
+  ), episodes AS (
+    SELECT cl.hw_id, cl.ended_at,
+           (SELECT min(f.recorded_at) FROM flagged f
+             WHERE f.hw_id = cl.hw_id
+               AND f.is_active
+               AND f.recorded_at > cl.prev_clear
+               AND f.recorded_at < cl.ended_at) AS started_at
+    FROM clears cl
+    WHERE cl.ended_at >= $5::timestamptz AND cl.ended_at <= $6::timestamptz
+  )
+  SELECT s.source_id, s.node_id, ci.id AS circuit_id, ci.name AS circuit_name,
+         ep.started_at, ep.ended_at
+  FROM episodes ep
+  JOIN scoped s ON s.hw_id = ep.hw_id
+  JOIN public.nodes n ON n.name = s.node_id
+  JOIN public.circuits ci ON ci.id = n.circuit_id
+  WHERE ep.started_at IS NOT NULL
+  ORDER BY ep.ended_at DESC, ep.started_at DESC, s.source_id
+`;
+
+export interface ResolvedFalconAlertRow extends FalconAlertRow {
+  ended_at: Date | string;
+}
+
+export interface ResolvedOverloadAlertRow {
+  source_id: string;
+  node_id: string;
+  circuit_id: number | string;
+  circuit_name: string;
+  started_at: Date | string;
+  ended_at: Date | string;
+}
+
+export function toResolvedFalconAlertDto(
+  type: 'FREE_FALL' | 'SOLAR_PANEL_FAILURE',
+  row: ResolvedFalconAlertRow,
+): ActiveFaultDto {
+  const startedAt = new Date(row.started_at);
+  const endedAt = new Date(row.ended_at);
+  const dto = toFalconAlertDto(type, row, endedAt);
+  return {
+    ...dto,
+    state: 'RESOLVED',
+    ended_at: endedAt.toISOString(),
+    duration_seconds: openDurationSeconds(startedAt, endedAt),
+  };
+}
+
+export function toResolvedOverloadAlertDto(
+  row: ResolvedOverloadAlertRow,
+): ActiveFaultDto {
+  const startedAt = new Date(row.started_at);
+  const endedAt = new Date(row.ended_at);
+  return {
+    id: deviceAlertId('OVERLOAD_UNBALANCE', row.source_id, startedAt),
+    node: row.node_id,
+    circuit: { id: Number(row.circuit_id), name: row.circuit_name },
+    fuses_set_id: null,
+    branch: null,
+    alert_type: 'OVERLOAD_UNBALANCE',
+    device: 'SMAC',
+    source_id: row.source_id,
+    channel: null,
+    state: 'RESOLVED',
+    phases: null,
+    classification: null,
+    client_count: null,
+    started_at: startedAt.toISOString(),
+    ended_at: endedAt.toISOString(),
+    duration_seconds: openDurationSeconds(startedAt, endedAt),
+    openings: [],
+    conditions: null,
+    transformer_load: null,
+    warnings: [],
+  };
+}

@@ -17,9 +17,16 @@ import {
   FalconAlertRow,
   OVERLOAD_ALERTS_SQL,
   OverloadAlertRow,
+  RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_OVERLOAD_ALERTS_SQL,
+  RESOLVED_SOLAR_PANEL_ALERTS_SQL,
+  ResolvedFalconAlertRow,
+  ResolvedOverloadAlertRow,
   SOLAR_PANEL_ALERTS_SQL,
   toFalconAlertDto,
   toOverloadAlertDto,
+  toResolvedFalconAlertDto,
+  toResolvedOverloadAlertDto,
 } from './device-alert-queries';
 import { DeviceAlertThresholds } from './device-alert-thresholds';
 import {
@@ -255,7 +262,20 @@ export class ActiveFaultsService implements OnModuleInit {
     const hours = window === '1h' ? 1 : 24;
     const cutoff = new Date(now.getTime() - hours * HOUR_MS);
 
-    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] = await Promise.all([
+    const thresholds = this.deviceAlertThresholds();
+    const [
+      rows,
+      sourceRows,
+      freeFallRows,
+      solarRows,
+      overloadRows,
+    ]: [
+      EventRow[],
+      SourceAlarmRow[],
+      ResolvedFalconAlertRow[],
+      ResolvedFalconAlertRow[],
+      ResolvedOverloadAlertRow[],
+    ] = await Promise.all([
       this.nodesRepository.query(RESOLVED_FAULT_EVENTS_SQL, [
         nodes,
         FUSE_OPENING_PATTERN,
@@ -268,6 +288,25 @@ export class ActiveFaultsService implements OnModuleInit {
         nodes,
         ...SOURCE_ALARM_PATTERNS,
         cutoff.toISOString(),
+      ]),
+      this.nodesRepository.query(RESOLVED_FREE_FALL_ALERTS_SQL, [
+        nodes,
+        ...FREE_FALL_ALERT_PARAMETERS,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+      this.nodesRepository.query(RESOLVED_SOLAR_PANEL_ALERTS_SQL, [
+        nodes,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+      this.nodesRepository.query(RESOLVED_OVERLOAD_ALERTS_SQL, [
+        nodes,
+        thresholds.overloadPercent,
+        thresholds.voltageUnbalancePercent,
+        thresholds.currentUnbalancePercent,
+        cutoff.toISOString(),
+        now.toISOString(),
       ]),
     ]);
 
@@ -294,7 +333,16 @@ export class ActiveFaultsService implements OnModuleInit {
         new Date(alarm.ended_at).getTime() <= now.getTime(),
     );
 
-    const allResolved = [...fuseFaults, ...sourceAlarms].sort((a, b) => {
+    const deviceAlerts = [
+      ...freeFallRows.map((row) => toResolvedFalconAlertDto('FREE_FALL', row)),
+      ...solarRows.map((row) =>
+        toResolvedFalconAlertDto('SOLAR_PANEL_FAILURE', row),
+      ),
+      ...overloadRows.map((row) => toResolvedOverloadAlertDto(row)),
+    ];
+
+    const allResolved = [...fuseFaults, ...sourceAlarms, ...deviceAlerts].sort(
+      (a, b) => {
       const endedDiff =
         new Date(b.ended_at as string).getTime() -
         new Date(a.ended_at as string).getTime();
