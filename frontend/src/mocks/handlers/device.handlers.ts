@@ -26,3 +26,11 @@ export const deviceHandlers = [
     return HttpResponse.json(inactiveDevicesResponseFixture(Date.now(), hours, MOCK_SCOPES[token]))
   }),
 ]
+
+/**
+ * No inactive device in any scope. For tests about the alarms of GET /faults, which would otherwise
+ * also list the sample inactivity alarms (US17).
+ */
+export const noInactiveDevicesHandler = http.get(`*${INACTIVE_DEVICES_ENDPOINT}`, () =>
+  HttpResponse.json(inactiveDevicesResponseFixture(Date.now(), DEFAULT_HOURS, []))
+)

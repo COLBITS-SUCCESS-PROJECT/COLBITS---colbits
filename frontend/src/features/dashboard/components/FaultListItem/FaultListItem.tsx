@@ -14,6 +14,7 @@ export interface FaultListItemProps {
 
 function statusTone(fault: FaultAlert): BadgeTone {
   if (fault.status === 'RESOLVED') return 'success'
+  if (fault.severity === 'INACTIVE') return 'neutral'
   return fault.severity === 'CRITICAL' ? 'danger' : 'warning'
 }
 

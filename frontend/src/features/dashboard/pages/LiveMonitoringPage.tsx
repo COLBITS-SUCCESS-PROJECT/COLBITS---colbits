@@ -11,6 +11,7 @@ import { FaultPanel } from '../components/FaultPanel/FaultPanel'
 import { FaultPanelToggle } from '../components/FaultPanel/FaultPanelToggle'
 import { NodeDetailPanel } from '../components/NodeDetailPanel/NodeDetailPanel'
 import { useInactiveDevicesPanel } from '../hooks/useInactiveDevicesPanel'
+import { useInactivityAlarms } from '../hooks/useInactivityAlarms'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
@@ -57,12 +58,21 @@ export function LiveMonitoringPage() {
     () => (hasLocationFilter(location) ? new Set(visibleNodes.map((node) => node.id)) : undefined),
     [location, visibleNodes]
   )
+  // US17: GET /faults does not list inactivity alarms; they come from the periods of
+  // GET /device/inactive (F-38 opens, F-39 resolves). Open ones join Active, closed ones Resolved.
+  const inactivity = useInactivityAlarms(filters.timeWindow)
   const activeFaults = useMemo(
-    () => selectFaults(faults, filters, 'OPEN', now, nodesInLocation),
-    [faults, filters, now, nodesInLocation]
+    () => selectFaults([...faults, ...inactivity.alarms], filters, 'OPEN', now, nodesInLocation),
+    [faults, inactivity.alarms, filters, now, nodesInLocation]
   )
   // US16: asked only while the Resolved tab is open; it follows the same map filter.
-  const resolved = useResolvedFaultsPanel(filters, now, nodesInLocation, tab === 'RESOLVED')
+  const resolved = useResolvedFaultsPanel(
+    filters,
+    now,
+    nodesInLocation,
+    tab === 'RESOLVED',
+    inactivity
+  )
 
   // The summary counts the faults the list shows, so it follows the map filter.
   // BACKEND EXPECTED: there is no counters endpoint (US15), so they are derived from GET /faults.
@@ -148,8 +158,11 @@ export function LiveMonitoringPage() {
           filters={filters}
           onFiltersChange={updateFilters}
           isLoading={query.isPending}
-          isError={query.isError}
-          onRetry={() => void query.refetch()}
+          isError={query.isError || inactivity.isError}
+          onRetry={() => {
+            void query.refetch()
+            inactivity.refetch()
+          }}
           closeLabel={t('panel.closeMobile')}
           isMobileOpen={mobilePanelOpen && !isDesktopViewport}
           onClose={closeMobilePanel}

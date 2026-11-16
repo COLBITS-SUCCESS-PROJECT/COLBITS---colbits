@@ -21,9 +21,9 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - Map legend ✅
 - Active faults panel: counters, _Active_ / _Resolved_ tabs and the last hour / last day selector; it follows the map filter and has no filters of its own (F-56) ✅ ([SCRUM-113](./SCRUM-113.md))
 - _Inactive devices_ tab: list from `GET /device/inactive`, ordered by time without data, following the map filter (F-40, F-41) ✅ ([SCRUM-115](./SCRUM-115.md))
-- Inactivity alarm in the _Active_ and _Resolved_ tabs (F-38, F-39) 🔲 pending the backend (PO confirmed it on 2026-11-15, [SCRUM-115](./SCRUM-115.md) Q2, Q3)
-- *Resolved* tab: the alarms resolved in the last hour or day, newest first, each with its total duration; active alarms show the duration so far (F-59 to F-63) ✅ ([SCRUM-114](./SCRUM-114.md))
-- *Inactive devices* tab 🔲 (placeholder)
+- Inactivity alarm in the _Active_ and _Resolved_ tabs, built from the periods of `GET /device/inactive` (F-38, F-39) ✅ ([SCRUM-115](./SCRUM-115.md) AC6)
+- _Resolved_ tab: the alarms resolved in the last hour or day, newest first, each with its total duration; active alarms show the duration so far (F-59 to F-63) ✅ ([SCRUM-114](./SCRUM-114.md))
+- _Inactive devices_ tab 🔲 (placeholder)
 - Node detail panel: live status (F-27, F-29) ✅ · time series and alarm history 🔲 (node view, F-28)
 - Time of the last successful map refresh (F-32): in the top bar with the _Live_ / _Stale_ state (shared, in `AppShell`), on the map below 1024 px ✅ ([SCRUM-111](./SCRUM-111.md))
 - Warning when the map stops refreshing (F-31): banner on the map (M10) and red dot in the top bar ✅ ([SCRUM-111](./SCRUM-111.md))
@@ -40,22 +40,22 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 
 ## 3. Stories
 
-| Story                       | Summary                                                                                                                                                                                 | Owner                             | Status      |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------- |
-| SCRUM-128                   | Base screen M1: map, toolbar, legend, fault panel (with sample data)                                                                                                                    | Sofia                             | DONE        |
-| [SCRUM-77](./SCRUM-77.md)   | [F-12] Node markers on a real map at recorded coordinates (US4)                                                                                                                         | Sofia                             | DONE        |
-| [SCRUM-63](./SCRUM-63.md)   | [F-13] Group overlapping node markers into one cluster (US4)                                                                                                                            | Paola                             | IN_REVIEW   |
-| [SCRUM-65](./SCRUM-65.md)   | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18)                                                                                              | Sofia                             | DONE        |
-| [SCRUM-106](./SCRUM-106.md) | US8 · Layer toggles and dual-state nodes (F-14, F-24)                                                                                                                                   | Sofia                             | IN_REVIEW   |
-| [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M6): `GET /nodes/:name/detail` + panel over the map (F-27, F-29)                                                                                           | Sofia                             | IN_REVIEW   |
-| [SCRUM-115](./SCRUM-115.md) | US17 · Inactive devices tab (M12, M14): list ordered by time without data from `GET /device/inactive` (F-40, F-41); inactivity alarm in the Active / Resolved tabs pending (F-38, F-39) | Monica                            | IN_PROGRESS |
-| [SCRUM-110](./SCRUM-110.md) | US12 · Live node state updates: the map refreshes every 15 s (F-25, F-26, F-30, NF-01)                                                                                                  | Paola                             | IN_REVIEW   |
-| [SCRUM-108](./SCRUM-108.md) | US10 · Active fault list from `GET /faults`: each fault with its classification and affected clients (F-51, F-55)                                                                       | Paola                             | IN_REVIEW   |
-| [SCRUM-111](./SCRUM-111.md) | US13 · Time of the last successful map refresh (F-32) and warning when the map stops updating (F-31)                                                                                    | Paola                             | IN_REVIEW   |
-| [SCRUM-112](./SCRUM-112.md) | US14 · Map filter (zone / substation / circuit) and node or device search; `GET /nodes` sends location and devices (F-33, F-34)                                                         | Sofia                             | IN_REVIEW   |
-| [SCRUM-113](./SCRUM-113.md) | US15 · The panel follows the map filter with no filters of its own (F-56), fault ordering (F-57), node counters (F-58)                                                                  | Paola · Javier · Mónica · Mahmoud | IN_PROGRESS |
-| [SCRUM-114](./SCRUM-114.md) | US16 · Active and resolved alarms: resolved list from `GET /faults/resolved` (last hour / last day, newest first) and the duration of each alarm (F-59 to F-63)                         | Paola                             | IN_REVIEW   |
-| [SCRUM-218](./SCRUM-218.md) | US31 · Demo scenario panel in the node detail: run fuse, voltage and phase scenarios and see the map react (F-100, NF-01, NF-03)                                                        | Paola                             | IN_REVIEW   |
+| Story                       | Summary                                                                                                                                                                         | Owner                             | Status      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ----------- |
+| SCRUM-128                   | Base screen M1: map, toolbar, legend, fault panel (with sample data)                                                                                                            | Sofia                             | DONE        |
+| [SCRUM-77](./SCRUM-77.md)   | [F-12] Node markers on a real map at recorded coordinates (US4)                                                                                                                 | Sofia                             | DONE        |
+| [SCRUM-63](./SCRUM-63.md)   | [F-13] Group overlapping node markers into one cluster (US4)                                                                                                                    | Paola                             | IN_REVIEW   |
+| [SCRUM-65](./SCRUM-65.md)   | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18)                                                                                      | Sofia                             | DONE        |
+| [SCRUM-106](./SCRUM-106.md) | US8 · Layer toggles and dual-state nodes (F-14, F-24)                                                                                                                           | Sofia                             | IN_REVIEW   |
+| [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M6): `GET /nodes/:name/detail` + panel over the map (F-27, F-29)                                                                                   | Sofia                             | IN_REVIEW   |
+| [SCRUM-115](./SCRUM-115.md) | US17 · Inactive devices tab (M12, M14): list ordered by time without data from `GET /device/inactive` (F-40, F-41); inactivity alarm in the Active / Resolved tabs (F-38, F-39) | Monica                            | IN_PROGRESS |
+| [SCRUM-110](./SCRUM-110.md) | US12 · Live node state updates: the map refreshes every 15 s (F-25, F-26, F-30, NF-01)                                                                                          | Paola                             | IN_REVIEW   |
+| [SCRUM-108](./SCRUM-108.md) | US10 · Active fault list from `GET /faults`: each fault with its classification and affected clients (F-51, F-55)                                                               | Paola                             | IN_REVIEW   |
+| [SCRUM-111](./SCRUM-111.md) | US13 · Time of the last successful map refresh (F-32) and warning when the map stops updating (F-31)                                                                            | Paola                             | IN_REVIEW   |
+| [SCRUM-112](./SCRUM-112.md) | US14 · Map filter (zone / substation / circuit) and node or device search; `GET /nodes` sends location and devices (F-33, F-34)                                                 | Sofia                             | IN_REVIEW   |
+| [SCRUM-113](./SCRUM-113.md) | US15 · The panel follows the map filter with no filters of its own (F-56), fault ordering (F-57), node counters (F-58)                                                          | Paola · Javier · Mónica · Mahmoud | IN_PROGRESS |
+| [SCRUM-114](./SCRUM-114.md) | US16 · Active and resolved alarms: resolved list from `GET /faults/resolved` (last hour / last day, newest first) and the duration of each alarm (F-59 to F-63)                 | Paola                             | IN_REVIEW   |
+| [SCRUM-218](./SCRUM-218.md) | US31 · Demo scenario panel in the node detail: run fuse, voltage and phase scenarios and see the map react (F-100, NF-01, NF-03)                                                | Paola                             | IN_REVIEW   |
 
 ## 4. Design (Figma)
 
@@ -69,7 +69,7 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | M4–M9 · Node detail                    | `8-1876` … `8-3987`    | 🔲                                           |
 | M10 · Stale data + min-duration filter | `8-4449`               | Partly (top bar stale state, banner, filter) |
 | M11 · Resolved alarms                  | `8-4841`               | ✅                                           |
-| M12 / M14 · Inactive devices           | `8-5197`, `2011-11763` | ✅ (tab; the alarm in the panel is pending)  |
+| M12 / M14 · Inactive devices           | `8-5197`, `2011-11763` | ✅                                           |
 | M13 · Alarm selected → map focus       | `2011-11123`           | 🔲                                           |
 
 | Component (page _1 Design System_) | node-id |
@@ -103,7 +103,7 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 Other code:
 
 - `model/` — types, constants, `faultRules.ts` (filters, sort: customers affected → oldest first), `scopeOptions.ts`
-- `hooks/` — `useNodesQuery` (`GET /nodes` every 15 s; each successful answer sets the last refresh time, F-32; a failed refresh marks the map as interrupted, F-31), `useLiveMonitoringQuery` (TanStack Query on `GET /faults`, polling every 15 s), `useResolvedFaultsQuery` (`GET /faults/resolved` every 15 s while the *Resolved* tab is open) and `useResolvedFaultsPanel` (that tab's list and states), `useLiveMonitoringFilters` (UI state)
+- `hooks/` — `useNodesQuery` (`GET /nodes` every 15 s; each successful answer sets the last refresh time, F-32; a failed refresh marks the map as interrupted, F-31), `useLiveMonitoringQuery` (TanStack Query on `GET /faults`, polling every 15 s), `useResolvedFaultsQuery` (`GET /faults/resolved` every 15 s while the _Resolved_ tab is open) and `useResolvedFaultsPanel` (that tab's list and states), `useLiveMonitoringFilters` (UI state)
 - `api/` — node service: `nodes.dto.ts` (PROVISIONAL), `nodes.mapper.ts`, `nodes.api.ts`; hook `useNodesQuery`. Fault service: `faults.dto.ts`, `faults.mapper.ts`, `faults.api.ts` (SCRUM-108). Scenario service: `scenarios.dto.ts` (PROVISIONAL), `scenarios.mapper.ts`, `scenarios.api.ts`; hooks `useScenariosQuery`, `useRunScenarioMutation` ([SCRUM-218](./SCRUM-218.md))
 - Sample fault-panel data for component tests (every alert type, resolved faults, counters): `src/mocks/data/liveMonitoring.fixtures.ts`
 - Map: Leaflet + OpenStreetMap inside `MapCanvas` only (ADR-0006). Sample nodes in Cali come from the MSW mock (`src/mocks/`)
@@ -112,7 +112,7 @@ Other code:
 
 - **Map:** `GET /nodes` (SCRUM-77, SCRUM-65) and `GET /nodes/:name/detail` (SCRUM-109).
 - **Fault panel, active tab:** `GET /faults` — open fuse-opening faults in the user's scope (US10, [SCRUM-108](./SCRUM-108.md)). The page reads `LiveMonitoringData` (`model/liveMonitoring.types.ts`) through `faults.mapper.ts`.
-- **Fault panel, inactive devices tab:** `GET /device/inactive?hours=24` — devices of the user scope with their inactivity periods, already in the F-40 order; polled every 15 s, so the alarm opens (F-38) and closes (F-39) without a reload (US17, [SCRUM-115](./SCRUM-115.md)). The inactivity alarm is **not yet** in `GET /faults`; the PO requires it in _Active_ and then _Resolved_ (2026-11-15).
+- **Fault panel, inactive devices tab and inactivity alarms:** `GET /device/inactive?hours=24` or `?hours=1` — devices of the user scope with their inactivity periods, already in the F-40 order, and the server window (`from`, `to`); polled every 15 s, so the alarm opens (F-38) and closes (F-39) without a reload (US17, [SCRUM-115](./SCRUM-115.md)). The backend does not list the inactivity alarm in `GET /faults` or `/faults/resolved`: the frontend builds one per period and adds it to _Active_ (open) and _Resolved_ (closed inside the window).
 - **Node counters (US15, F-58):** derived in the frontend from `GET /faults` over the faults the list shows, so they follow the map filter (`countAlarmNodes` in `model/faultRules.ts`). The 2026-10-31 decision to hide them (no endpoint, no made-up data) is **superseded by US15**: they are now shown with real data.
 - **Demo scenarios (US31):** `GET /scenarios` (demo mode and its actions) and `POST /scenarios` (run one action, administrator only), [SCRUM-218](./SCRUM-218.md) §6.
 - **Fault panel, resolved tab (US16):** `GET /faults/resolved?window=1h` or `24h` — faults and alarms resolved in the window, in scope, newest resolution first, with their total duration ([SCRUM-114](./SCRUM-114.md)). Resolved device alerts are not stored yet (SCRUM-114 Q1).
