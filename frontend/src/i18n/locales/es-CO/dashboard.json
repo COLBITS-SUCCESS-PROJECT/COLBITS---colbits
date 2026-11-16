@@ -66,6 +66,8 @@
     "closeMobile": "Cerrar panel de fallas",
     "activeCount_one": "{{count}} activa",
     "activeCount_other": "{{count}} activas",
+    "resolvedCount_one": "{{count}} resuelta",
+    "resolvedCount_other": "{{count}} resueltas",
     "resize": "Ajustar el ancho del panel de fallas",
     "resizeHint": "Arrastra o usa las flechas ← → para ensanchar el panel. Doble clic para restablecer.",
     "tabsLabel": "Tipo de alarmas",
@@ -92,12 +94,12 @@
       "LAST_DAY": "Último día"
     },
     "sortNote": "Ordenadas por clientes afectados y luego por la más antigua",
+    "resolvedNote": "Resueltas automáticamente por el equipo · la más reciente primero",
     "empty": "No hay fallas que coincidan con los filtros.",
     "error": "No se pudieron cargar las fallas.",
     "retry": "Reintentar",
     "loading": "Cargando fallas",
-    "inactiveSoon": "La vista de dispositivos inactivos llegará en una próxima historia.",
-    "resolvedSoon": "La lista de fallas resueltas llegará en una próxima historia."
+    "inactiveSoon": "La vista de dispositivos inactivos llegará en una próxima historia."
   },
   "inactive": {
     "title": "Dispositivos inactivos",
@@ -149,6 +151,7 @@
     "phases": "Fases",
     "started": "Inicio",
     "duration": "Duración",
+    "durationClosed": "{{duration}} · cerrada {{time}}",
     "branchValue": "Ramal {{branch}}",
     "customersOut": "clientes sin servicio",
     "customersAffected": "clientes afectados",

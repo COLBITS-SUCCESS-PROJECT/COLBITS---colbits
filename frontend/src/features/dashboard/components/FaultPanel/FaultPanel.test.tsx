@@ -22,7 +22,12 @@ function renderPanel(overrides: Partial<FaultPanelProps> = {}) {
     tab: 'ACTIVE',
     onTabChange: vi.fn(),
     activeFaults: selectFaults(data.faults, ALL_LAYERS, 'OPEN', NOW),
-    resolvedFaults: selectFaults(data.faults, ALL_LAYERS, 'RESOLVED', NOW),
+    resolved: {
+      faults: selectFaults(data.faults, ALL_LAYERS, 'RESOLVED', NOW),
+      isLoading: false,
+      isError: false,
+      onRetry: vi.fn(),
+    },
     counters: data.counters,
     filters: DEFAULT_FILTERS,
     onFiltersChange: vi.fn(),
@@ -170,14 +175,52 @@ describe('FaultPanel', () => {
     })
   })
 
-  it('shows a placeholder on the resolved tab while there are no resolved faults to show', () => {
-    renderPanel({ tab: 'RESOLVED', resolvedFaults: null })
+  it('shows the resolved alarms with their own count and note, and no node counters (US16)', () => {
+    renderPanel({ tab: 'RESOLVED' })
 
-    expect(screen.getByText(/fallas resueltas llegará/)).toBeInTheDocument()
-    expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
+    expect(within(panel).getByText('2 resueltas')).toBeInTheDocument()
+    expect(within(panel).getByRole('heading', { name: 'Fallas resueltas' })).toBeInTheDocument()
     expect(
-      screen.queryByRole('region', { name: 'Resumen de nodos con alarma' })
+      within(panel).getByText('Resueltas automáticamente por el equipo · la más reciente primero')
+    ).toBeInTheDocument()
+    expect(within(panel).getAllByRole('article')).toHaveLength(2)
+    expect(
+      within(panel).queryByRole('region', { name: 'Resumen de nodos con alarma' })
     ).not.toBeInTheDocument()
+  })
+
+  it('shows the loading state of the resolved list, whatever the active list is doing', () => {
+    renderPanel({
+      tab: 'RESOLVED',
+      isError: true,
+      resolved: { faults: [], isLoading: true, isError: false, onRetry: vi.fn() },
+    })
+
+    expect(screen.getByLabelText('Cargando fallas')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows the error of the resolved list with a retry', async () => {
+    const onRetry = vi.fn()
+    renderPanel({
+      tab: 'RESOLVED',
+      resolved: { faults: [], isLoading: false, isError: true, onRetry },
+    })
+
+    const alert = screen.getByRole('alert')
+    await userEvent.click(within(alert).getByRole('button', { name: 'Reintentar' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  it('says so when no alarm was resolved in the window', () => {
+    renderPanel({
+      tab: 'RESOLVED',
+      resolved: { faults: [], isLoading: false, isError: false, onRetry: vi.fn() },
+    })
+
+    expect(screen.getByText('No hay fallas que coincidan con los filtros.')).toBeInTheDocument()
+    expect(screen.getByText('0 resueltas')).toBeInTheDocument()
   })
 
   it('reports a change of the last hour / last day selector', async () => {

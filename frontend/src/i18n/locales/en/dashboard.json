@@ -66,6 +66,8 @@
     "closeMobile": "Close fault panel",
     "activeCount_one": "{{count}} active",
     "activeCount_other": "{{count}} active",
+    "resolvedCount_one": "{{count}} resolved",
+    "resolvedCount_other": "{{count}} resolved",
     "resize": "Resize the fault panel",
     "resizeHint": "Drag or use the ← → arrow keys to widen the panel. Double-click to reset.",
     "tabsLabel": "Alarm type",
@@ -92,12 +94,12 @@
       "LAST_DAY": "Last day"
     },
     "sortNote": "Sorted by customers affected, then oldest first",
+    "resolvedNote": "Auto-resolved by the device · most recent first",
     "empty": "No faults match the filters.",
     "error": "Faults could not be loaded.",
     "retry": "Retry",
     "loading": "Loading faults",
-    "inactiveSoon": "The inactive devices view will come in a later story.",
-    "resolvedSoon": "The resolved faults list will come in a later story."
+    "inactiveSoon": "The inactive devices view will come in a later story."
   },
   "inactive": {
     "title": "Inactive devices",
@@ -149,6 +151,7 @@
     "phases": "Phases",
     "started": "Started",
     "duration": "Duration",
+    "durationClosed": "{{duration}} · closed {{time}}",
     "branchValue": "Branch {{branch}}",
     "customersOut": "customers without service",
     "customersAffected": "customers affected",

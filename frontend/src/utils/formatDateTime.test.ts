@@ -1,6 +1,6 @@
 /** Unit tests for date and duration formatting. */
 import { describe, it, expect } from 'vitest'
-import { formatDateTime, formatDuration, formatTime } from './formatDateTime'
+import { formatClockTime, formatDateTime, formatDuration, formatTime } from './formatDateTime'
 
 const DATE = new Date(2026, 8, 27, 21, 4, 12)
 
@@ -33,6 +33,13 @@ describe('formatTime', () => {
 
   it('pads early hours with a leading zero', () => {
     expect(formatTime(new Date(2026, 10, 3, 7, 5, 9), 'es-CO')).toBe('07:05:09')
+  })
+})
+
+describe('formatClockTime', () => {
+  it('formats hour and minute on a 24-hour clock, without seconds', () => {
+    expect(formatClockTime(DATE, 'es-CO')).toBe('21:04')
+    expect(formatClockTime(new Date(2026, 10, 3, 7, 5, 9), 'en')).toBe('07:05')
   })
 })
 

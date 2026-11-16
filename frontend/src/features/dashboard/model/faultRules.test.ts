@@ -59,12 +59,18 @@ describe('matchesFilters', () => {
     expect(matchesFilters(byId('f-2'), lastHour, NOW)).toBe(true) // open, 2 h 03 min
   })
 
-  it('limits only the resolved faults to the selected time window (F-62)', () => {
+  it('limits only the resolved faults to the selected time window, by when they were resolved (F-62)', () => {
     const lastHour = { ...NO_FILTERS, timeWindow: 'LAST_HOUR' as const }
-    const oldResolved = { ...byId('f-7'), startedAt: new Date(NOW - TWO_HOURS_MS) }
+    const resolvedLongAgo = { ...byId('f-7'), endedAt: new Date(NOW - TWO_HOURS_MS) }
+    const longButJustResolved = {
+      ...byId('f-7'),
+      startedAt: new Date(NOW - 2 * TWO_HOURS_MS),
+      endedAt: new Date(NOW - 10 * MS_PER_MINUTE),
+    }
 
-    expect(matchesFilters(byId('f-7'), lastHour, NOW)).toBe(true) // resolved, 35 min
-    expect(matchesFilters(oldResolved, lastHour, NOW)).toBe(false)
+    expect(matchesFilters(byId('f-7'), lastHour, NOW)).toBe(true) // resolved now
+    expect(matchesFilters(resolvedLongAgo, lastHour, NOW)).toBe(false)
+    expect(matchesFilters(longButJustResolved, lastHour, NOW)).toBe(true) // 4 h long, ended 10 min ago
   })
 })
 
@@ -85,6 +91,16 @@ describe('selectFaults', () => {
     const unknown = { ...byId('f-1'), customersAffected: null }
 
     expect(compareFaults(unknown, byId('f-5'))).toBeGreaterThan(0)
+  })
+
+  it('returns resolved faults newest resolution first (F-62)', () => {
+    const at = (hour: number) => new Date(2026, 9, 2, hour, 0)
+    const resolvedAt = (id: string, hour: number) => ({ ...byId('f-7'), id, endedAt: at(hour) })
+    const resolved = [resolvedAt('r-08', 8), resolvedAt('r-10', 10), resolvedAt('r-09', 9)]
+
+    const sorted = selectFaults(resolved, NO_FILTERS, 'RESOLVED', at(11).getTime())
+
+    expect(sorted.map((fault) => fault.id)).toEqual(['r-10', 'r-09', 'r-08'])
   })
 
   it('returns resolved faults separately', () => {

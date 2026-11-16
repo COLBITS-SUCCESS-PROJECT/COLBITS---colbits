@@ -128,7 +128,7 @@ describe('SCRUM-108 · US10 — active faults from the fault service', () => {
     expect(panel.queryByText(OUTSIDE_SCOPE)).not.toBeInTheDocument()
   })
 
-  it('AC6 — the panel summary counts the nodes in alarm of the listed faults, and the resolved tab says the list is coming', async () => {
+  it('AC6 — the panel summary counts the nodes in alarm of the listed faults, only on the Active tab', async () => {
     const panel = openMapAs(MOCK_TOKENS.NORTH)
     await faultCard(panel, N1, 'B')
 
@@ -138,9 +138,12 @@ describe('SCRUM-108 · US10 — active faults from the fault service', () => {
       within(summary).getByText('Nodos con alarma de fusible (Falcon)').previousSibling
     ).toHaveTextContent('1')
     expect(within(summary).getAllByText('0')).toHaveLength(3)
+    // The Resolved tab lists resolved alarms (US16, SCRUM-114) and has no node counters
     await userEvent.click(panel.getByRole('tab', { name: 'Resueltas' }))
-    expect(panel.getByText(/fallas resueltas llegará/)).toBeInTheDocument()
-    expect(panel.queryByRole('article')).not.toBeInTheDocument()
+    expect(await panel.findByRole('heading', { name: 'Fallas resueltas' })).toBeInTheDocument()
+    expect(
+      panel.queryByRole('region', { name: 'Resumen de nodos con alarma' })
+    ).not.toBeInTheDocument()
   })
 
   it('AC6 — the counters follow the map filter: searching a node leaves only its alarms counted', async () => {

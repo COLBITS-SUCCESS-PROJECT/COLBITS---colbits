@@ -13,9 +13,11 @@ const WINDOWS = Object.keys(TIME_WINDOWS) as TimeWindow[]
 export interface FaultFiltersProps {
   filters: Filters
   onChange: (patch: Partial<Filters>) => void
+  /** How the list below is ordered. */
+  note: string
 }
 
-export function FaultFilters({ filters, onChange }: FaultFiltersProps) {
+export function FaultFilters({ filters, onChange, note }: FaultFiltersProps) {
   const { t } = useTranslation('dashboard')
 
   return (
@@ -41,7 +43,7 @@ export function FaultFilters({ filters, onChange }: FaultFiltersProps) {
         ))}
       </div>
 
-      <p className="text-overline text-text-secondary">{t('panel.sortNote')}</p>
+      <p className="text-overline text-text-secondary">{note}</p>
     </div>
   )
 }

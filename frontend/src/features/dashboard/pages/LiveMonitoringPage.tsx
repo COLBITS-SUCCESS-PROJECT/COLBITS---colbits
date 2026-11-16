@@ -14,6 +14,7 @@ import { useInactiveDevicesPanel } from '../hooks/useInactiveDevicesPanel'
 import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
+import { useResolvedFaultsPanel } from '../hooks/useResolvedFaultsPanel'
 import { countAlarmNodes, selectFaults, type FaultFilters } from '../model/faultRules'
 import { ALL } from '../model/liveMonitoring.constants'
 import {
@@ -60,6 +61,8 @@ export function LiveMonitoringPage() {
     () => selectFaults(faults, filters, 'OPEN', now, nodesInLocation),
     [faults, filters, now, nodesInLocation]
   )
+  // US16: asked only while the Resolved tab is open; it follows the same map filter.
+  const resolved = useResolvedFaultsPanel(filters, now, nodesInLocation, tab === 'RESOLVED')
 
   // The summary counts the faults the list shows, so it follows the map filter.
   // BACKEND EXPECTED: there is no counters endpoint (US15), so they are derived from GET /faults.
@@ -139,8 +142,7 @@ export function LiveMonitoringPage() {
           tab={tab}
           onTabChange={setTab}
           activeFaults={activeFaults}
-          // GET /faults lists open faults only: resolved faults (US16) come later.
-          resolvedFaults={null}
+          resolved={resolved}
           counters={query.isSuccess ? counters : null}
           inactive={inactive}
           filters={filters}
