@@ -4,7 +4,14 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Button, type ButtonVariant } from './Button'
 
-const VARIANTS: ButtonVariant[] = ['primary', 'secondary', 'outline', 'ghost', 'danger']
+const VARIANTS: ButtonVariant[] = [
+  'primary',
+  'secondary',
+  'outline',
+  'ghost',
+  'ghost-danger',
+  'danger',
+]
 
 describe('Button', () => {
   it('calls onClick when pressed', async () => {
@@ -23,6 +30,12 @@ describe('Button', () => {
     render(<Button label={variant} variant={variant} />)
 
     expect(screen.getByRole('button', { name: variant })).toBeInTheDocument()
+  })
+
+  it('paints a text-only destructive action red with ghost-danger', () => {
+    render(<Button label="Desactivar usuario" variant="ghost-danger" iconLeft="power" />)
+
+    expect(screen.getByRole('button')).toHaveClass('bg-transparent', 'text-action-primary')
   })
 
   it('uses the primary CTA token by default', () => {

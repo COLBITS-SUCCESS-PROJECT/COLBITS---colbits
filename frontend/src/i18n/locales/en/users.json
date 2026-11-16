@@ -1,0 +1,96 @@
+{
+  "table": {
+    "title": "Consultation users",
+    "subtitle": "Create, edit, deactivate users and assign their data scope",
+    "newUser": "New user",
+    "search": "Search user by name or email",
+    "searchPlaceholder": "Search by name or email…",
+    "statusFilter": "Status",
+    "empty": "There are no consultation users yet.",
+    "noResults": "No user matches the search."
+  },
+  "status": {
+    "ALL": "All statuses",
+    "ACTIVE": "Active",
+    "INACTIVE": "Inactive"
+  },
+  "row": {
+    "scope": "Scope of {{name}}",
+    "moreScope": "+{{count}} more",
+    "edit": "Edit {{name}}",
+    "deactivate": "Deactivate {{name}}",
+    "reactivate": "Reactivate {{name}}"
+  },
+  "scopeLevel": {
+    "ZONE": "Zone",
+    "SUBSTATION": "Substation",
+    "CIRCUIT": "Circuit",
+    "NODE": "Node",
+    "DEVICE": "Device"
+  },
+  "scopeTag": "{{level}} {{name}}",
+  "deactivate": {
+    "title": "Deactivate this user?",
+    "description": "{{name}} will immediately lose access to Colbits. Their data scope assignment is kept and can be restored if the account is reactivated.",
+    "cancel": "Cancel",
+    "confirm": "Deactivate user"
+  },
+  "form": {
+    "createTitle": "New consultation user",
+    "createSubtitle": "Only a Colbits administrator can create users",
+    "close": "Close form",
+    "name": "Full name",
+    "namePlaceholder": "e.g. Laura Gómez",
+    "email": "Email address",
+    "emailPlaceholder": "user@colbits.com",
+    "password": "Temporary password",
+    "passwordPlaceholder": "Auto-generated · shown when the user is created",
+    "cancel": "Cancel",
+    "create": "Create user",
+    "validation": {
+      "nameRequired": "Enter the full name",
+      "nameTooLong": "The name cannot be longer than {{max}} characters",
+      "emailRequired": "Enter the email address",
+      "emailInvalid": "Enter a valid email, e.g. user@colbits.com",
+      "emailTaken": "A user with this email already exists",
+      "scopeRequired": "Select at least one network element"
+    },
+    "editTitle": "Edit user",
+    "editSubtitle": "Only a Colbits administrator can modify this account",
+    "save": "Save changes",
+    "resetPassword": "Send password reset link",
+    "resetPasswordNotice": "Sending the link will be available once the backend supports it.",
+    "deactivate": "Deactivate user",
+    "submitError": "The changes could not be saved. Try again."
+  },
+  "scope": {
+    "title": "Data scope",
+    "description": "Assign one or more zones, substations, circuits, nodes or individual devices. The same scope can be assigned to multiple users.",
+    "search": "Search the network",
+    "searchPlaceholder": "Search zone, substation, circuit, node or device…",
+    "noMatches": "No network element matches the search.",
+    "selected": "Selected scope ({{count}})",
+    "noneSelected": "You have not selected any element yet.",
+    "devices_one": "{{count}} device",
+    "devices_other": "{{count}} devices",
+    "rowWithDescription": "{{level}} {{name}} · {{description}}",
+    "expand": "Show the contents of {{name}}",
+    "collapse": "Hide the contents of {{name}}"
+  },
+  "page": {
+    "loading": "Loading users…",
+    "loadError": "The users and the network could not be loaded.",
+    "retry": "Retry",
+    "statusError": "The status of {{name}} could not be changed. Try again."
+  },
+  "password": {
+    "title": "User created",
+    "description": "Share this temporary password with {{name}} ({{email}}) through a secure channel.",
+    "label": "Temporary password",
+    "onceNotice": "It is shown only this once. If it is lost, it will have to be reset.",
+    "copy": "Copy password",
+    "copied": "Password copied",
+    "failed": "It could not be copied. Select it and copy it by hand.",
+    "done": "Done"
+  }
+}

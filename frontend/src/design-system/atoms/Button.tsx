@@ -5,7 +5,8 @@ import type { IconName } from './iconRegistry'
 import { cn } from '@/utils/cn'
 
 /** `danger` is not in Figma yet — required by AGENT.md §4.1 for destructive actions. */
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+export type ButtonVariant =
+  'primary' | 'secondary' | 'outline' | 'ghost' | 'ghost-danger' | 'danger'
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   primary: 'bg-action-primary text-text-inverse enabled:hover:brightness-95',
@@ -13,6 +14,8 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   outline:
     'border border-border-strong bg-bg-surface text-action-secondary enabled:hover:bg-bg-surface-alt',
   ghost: 'bg-transparent text-action-link enabled:hover:bg-bg-surface-alt',
+  /** Text-only destructive action (Figma: User Form Drawer · Edit → Deactivate user). */
+  'ghost-danger': 'bg-transparent text-action-primary enabled:hover:bg-feedback-danger-bg',
   danger: 'bg-action-danger text-text-inverse enabled:hover:brightness-95',
 }
 
