@@ -26,6 +26,16 @@ const CREATE_MARKER_TABLE = `CREATE TABLE IF NOT EXISTS public.${MARKER_TABLE} (
   created_at timestamptz NOT NULL DEFAULT now()
 )`;
 
+// SCRUM-253: deliberate silences of the backend's demo scenarios (SILENCE_FALCON / SILENCE_SMAC).
+// They describe the data of one generation, so every run empties them, with or without --reset.
+const SILENCE_TABLE = 'demo_silenced_devices';
+const CREATE_SILENCE_TABLE = `CREATE TABLE IF NOT EXISTS public.${SILENCE_TABLE} (
+  hw_id text PRIMARY KEY,
+  source_id text NOT NULL,
+  cutoff timestamptz NOT NULL,
+  silenced_at timestamptz NOT NULL
+)`;
+
 export type InsertSummary = Record<string, number>;
 
 async function insertRows(client: pg.ClientBase, table: string, columns: string[], rows: Iterable<unknown[]>): Promise<number> {
@@ -62,18 +72,22 @@ export async function applySchema(client: pg.ClientBase): Promise<void> {
 }
 
 export async function resetData(client: pg.ClientBase): Promise<void> {
-  // SCRUM-253: the marker goes in the same TRUNCATE as the data it vouched for.
+  // SCRUM-253: the marker and the demo silences go in the same TRUNCATE as the data they describe.
   await client.query(CREATE_MARKER_TABLE);
-  await client.query(`TRUNCATE ${[...TABLES, MARKER_TABLE].map((t) => `public.${t}`).join(', ')}`);
+  await client.query(CREATE_SILENCE_TABLE);
+  await client.query(`TRUNCATE ${[...TABLES, MARKER_TABLE, SILENCE_TABLE].map((t) => `public.${t}`).join(', ')}`);
 }
 
 /**
- * SCRUM-253: removes the marker and commits that before any data is written, with or without
- * --reset, so a run that fails or stops half-way never leaves a marker standing.
+ * SCRUM-253: removes the marker and the demo silences and commits that before any data is
+ * written, with or without --reset, so a run that fails or stops half-way never leaves a marker
+ * standing, and no silence of an earlier dataset outlives it.
  */
 async function invalidateMarker(client: pg.ClientBase): Promise<void> {
   await client.query(CREATE_MARKER_TABLE);
+  await client.query(CREATE_SILENCE_TABLE);
   await client.query(`DELETE FROM public.${MARKER_TABLE}`);
+  await client.query(`DELETE FROM public.${SILENCE_TABLE}`);
 }
 
 export async function writeDataset(client: pg.ClientBase, network: Network, config: GeneratorConfig, log: (msg: string) => void = () => {}): Promise<InsertSummary> {

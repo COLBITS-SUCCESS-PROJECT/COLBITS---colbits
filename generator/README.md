@@ -35,6 +35,8 @@ Colbits' schema), which the backend's demo scenarios require before they write (
 first removes the marker (with or without `--reset`; `--reset` truncates it with the data) and
 writes a new one, naming the database, only in the same transaction as the generated data. A run
 that fails therefore leaves no marker, and the scenarios stay refused until a run succeeds.
+Each run also creates and empties `public.demo_silenced_devices` (the devices silenced by the
+SILENCE_FALCON / SILENCE_SMAC demo scenarios), so no silence outlives the data it was about.
 
 ```bash
 cd generator

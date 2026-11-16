@@ -4,23 +4,30 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  NotImplementedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { isInactiveNow } from '../device/inactivity-periods';
 import {
   LOW_ENERGY_SETTINGS,
   isLowEnergy,
   lowEnergyThreshold,
 } from '../device/low-energy';
+import {
+  OVERLOAD_ALERTS_SQL,
+  OverloadAlertRow,
+  toOverloadAlertDto,
+} from '../faults/device-alert-queries';
 import { resolveDeviceAlertThresholds } from '../faults/device-alert-thresholds';
 import {
   FREE_FALL_ACTIVATION_EVENT_TYPE_PATTERN,
   activeOverloadConditions,
 } from '../faults/device-alerts';
 import { ALERT_TYPE_DEFINITIONS } from '../faults/fault-alert-types';
+import { DEFAULT_FALCON_INACTIVITY_HOURS } from '../nodes/fuse-state';
 import { Node } from '../nodes/node.entity';
+import { DEFAULT_SMAC_INACTIVITY_HOURS } from '../nodes/smac-state';
 import { phaseCountOf, phaseOfChannel } from '../nodes/transformer-state';
 import { applyNodeScope } from '../scope/scope-query.helper';
 import { ScopeContext } from '../scope/scope.types';
@@ -43,6 +50,8 @@ import {
   SOLAR_PANEL_FAILED,
   ScenarioAction,
   ScenarioChannel,
+  ScenarioDevice,
+  SilenceScenarioActionDefinition,
   TELEMETRY_CONDITION_STATES,
   TelemetryCondition,
   TelemetryScenarioActionDefinition,
@@ -58,6 +67,7 @@ import {
   rechargedEnergyLevel,
   repeatsCurrentState,
   scenarioActionDefinition,
+  silenceCutoff,
 } from './scenario-actions';
 import { nextRecordedAt } from './scenario-timestamps';
 
@@ -285,6 +295,136 @@ export const INSERT_SMAC_TELEMETRY_SQL = `
   LEFT JOIN public.last_smac_vc_values l ON l.hw_id = $1
 `;
 
+/**
+ * SCRUM-253: the database clock and the device's latest record by the inactivity rule (F-36, F-37,
+ * the same tables as GET /device/inactive, the map and the node detail): last_falcon_values for a
+ * Falcon, the newest of the three last_smac_* tables for a SMAC. $2 'FALCON' or 'SMAC'.
+ */
+const LAST_RECORD_AT = `
+  CASE WHEN $2::text = 'FALCON'
+    THEN (SELECT recorded_at FROM public.last_falcon_values WHERE hw_id = $1)
+    ELSE GREATEST(
+      (SELECT recorded_at FROM public.last_smac_vc_values WHERE hw_id = $1),
+      (SELECT recorded_at FROM public.last_smac_pw_values WHERE hw_id = $1),
+      (SELECT recorded_at FROM public.last_smac_pf_values WHERE hw_id = $1))
+  END`;
+export const DEVICE_LAST_RECORD_SQL = `
+  SELECT clock_timestamp() AS database_now, ${LAST_RECORD_AT} AS last_at
+`;
+
+/**
+ * SCRUM-253: deliberate silences. SILENCE records one row per device in
+ * public.demo_silenced_devices, which only the synthetic loaders create (the seed and the
+ * generator, which also empties it on every run); the API never creates it. A missing table means
+ * no device is deliberately silenced.
+ */
+export const SILENCE_TABLE_SQL = `
+  SELECT to_regclass('public.demo_silenced_devices') IS NOT NULL AS value
+`;
+
+/**
+ * SCRUM-253: whether the device's silence still holds: it has a row, and no record of the device
+ * is after the row's cutoff. A record after it (RESUME, the device itself, a data refresh) proves it
+ * reported again, so an old row never makes a device that later went stale count as silenced.
+ * No row: not silenced. $1 hw_id, $2 'FALCON' or 'SMAC'.
+ */
+export const SILENCE_INTACT_SQL = `
+  SELECT COALESCE(${LAST_RECORD_AT} <= s.cutoff, true) AS value
+  FROM public.demo_silenced_devices s WHERE s.hw_id = $1
+`;
+
+/** SCRUM-253: SILENCE records the silence, in the transaction of its deletion. */
+export const RECORD_SILENCE_SQL = `
+  INSERT INTO public.demo_silenced_devices (hw_id, source_id, cutoff, silenced_at)
+  VALUES ($1, $2, $3::timestamptz, $4::timestamptz)
+  ON CONFLICT (hw_id) DO UPDATE
+    SET source_id = EXCLUDED.source_id, cutoff = EXCLUDED.cutoff, silenced_at = EXCLUDED.silenced_at
+`;
+
+/** SCRUM-253: RESUME removes it, in the transaction of its reading. */
+export const CLEAR_SILENCE_SQL = `
+  DELETE FROM public.demo_silenced_devices WHERE hw_id = $1
+`;
+
+/**
+ * SCRUM-253: a baseline at or before the cutoff ($2), the reading RESUME copies later: in
+ * falcon_values for a Falcon, in smac_vc_values for a SMAC (RESUME writes a smac_vc reading).
+ */
+export const FALCON_BASELINE_SQL = `
+  SELECT EXISTS (
+    SELECT 1 FROM public.falcon_values WHERE hw_id = $1 AND recorded_at <= $2::timestamptz
+  ) AS value
+`;
+export const SMAC_BASELINE_SQL = `
+  SELECT EXISTS (
+    SELECT 1 FROM public.smac_vc_values WHERE hw_id = $1 AND recorded_at <= $2::timestamptz
+  ) AS value
+`;
+
+/** SCRUM-253: alarm events of the device ($1) or of its fuse / transformer ($2) after the cutoff ($3). */
+export const ALARMS_AFTER_CUTOFF_SQL = `
+  SELECT count(*)::int AS value FROM public.alarms
+  WHERE (hw_id = $1 OR custom_id = $2) AND recorded_at > $3::timestamptz
+`;
+
+/** SCRUM-253: RESUME copies the device's latest reading; it needs one. */
+export const FALCON_HAS_READING_SQL = `
+  SELECT EXISTS (SELECT 1 FROM public.last_falcon_values WHERE hw_id = $1) AS value
+`;
+export const SMAC_HAS_READING_SQL = `
+  SELECT EXISTS (SELECT 1 FROM public.last_smac_vc_values WHERE hw_id = $1) AS value
+`;
+
+const FALCON_COLUMNS =
+  'hw_id, custom_id, post, recorded_at, angle_incl, internal_temperature, supercaps_per, ' +
+  'solar_panel, fuse_state, is_voltage_present, is_fuse_alarm, is_free_fall_alarm, is_solar_panel_alarm';
+const SMAC_VC_COLUMNS =
+  'hw_id, custom_id, recorded_at, internal_temperature, battery_per, va, vb, vc, ia, ib, ic, in_, ' +
+  'cuf_percent, vuf_percent, load_percent';
+const SMAC_PW_COLUMNS =
+  'hw_id, custom_id, recorded_at, phase_a_active_power, phase_b_active_power, phase_c_active_power, ' +
+  'phase_a_reactive_power, phase_b_reactive_power, phase_c_reactive_power, phase_a_apparent_power, ' +
+  'phase_b_apparent_power';
+const SMAC_PF_COLUMNS =
+  'hw_id, custom_id, recorded_at, phase_c_apparent_power, phase_a_power_factor, ' +
+  'phase_b_power_factor, phase_c_power_factor';
+
+/** The three statements of one telemetry table in a SILENCE ($1 hw_id, $2 cutoff). */
+export interface SilenceStatements {
+  /** Removes the device's readings after the cutoff, in this table only. */
+  deleteRecent: string;
+  /** Empties the device's latest-value row ... */
+  clearLatest: string;
+  /** ... and rebuilds it from the newest reading left (none left: no row, which is inactive). */
+  rebuildLatest: string;
+}
+
+const silenceStatements = (
+  table: string,
+  columns: string,
+): SilenceStatements => ({
+  deleteRecent: `DELETE FROM public.${table} WHERE hw_id = $1 AND recorded_at > $2::timestamptz`,
+  clearLatest: `DELETE FROM public.last_${table} WHERE hw_id = $1`,
+  rebuildLatest: `INSERT INTO public.last_${table} (${columns})
+    SELECT ${columns} FROM public.${table} WHERE hw_id = $1 ORDER BY recorded_at DESC LIMIT 1`,
+});
+
+/**
+ * SCRUM-253: what a SILENCE writes, per device type: a Falcon has one telemetry table, a SMAC three
+ * (its latest record is the newest of the three, TD-07). Colbits' triggers only run on INSERT into
+ * the history tables, so the latest-value rows are rebuilt here, in the same transaction.
+ */
+export const SILENCE_STATEMENTS: Readonly<
+  Record<ScenarioDevice, readonly SilenceStatements[]>
+> = {
+  FALCON: [silenceStatements('falcon_values', FALCON_COLUMNS)],
+  SMAC: [
+    silenceStatements('smac_vc_values', SMAC_VC_COLUMNS),
+    silenceStatements('smac_pw_values', SMAC_PW_COLUMNS),
+    silenceStatements('smac_pf_values', SMAC_PF_COLUMNS),
+  ],
+};
+
 /** A repository or a transaction's entity manager: whatever the query runs on. */
 interface Queryable {
   query(sql: string, parameters?: unknown[]): Promise<unknown>;
@@ -408,11 +548,6 @@ export class ScenariosService {
     }
     const { action, target, channel } = parseBody(body);
     const definition = scenarioActionDefinition(action);
-    if (definition.kind === 'silence') {
-      throw new NotImplementedException(
-        `${action} (${definition.kind}) has no handler`,
-      );
-    }
 
     // Which device and node: only to lock the device and check the scope. The state read here is
     // not used; it is read again under the lock.
@@ -449,6 +584,19 @@ export class ScenariosService {
           `The device or node of ${target} changed during the request; try again`,
         );
       }
+
+      if (definition.kind === 'silence') {
+        return this.runSilence(manager, action, definition, resolved, target);
+      }
+      // SCRUM-253: a device silenced by SILENCE reports nothing, so nothing else may be written for
+      // it until RESUME (any reading would end the silence without anyone asking). A device that is
+      // only stale (no silence of its own) keeps the SCRUM-252 and telemetry behavior.
+      await this.assertNotSilenced(
+        manager,
+        definition.device,
+        resolved,
+        target,
+      );
 
       if (definition.kind === 'telemetry') {
         return this.runTelemetry(manager, action, definition, resolved, target);
@@ -718,6 +866,315 @@ export class ScenariosService {
       recorded_at: recordedAt,
       effect: expectedEffectOf(action),
     };
+  }
+
+  /**
+   * SCRUM-253: SILENCE_* and RESUME_*. Under the device lock (the caller holds it and has checked
+   * the demo database and the target).
+   *
+   * SILENCE removes only what keeps the device from looking silent: its readings after
+   * cutoff = database clock - inactivity threshold - 1 minute, in its own telemetry tables, and
+   * rebuilds its latest-value rows from what is left. It is refused (409, nothing written) when the
+   * device is already silent, has no reading at or before the cutoff (RESUME would have nothing to
+   * copy), has alarm events after the cutoff, or has another scenario active. After the deletion it
+   * checks, still in the transaction, that the device is now inactive and that no scenario
+   * condition came back from older readings and, for a SMAC, that its OVERLOAD_UNBALANCE alert
+   * (an imbalance can be on) is exactly as before; otherwise everything is rolled back. Last, it
+   * records the silence in demo_silenced_devices (refused, with nothing written, without that table).
+   *
+   * RESUME (of a deliberately silenced or of a merely stale device) removes the silence record and
+   * writes one reading copied from the device's latest one, stamped like every other write: the
+   * device is active again and the silence stays in its history as an inactivity period.
+   */
+  private async runSilence(
+    manager: Queryable,
+    action: ScenarioAction,
+    definition: SilenceScenarioActionDefinition,
+    resolved: ResolvedTarget,
+    target: string,
+  ): Promise<ScenarioResultDto> {
+    const { device, starts } = definition;
+    const hours = this.inactivityHours(device);
+    const state = await this.silenceState(manager, device, resolved.hwId);
+    const before = await this.lastRecord(manager, device, resolved.hwId);
+    const silent =
+      state.silenced || isInactiveNow(before.lastAt, hours, before.databaseNow);
+    if (repeatsCurrentState(action, silent)) {
+      throw new ConflictException(
+        `${action} would not change anything: the ${device === 'FALCON' ? 'Falcon' : 'SMAC'} of ${target} is already ${starts ? 'silent' : 'reporting'}`,
+      );
+    }
+    const result = (recordedAt: string): ScenarioResultDto => ({
+      action,
+      node: resolved.nodeId,
+      target,
+      channel: null,
+      hw_id: resolved.hwId,
+      event_code: null,
+      event_type: null,
+      recorded_at: recordedAt,
+      effect: expectedEffectOf(action),
+    });
+
+    if (!starts) {
+      const hasReading = await valueOf<boolean>(
+        manager,
+        device === 'FALCON' ? FALCON_HAS_READING_SQL : SMAC_HAS_READING_SQL,
+        [resolved.hwId],
+      );
+      if (hasReading !== true) {
+        throw new ConflictException(
+          `${action}: the device of ${target} has no reading to report again from`,
+        );
+      }
+      if (state.hasTable) {
+        await manager.query(CLEAR_SILENCE_SQL, [resolved.hwId]);
+      }
+      const recordedAt = (
+        await this.recordedAtFor(manager, resolved.hwId)
+      ).toISOString();
+      if (device === 'FALCON') {
+        await manager.query(INSERT_FALCON_TELEMETRY_SQL, [
+          resolved.hwId,
+          target,
+          recordedAt,
+          null,
+          null,
+          null,
+          null,
+        ]);
+      } else {
+        await manager.query(INSERT_SMAC_TELEMETRY_SQL, [
+          resolved.hwId,
+          target,
+          recordedAt,
+          null,
+          null,
+        ]);
+      }
+      return result(recordedAt);
+    }
+
+    if (!state.hasTable) {
+      throw new ConflictException(
+        `${action} needs the demo_silenced_devices table, which comes with the synthetic seed and the generator: reseed or regenerate this demo database`,
+      );
+    }
+    const cutoff = silenceCutoff(before.databaseNow, hours).toISOString();
+    const hasBaseline = await valueOf<boolean>(
+      manager,
+      device === 'FALCON' ? FALCON_BASELINE_SQL : SMAC_BASELINE_SQL,
+      [resolved.hwId, cutoff],
+    );
+    if (hasBaseline !== true) {
+      throw new ConflictException(
+        `${action} needs a reading of ${target} from before ${cutoff} (${hours} h + 1 min ago${device === 'SMAC' ? ', in smac_vc_values' : ''}), so that RESUME has one to copy; there is none`,
+      );
+    }
+    const alarms = await valueOf<number>(manager, ALARMS_AFTER_CUTOFF_SQL, [
+      resolved.hwId,
+      resolved.targetId,
+      cutoff,
+    ]);
+    if ((alarms ?? 0) > 0) {
+      throw new ConflictException(
+        `${action} would hide ${alarms} alarm event(s) of ${target} after ${cutoff}; alarms are never removed, so it is refused`,
+      );
+    }
+    const active = await this.activeScenarios(manager, device, resolved);
+    if (active.length > 0) {
+      throw new ConflictException(
+        `${action} would erase active scenario(s) on ${target}: ${active.join(', ')}; stop them first`,
+      );
+    }
+    // An imbalance is no scenario and may be on, but a silence must leave its alert as it is.
+    const alertBefore =
+      device === 'SMAC'
+        ? await this.overloadAlert(manager, resolved, before.databaseNow)
+        : null;
+
+    for (const statements of SILENCE_STATEMENTS[device]) {
+      await manager.query(statements.deleteRecent, [resolved.hwId, cutoff]);
+      await manager.query(statements.clearLatest, [resolved.hwId]);
+      await manager.query(statements.rebuildLatest, [resolved.hwId]);
+    }
+
+    // Still in the transaction: any refusal below rolls back every deletion and rebuild.
+    const after = await this.lastRecord(manager, device, resolved.hwId);
+    if (!isInactiveNow(after.lastAt, hours, before.databaseNow)) {
+      throw new Error(
+        `${action}: the device of ${target} still has a record after ${cutoff}`,
+      );
+    }
+    const reread = await this.resolveTarget(manager, device, target, null);
+    const revived = await this.activeScenarios(manager, device, reread);
+    if (revived.length > 0) {
+      throw new ConflictException(
+        `${action} would bring back ${revived.join(', ')} on ${target} from its older readings; nothing was changed`,
+      );
+    }
+    if (device === 'SMAC') {
+      const alertAfter = await this.overloadAlert(
+        manager,
+        reread,
+        before.databaseNow,
+      );
+      if (alertAfter !== alertBefore) {
+        throw new ConflictException(
+          `${action} would change the OVERLOAD_UNBALANCE alert of ${target} (${alertBefore ?? 'none'} -> ${alertAfter ?? 'none'}); nothing was changed`,
+        );
+      }
+    }
+
+    await manager.query(RECORD_SILENCE_SQL, [
+      resolved.hwId,
+      resolved.targetId,
+      cutoff,
+      before.databaseNow.toISOString(),
+    ]);
+    return result(before.databaseNow.toISOString());
+  }
+
+  /** 409 while the device of the target is deliberately silenced (its silence still holds). */
+  private async assertNotSilenced(
+    runner: Queryable,
+    device: ScenarioDevice,
+    resolved: ResolvedTarget,
+    target: string,
+  ): Promise<void> {
+    const { silenced } = await this.silenceState(runner, device, resolved.hwId);
+    if (silenced) {
+      const [silence, resume] =
+        device === 'FALCON'
+          ? ['SILENCE_FALCON', 'RESUME_FALCON']
+          : ['SILENCE_SMAC', 'RESUME_SMAC'];
+      throw new ConflictException(
+        `${target} is silent (${silence}): its ${device === 'FALCON' ? 'Falcon' : 'SMAC'} reports nothing until ${resume}; run ${resume} first`,
+      );
+    }
+  }
+
+  /** Whether the silence table exists, and whether the device's silence holds (SILENCE_INTACT_SQL). */
+  private async silenceState(
+    runner: Queryable,
+    device: ScenarioDevice,
+    hwId: string,
+  ): Promise<{ hasTable: boolean; silenced: boolean }> {
+    const hasTable =
+      (await valueOf<boolean>(runner, SILENCE_TABLE_SQL, [])) === true;
+    if (!hasTable) return { hasTable, silenced: false };
+    const silenced =
+      (await valueOf<boolean>(runner, SILENCE_INTACT_SQL, [hwId, device])) ===
+      true;
+    return { hasTable, silenced };
+  }
+
+  /**
+   * The transformer's OVERLOAD_UNBALANCE alert exactly as GET /faults builds it (SCRUM-245's
+   * OVERLOAD_ALERTS_SQL and toOverloadAlertDto, unchanged), as its id, start and conditions; null
+   * without one. Only the transformer's own node is read.
+   */
+  private async overloadAlert(
+    runner: Queryable,
+    resolved: ResolvedTarget,
+    now: Date,
+  ): Promise<string | null> {
+    const thresholds = this.overloadThresholds();
+    const rows = (await runner.query(OVERLOAD_ALERTS_SQL, [
+      [resolved.nodeId],
+      thresholds.overloadPercent,
+      thresholds.voltageUnbalancePercent,
+      thresholds.currentUnbalancePercent,
+    ])) as OverloadAlertRow[];
+    const row = rows.find(
+      (candidate) => candidate.source_id === resolved.targetId,
+    );
+    const alert = row ? toOverloadAlertDto(row, thresholds, now) : null;
+    return alert === null
+      ? null
+      : `${alert.id} since ${alert.started_at} [${(alert.conditions ?? []).join(', ')}]`;
+  }
+
+  /** The database clock and the device's latest record (DEVICE_LAST_RECORD_SQL). */
+  private async lastRecord(
+    runner: Queryable,
+    device: ScenarioDevice,
+    hwId: string,
+  ): Promise<{ databaseNow: Date; lastAt: Date | null }> {
+    const rows = (await runner.query(DEVICE_LAST_RECORD_SQL, [
+      hwId,
+      device,
+    ])) as { database_now: Date | string; last_at: Date | string | null }[];
+    const row = rows[0];
+    if (!row) throw new Error('The database clock could not be read');
+    return {
+      databaseNow: new Date(row.database_now),
+      lastAt: row.last_at === null ? null : new Date(row.last_at),
+    };
+  }
+
+  /**
+   * The scenarios active on the device now, by the start action that would have set them: the
+   * SCRUM-252 alarm states (fuse open, voltage cut, phase dropped) and the telemetry conditions.
+   */
+  private async activeScenarios(
+    runner: Queryable,
+    device: ScenarioDevice,
+    resolved: ResolvedTarget,
+  ): Promise<string[]> {
+    const active: string[] = [];
+    if (device === 'FALCON') {
+      for (const action of ['OPEN_FUSE', 'CUT_VOLTAGE'] as const) {
+        if (
+          await this.isActive(runner, SCENARIO_ACTIONS[action], resolved, null)
+        ) {
+          active.push(action);
+        }
+      }
+      for (const [action, condition] of [
+        ['DRAIN_SUPERCAPS', 'FALCON_LOW_ENERGY'],
+        ['FREE_FALL', 'FREE_FALL'],
+        ['SOLAR_PANEL_ALARM', 'SOLAR_PANEL'],
+      ] as const) {
+        if (await this.conditionActive(runner, condition, resolved)) {
+          active.push(action);
+        }
+      }
+      return active;
+    }
+    for (const channel of ['A', 'B', 'C'] as const) {
+      if (
+        await this.isActive(
+          runner,
+          SCENARIO_ACTIONS.DROP_PHASE,
+          resolved,
+          channel,
+        )
+      ) {
+        active.push(`DROP_PHASE ${channel}`);
+      }
+    }
+    for (const [action, condition] of [
+      ['DRAIN_BATTERY', 'SMAC_LOW_ENERGY'],
+      ['START_OVERLOAD', 'OVERLOAD'],
+    ] as const) {
+      if (await this.conditionActive(runner, condition, resolved)) {
+        active.push(action);
+      }
+    }
+    return active;
+  }
+
+  /** FALCON_INACTIVITY_HOURS / SMAC_INACTIVITY_HOURS, parsed as every other service does (NF-07). */
+  private inactivityHours(device: ScenarioDevice): number {
+    const [setting, fallback] =
+      device === 'FALCON'
+        ? ['FALCON_INACTIVITY_HOURS', DEFAULT_FALCON_INACTIVITY_HOURS]
+        : ['SMAC_INACTIVITY_HOURS', DEFAULT_SMAC_INACTIVITY_HOURS];
+    const configured = Number(this.configService.get(setting));
+    return Number.isFinite(configured) && configured > 0
+      ? configured
+      : fallback;
   }
 
   /** Whether the condition is on now, by the rule of the alert that shows it. */

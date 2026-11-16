@@ -13,8 +13,10 @@ import {
   normalLoad,
   overloadedLoad,
   rechargedEnergyLevel,
+  SILENCE_MARGIN_MS,
   repeatsCurrentState,
   scenarioActionDefinition,
+  silenceCutoff,
 } from './scenario-actions';
 import { classifyEventCode } from '../faults/fault-alert-types';
 
@@ -146,7 +148,7 @@ describe('scenario actions (US31 · F-100)', () => {
 
 describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
   it('lists every start right before its stop, after the six SCRUM-252 actions', () => {
-    expect(SCENARIO_ACTION_NAMES.slice(6)).toEqual([
+    expect(SCENARIO_ACTION_NAMES.slice(6, 16)).toEqual([
       'DRAIN_SUPERCAPS',
       'RECHARGE_SUPERCAPS',
       'FREE_FALL',
@@ -158,7 +160,7 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
       'START_OVERLOAD',
       'END_OVERLOAD',
     ]);
-    const telemetry = SCENARIO_ACTION_NAMES.slice(6);
+    const telemetry = SCENARIO_ACTION_NAMES.slice(6, 16);
     for (let i = 0; i < telemetry.length; i += 2) {
       const start = scenarioActionDefinition(telemetry[i]);
       const stop = scenarioActionDefinition(telemetry[i + 1]);
@@ -173,7 +175,7 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
 
   it('targets the device that owns the condition, never with a channel', () => {
     const targets = Object.fromEntries(
-      SCENARIO_ACTION_NAMES.slice(6).map((action) => {
+      SCENARIO_ACTION_NAMES.slice(6, 16).map((action) => {
         const { device, channel } = scenarioActionDefinition(action);
         expect(channel).toBe(false);
         return [action, device];
@@ -250,5 +252,49 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
     expect(overloadedLoad(80)).toBe(105);
     expect(normalLoad(90)).toBe(60);
     expect(normalLoad(10)).toBe(0);
+  });
+});
+
+describe('scenario actions: inactivity (SCRUM-253)', () => {
+  it('ends the list with SILENCE / RESUME pairs, Falcon then SMAC, without a channel', () => {
+    expect(SCENARIO_ACTION_NAMES.slice(16)).toEqual([
+      'SILENCE_FALCON',
+      'RESUME_FALCON',
+      'SILENCE_SMAC',
+      'RESUME_SMAC',
+    ]);
+    expect(
+      SCENARIO_ACTION_NAMES.slice(16).map(scenarioActionDefinition),
+    ).toEqual([
+      { kind: 'silence', device: 'FALCON', channel: false, starts: true },
+      { kind: 'silence', device: 'FALCON', channel: false, starts: false },
+      { kind: 'silence', device: 'SMAC', channel: false, starts: true },
+      { kind: 'silence', device: 'SMAC', channel: false, starts: false },
+    ]);
+  });
+
+  it('sends no event, describes the effect and refuses a repeat', () => {
+    for (const action of SCENARIO_ACTION_NAMES.slice(16)) {
+      expect(() => eventCodeOf(action, '14', null)).toThrow(/no alarm event/);
+      expect(expectedEffectOf(action)).toMatch(/inactiv/);
+    }
+    expect(repeatsCurrentState('SILENCE_FALCON', true)).toBe(true);
+    expect(repeatsCurrentState('SILENCE_FALCON', false)).toBe(false);
+    expect(repeatsCurrentState('RESUME_SMAC', false)).toBe(true);
+    expect(repeatsCurrentState('RESUME_SMAC', true)).toBe(false);
+  });
+
+  it('cuts at the database clock minus the threshold minus one minute', () => {
+    const now = new Date('2026-11-16T12:00:00.000Z');
+    expect(SILENCE_MARGIN_MS).toBe(60_000);
+    expect(silenceCutoff(now, 9).toISOString()).toBe(
+      '2026-11-16T02:59:00.000Z',
+    );
+    expect(silenceCutoff(now, 3).toISOString()).toBe(
+      '2026-11-16T08:59:00.000Z',
+    );
+    expect(silenceCutoff(now, 1.5).toISOString()).toBe(
+      '2026-11-16T10:29:00.000Z',
+    );
   });
 });

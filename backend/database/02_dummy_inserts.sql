@@ -270,6 +270,18 @@ INSERT INTO alarms (hw_id, custom_id, event_code, event_type, alarm, value, reco
   ('130100000E', '1000300001-R', '139999', 'SET', 'Código de evento no documentado', NULL, '2026-09-01 10:00:00-05');
 
 -- ============================================================================
+-- SCRUM-253: deliberate silences of the demo scenarios (SILENCE_FALCON /
+-- SILENCE_SMAC write one row per device, RESUME removes it). Not part of
+-- Colbits' schema; created empty here and by the generator, never by the API.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.demo_silenced_devices (
+    hw_id text PRIMARY KEY,
+    source_id text NOT NULL,
+    cutoff timestamptz NOT NULL,
+    silenced_at timestamptz NOT NULL
+);
+
+-- ============================================================================
 -- SCRUM-253: synthetic-dataset marker. Not part of Colbits' schema (01). It says
 -- this database was loaded with synthetic data, so the demo scenarios (US31) may
 -- write to it when DEMO_SCENARIOS_DATABASE names it. It is the last statement on

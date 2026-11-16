@@ -215,7 +215,8 @@ describe('US31 demo scenarios: low energy, overload, free fall, solar panel (SCR
       channel_required: boolean;
       effect: string;
     }[];
-    expect(actions.map((a) => a.action)).toEqual([
+    // The inactivity actions follow these (scenarios-inactivity.e2e-spec.ts).
+    expect(actions.slice(0, 16).map((a) => a.action)).toEqual([
       'OPEN_FUSE',
       'CLOSE_FUSE',
       'CUT_VOLTAGE',

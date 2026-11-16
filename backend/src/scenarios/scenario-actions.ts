@@ -184,6 +184,30 @@ export const SCENARIO_ACTIONS = {
     condition: 'OVERLOAD',
     starts: false,
   },
+  SILENCE_FALCON: {
+    kind: 'silence',
+    device: 'FALCON',
+    channel: false,
+    starts: true,
+  },
+  RESUME_FALCON: {
+    kind: 'silence',
+    device: 'FALCON',
+    channel: false,
+    starts: false,
+  },
+  SILENCE_SMAC: {
+    kind: 'silence',
+    device: 'SMAC',
+    channel: false,
+    starts: true,
+  },
+  RESUME_SMAC: {
+    kind: 'silence',
+    device: 'SMAC',
+    channel: false,
+    starts: false,
+  },
 } as const satisfies Record<string, ScenarioActionDefinition>;
 
 export type ScenarioAction = keyof typeof SCENARIO_ACTIONS;
@@ -395,5 +419,26 @@ export function expectedEffectOf(action: ScenarioAction): string {
       return 'The transformer load goes above SMAC_OVERLOAD_PERCENT: an OVERLOAD_UNBALANCE alert with the OVERLOAD condition in GET /faults. Imbalance values are kept as they are.';
     case 'END_OVERLOAD':
       return 'The load is back at or below the threshold: the OVERLOAD condition ends; the alert stays while a voltage or current imbalance remains.';
+    case 'SILENCE_FALCON':
+      return 'The Falcon stops reporting: its readings of the last FALCON_INACTIVITY_HOURS (plus one minute) are removed, so it is inactive in GET /device/inactive and its node turns gray. Refused while another scenario is active on it.';
+    case 'RESUME_FALCON':
+      return 'The Falcon reports again (one reading, copied from its last one): it is active again, and the silence stays in its inactivity history.';
+    case 'SILENCE_SMAC':
+      return 'The SMAC stops reporting: its readings of the last SMAC_INACTIVITY_HOURS (plus one minute) are removed from its three tables, so it is inactive in GET /device/inactive and its transformer turns gray. Refused while another scenario is active on it.';
+    case 'RESUME_SMAC':
+      return 'The SMAC reports again (one reading, copied from its last one): it is active again, and the silence stays in its inactivity history.';
   }
+}
+
+/**
+ * SCRUM-253: SILENCE removes the readings of the last threshold plus this margin, so the device's
+ * latest remaining record is clearly older than the inactivity threshold (strictly "more than").
+ */
+export const SILENCE_MARGIN_MS = 60_000;
+
+/** SCRUM-253: the cutoff of a SILENCE: readings after it are removed, the baseline is at or before it. */
+export function silenceCutoff(databaseNow: Date, thresholdHours: number): Date {
+  return new Date(
+    databaseNow.getTime() - thresholdHours * 3_600_000 - SILENCE_MARGIN_MS,
+  );
 }
