@@ -1,8 +1,14 @@
 /** Unit tests for the fault DTO → domain mapper. */
 import { describe, it, expect } from 'vitest'
 import type { ActiveFaultDto } from './faults.dto'
-import { toFaultAlert, toFaultAlerts } from './faults.mapper'
+import { toFaultAlert, toFaultAlerts, toLiveMonitoringData } from './faults.mapper'
 
+const COUNTERS = {
+  fuseAlarmNodes: 2,
+  voltageAlarmNodes: 1,
+  phaseOutOfRangeNodes: 3,
+  phaseDroppedNodes: 4,
+}
 const STARTED_AT = '2026-10-29T15:05:00.000Z'
 
 const DTO: ActiveFaultDto = {
@@ -27,6 +33,8 @@ const DTO: ActiveFaultDto = {
     { fuse_id: '0000100002-B-S1', phase: 'S1', opened_at: STARTED_AT, closed_at: null },
   ],
   warnings: [],
+  conditions: null,
+  transformer_load: null,
 }
 
 describe('toFaultAlert', () => {
@@ -46,6 +54,8 @@ describe('toFaultAlert', () => {
       substation: null,
       circuit: 'CTO 1',
       branch: 'B',
+      sourceId: null,
+      channel: null,
       phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'OK' },
       classification: 'BIPHASIC',
       startedAt: new Date(STARTED_AT),
@@ -53,11 +63,39 @@ describe('toFaultAlert', () => {
       durationMinutes: 15,
       customersAffected: 80,
       transformerLoad: null,
+      conditions: null,
     })
   })
 
   it('keeps a missing client count as unknown instead of 0', () => {
     expect(toFaultAlert({ ...DTO, client_count: null }).customersAffected).toBeNull()
+  })
+
+  it('maps the load and unbalance values of an overload alert, keeping the ones never reported as null', () => {
+    const fault = toFaultAlert({
+      ...DTO,
+      device: 'SMAC',
+      alert_type: 'OVERLOAD_UNBALANCE',
+      source_id: 'TR-0007',
+      conditions: ['OVERLOAD'],
+      transformer_load: { load_percent: 92.5, vuf_percent: null, cuf_percent: 1.2 },
+    })
+
+    expect(fault.sourceId).toBe('TR-0007')
+    expect(fault.conditions).toEqual(['OVERLOAD'])
+    expect(fault.transformerLoad).toEqual({
+      loadPct: 92.5,
+      voltageUnbalancePct: null,
+      currentUnbalancePct: 1.2,
+    })
+    expect(toFaultAlert(DTO).transformerLoad).toBeNull()
+  })
+
+  it('keeps the SMAC channel of a transformer alarm and never turns it into phases', () => {
+    const fault = toFaultAlert({ ...DTO, device: 'SMAC', channel: 'C', phases: null, branch: null })
+
+    expect(fault.channel).toBe('C')
+    expect(fault.phases).toBeNull()
   })
 
   it('keeps a node with a single fuse set without branch', () => {
@@ -159,12 +197,33 @@ describe('toFaultAlerts', () => {
   it('maps every fault of the response in the order received', () => {
     const second = { ...DTO, id: 'second', node: '0000100003' }
 
-    const faults = toFaultAlerts({ generated_at: STARTED_AT, count: 2, faults: [DTO, second] })
+    const faults = toFaultAlerts({
+      generated_at: STARTED_AT,
+      count: 2,
+      counters: COUNTERS,
+      faults: [DTO, second],
+    })
 
     expect(faults.map((fault) => fault.nodeId)).toEqual(['0000100002', '0000100003'])
   })
 
   it('returns an empty list when there are no open faults', () => {
-    expect(toFaultAlerts({ generated_at: STARTED_AT, count: 0, faults: [] })).toEqual([])
+    expect(
+      toFaultAlerts({ generated_at: STARTED_AT, count: 0, counters: COUNTERS, faults: [] })
+    ).toEqual([])
+  })
+})
+
+describe('toLiveMonitoringData', () => {
+  it('keeps the node counters of the backend as they come, without recounting (F-58)', () => {
+    const data = toLiveMonitoringData({
+      generated_at: STARTED_AT,
+      count: 1,
+      counters: COUNTERS,
+      faults: [DTO],
+    })
+
+    expect(data.counters).toEqual(COUNTERS)
+    expect(data.faults).toHaveLength(1)
   })
 })

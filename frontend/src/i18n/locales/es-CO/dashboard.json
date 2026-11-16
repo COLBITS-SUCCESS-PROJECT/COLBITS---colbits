@@ -149,6 +149,15 @@
   },
   "fault": {
     "branch": "Ramal",
+    "channel": "Canal",
+    "transformer": "Transformador",
+    "conditions": "Condiciones",
+    "condition": {
+      "OVERLOAD": "Sobrecarga",
+      "VOLTAGE_UNBALANCE": "Desbalance de tensión",
+      "CURRENT_UNBALANCE": "Desbalance de corriente"
+    },
+    "singleSet": "Conjunto único",
     "phases": "Fases",
     "started": "Inicio",
     "duration": "Duración",
@@ -157,7 +166,9 @@
     "customersOut": "clientes sin servicio",
     "customersAffected": "clientes afectados",
     "customersUnknown": "Sin dato de clientes",
-    "load": "Carga {{load}} % · Desb. V {{unbalance}} %",
+    "load": "Carga {{value}} %",
+    "voltageUnbalance": "Desb. V {{value}} %",
+    "currentUnbalance": "Desb. I {{value}} %",
     "phase": "Fase {{phase}}: {{state}}",
     "phaseState": {
       "CRITICAL": "caída",

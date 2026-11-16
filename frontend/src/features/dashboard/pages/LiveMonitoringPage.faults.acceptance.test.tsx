@@ -146,16 +146,18 @@ describe('SCRUM-108 · US10 — active faults from the fault service', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('AC6 — the counters follow the map filter: searching a node leaves only its alarms counted', async () => {
+  it('AC6 — the counters are the ones the service sends, not recounted from the map filter', async () => {
     const panel = openMapAs(MOCK_TOKENS.NORTH)
     await faultCard(panel, N1, 'B')
 
-    // When the map filter matches no node, the list and every counter go to zero
+    // The map filter empties the list, but the counters stay those of GET /faults (F-58)
     await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar nodo o dispositivo' }), 'XX')
 
+    await waitFor(() => expect(panel.queryByRole('article')).not.toBeInTheDocument())
     const summary = panel.getByRole('region', { name: 'Resumen de nodos con alarma' })
-    await waitFor(() => expect(within(summary).getAllByText('0')).toHaveLength(4))
-    expect(panel.queryByRole('article')).not.toBeInTheDocument()
+    expect(
+      within(summary).getByText('Nodos con alarma de fusible (Falcon)').previousSibling
+    ).toHaveTextContent('1')
   })
 
   it('AC7 — when the fault service fails, the panel shows the error and asks again on retry', async () => {

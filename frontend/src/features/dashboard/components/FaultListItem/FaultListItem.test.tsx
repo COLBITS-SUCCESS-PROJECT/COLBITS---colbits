@@ -33,6 +33,45 @@ describe('FaultListItem', () => {
     expect(within(card).getByText('clientes sin servicio')).toBeInTheDocument()
   })
 
+  it('says so when a fuse alarm belongs to a node with a single fuse set (no branch letter)', () => {
+    const single: FaultAlert = { ...fault('f-1'), branch: null }
+
+    render(<FaultListItem fault={single} />)
+
+    expect(screen.getByText('Conjunto único')).toBeInTheDocument()
+  })
+
+  it('shows only the load and unbalance values the transformer reported', () => {
+    const partial: FaultAlert = {
+      ...fault('f-6'),
+      transformerLoad: { loadPct: 92.5, voltageUnbalancePct: null, currentUnbalancePct: 1.2 },
+    }
+
+    render(<FaultListItem fault={partial} />)
+
+    expect(screen.getByText('Carga 92.5 % · Desb. I 1.2 %')).toBeInTheDocument()
+  })
+
+  it('shows the transformer and the SMAC channel instead of branch and phases', () => {
+    const smacAlarm: FaultAlert = {
+      ...fault('f-4'),
+      sourceId: 'TR-0007',
+      channel: 'B',
+      phases: null,
+      classification: null,
+    }
+
+    render(<FaultListItem fault={smacAlarm} />)
+
+    const card = screen.getByRole('article', { name: /Pérdida de fase/ })
+    expect(within(card).getByText('Transformador')).toBeInTheDocument()
+    expect(within(card).getByText('TR-0007')).toBeInTheDocument()
+    expect(within(card).getByText('Canal')).toBeInTheDocument()
+    expect(within(card).getByText('B')).toBeInTheDocument()
+    expect(within(card).queryByText('Ramal')).not.toBeInTheDocument()
+    expect(within(card).queryByText('Fases')).not.toBeInTheDocument()
+  })
+
   it('uses the warning tone for warning faults', () => {
     render(<FaultListItem fault={fault('f-3')} />)
 
@@ -43,7 +82,12 @@ describe('FaultListItem', () => {
     render(<FaultListItem fault={fault('f-6')} />)
 
     const empties = screen.getAllByRole('definition').filter((dd) => dd.dataset.empty)
-    expect(empties).toHaveLength(2) // branch and phases
+    expect(empties).toHaveLength(1) // the transformer id is not recorded; branch and phases do not apply
+    expect(screen.queryByText('Ramal')).not.toBeInTheDocument()
+    expect(screen.queryByText('Fases')).not.toBeInTheDocument()
+    expect(screen.getByText('Condiciones').nextSibling).toHaveTextContent(
+      'Sobrecarga, Desbalance de tensión'
+    )
     expect(screen.getByText('clientes afectados')).toBeInTheDocument()
     expect(screen.getByText('Carga 118 % · Desb. V 3.4 %')).toBeInTheDocument()
   })

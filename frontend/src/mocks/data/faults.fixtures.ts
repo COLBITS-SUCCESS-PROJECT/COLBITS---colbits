@@ -78,6 +78,8 @@ function fuseOpening(
       closed_at: endedAt,
     })),
     warnings: [],
+    conditions: null,
+    transformer_load: null,
   }
 }
 

@@ -19,7 +19,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - Map with fuse / transformer / combined markers coloured by state, grouped into clusters where they overlap (F-13) ✅
 - Layer switch (fuses, transformers, both), hierarchical filters (zone › substation › circuit) and node search ✅
 - Map legend ✅
-- Active faults panel: counters, _Active_ / _Resolved_ tabs and the last hour / last day selector; it follows the map filter and has no filters of its own (F-56) ✅ ([SCRUM-113](./SCRUM-113.md))
+- Active faults panel: counters (from the backend), _Active_ / _Resolved_ tabs and the last hour / last day selector; it follows the map filter and has no filters of its own (F-56) ✅ ([SCRUM-113](./SCRUM-113.md))
 - _Inactive devices_ tab: list from `GET /device/inactive`, ordered by time without data, following the map filter (F-40, F-41) ✅ ([SCRUM-115](./SCRUM-115.md))
 - Inactivity alarm in the _Active_ and _Resolved_ tabs, built from the periods of `GET /device/inactive` (F-38, F-39) ✅ ([SCRUM-115](./SCRUM-115.md) AC6)
 - _Resolved_ tab: the alarms resolved in the last hour or day, newest first, each with its total duration; active alarms show the duration so far (F-59 to F-63) ✅ ([SCRUM-114](./SCRUM-114.md))
@@ -113,7 +113,7 @@ Other code:
 - **Map:** `GET /nodes` (SCRUM-77, SCRUM-65) and `GET /nodes/:name/detail` (SCRUM-109).
 - **Fault panel, active tab:** `GET /faults` — open fuse-opening faults in the user's scope (US10, [SCRUM-108](./SCRUM-108.md)). The page reads `LiveMonitoringData` (`model/liveMonitoring.types.ts`) through `faults.mapper.ts`.
 - **Fault panel, inactive devices tab and inactivity alarms:** `GET /device/inactive?hours=24` or `?hours=1` — devices of the user scope with their inactivity periods, already in the F-40 order, and the server window (`from`, `to`); polled every 15 s, so the alarm opens (F-38) and closes (F-39) without a reload (US17, [SCRUM-115](./SCRUM-115.md)). The backend does not list the inactivity alarm in `GET /faults` or `/faults/resolved`: the frontend builds one per period and adds it to _Active_ (open) and _Resolved_ (closed inside the window).
-- **Node counters (US15, F-58):** derived in the frontend from `GET /faults` over the faults the list shows, so they follow the map filter (`countAlarmNodes` in `model/faultRules.ts`). The 2026-10-31 decision to hide them (no endpoint, no made-up data) is **superseded by US15**: they are now shown with real data.
+- **Node counters (US15, F-58):** computed by the backend and sent in the `counters` field of `GET /faults` (`FaultNodeCountersDto`); the frontend shows them as they come and does not recount (`toFaultCounters` in `api/faults.mapper.ts`). They count the nodes of the whole in-scope list, so they do not narrow with the map filter. The 2026-10-31 decision to hide them (no endpoint, no made-up data) is **superseded by US15**: they are now shown with real data.
 - **Demo scenarios (US31):** `GET /scenarios` (demo mode and its actions) and `POST /scenarios` (run one action, administrator only), [SCRUM-218](./SCRUM-218.md) §6.
 - **Fault panel, resolved tab (US16):** `GET /faults/resolved?window=1h` or `24h` — faults and alarms resolved in the window, in scope, newest resolution first, with their total duration ([SCRUM-114](./SCRUM-114.md)). Resolved device alerts are not stored yet (SCRUM-114 Q1).
 

@@ -124,6 +124,12 @@ function apiStoresTheFuseOpening() {
       return HttpResponse.json({
         generated_at: new Date().toISOString(),
         count: faults.length,
+        counters: {
+          fuseAlarmNodes: 1,
+          voltageAlarmNodes: 0,
+          phaseOutOfRangeNodes: 0,
+          phaseDroppedNodes: 0,
+        },
         faults,
       })
     })
