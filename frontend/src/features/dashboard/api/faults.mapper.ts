@@ -47,6 +47,7 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
     substation: null,
     circuit: dto.circuit.name,
     branch: dto.branch,
+    channel: dto.channel,
     phases: toPhaseStates(dto.phases),
     classification: dto.classification,
     startedAt: new Date(dto.started_at),

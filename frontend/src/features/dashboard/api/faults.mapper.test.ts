@@ -52,6 +52,7 @@ describe('toFaultAlert', () => {
       substation: null,
       circuit: 'CTO 1',
       branch: 'B',
+      channel: null,
       phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'OK' },
       classification: 'BIPHASIC',
       startedAt: new Date(STARTED_AT),
@@ -64,6 +65,13 @@ describe('toFaultAlert', () => {
 
   it('keeps a missing client count as unknown instead of 0', () => {
     expect(toFaultAlert({ ...DTO, client_count: null }).customersAffected).toBeNull()
+  })
+
+  it('keeps the SMAC channel of a transformer alarm and never turns it into phases', () => {
+    const fault = toFaultAlert({ ...DTO, device: 'SMAC', channel: 'C', phases: null, branch: null })
+
+    expect(fault.channel).toBe('C')
+    expect(fault.phases).toBeNull()
   })
 
   it('keeps a node with a single fuse set without branch', () => {

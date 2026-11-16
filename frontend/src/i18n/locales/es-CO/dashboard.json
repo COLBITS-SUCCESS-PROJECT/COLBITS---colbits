@@ -149,6 +149,7 @@
   },
   "fault": {
     "branch": "Ramal",
+    "channel": "Canal",
     "phases": "Fases",
     "started": "Inicio",
     "duration": "Duración",

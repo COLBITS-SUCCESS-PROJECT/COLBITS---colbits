@@ -25,6 +25,7 @@ function toAlarm(
     substation: device.location.substation.name,
     circuit: device.location.circuit.name,
     branch: null,
+    channel: null,
     phases: null,
     classification: null,
     startedAt: start,

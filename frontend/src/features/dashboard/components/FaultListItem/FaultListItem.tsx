@@ -104,10 +104,14 @@ export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
       </p>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
-        <DataField
-          label={t('fault.branch')}
-          value={fault.branch && t('fault.branchValue', { branch: fault.branch })}
-        />
+        {fault.channel ? (
+          <DataField label={t('fault.channel')} value={fault.channel} />
+        ) : (
+          <DataField
+            label={t('fault.branch')}
+            value={fault.branch && t('fault.branchValue', { branch: fault.branch })}
+          />
+        )}
         <DataField label={t('fault.phases')} value={phases} />
         <DataField
           label={t('fault.started')}

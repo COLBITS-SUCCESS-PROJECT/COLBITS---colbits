@@ -149,6 +149,7 @@
   },
   "fault": {
     "branch": "Branch",
+    "channel": "Channel",
     "phases": "Phases",
     "started": "Started",
     "duration": "Duration",

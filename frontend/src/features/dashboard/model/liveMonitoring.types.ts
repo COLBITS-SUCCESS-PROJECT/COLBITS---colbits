@@ -89,6 +89,8 @@ export interface FaultAlert {
   substation: string | null
   circuit: string
   branch: string | null
+  /** SMAC channel (A · B · C) of a transformer alarm; null on the others. It is not a phase: never mapped to R · S · T. */
+  channel: 'A' | 'B' | 'C' | null
   /** R · S · T states; null when they do not apply or cannot be drawn as R · S · T. */
   phases: PhaseStates | null
   /** As computed by the backend (F-49); null when the phases could not be classified. */

@@ -33,6 +33,23 @@ describe('FaultListItem', () => {
     expect(within(card).getByText('clientes sin servicio')).toBeInTheDocument()
   })
 
+  it('shows the SMAC channel instead of the branch, and no phase it cannot know', () => {
+    const smacAlarm: FaultAlert = {
+      ...fault('f-4'),
+      channel: 'B',
+      phases: null,
+      classification: null,
+    }
+
+    render(<FaultListItem fault={smacAlarm} />)
+
+    const card = screen.getByRole('article', { name: /Pérdida de fase/ })
+    expect(within(card).getByText('Canal')).toBeInTheDocument()
+    expect(within(card).getByText('B')).toBeInTheDocument()
+    expect(within(card).queryByText('Ramal')).not.toBeInTheDocument()
+    expect(within(card).getByText('Fases').nextSibling).toHaveAttribute('data-empty')
+  })
+
   it('uses the warning tone for warning faults', () => {
     render(<FaultListItem fault={fault('f-3')} />)
 
