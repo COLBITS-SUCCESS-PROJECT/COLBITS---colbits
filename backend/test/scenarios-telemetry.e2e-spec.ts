@@ -235,7 +235,7 @@ describe('US31 demo scenarios: low energy, overload, free fall, solar panel (SCR
       'END_OVERLOAD',
     ]);
     for (const action of actions.slice(6)) {
-      expect(Object.keys(action).sort()).toEqual([
+      expect(Object.keys(action).sort((a, b) => a.localeCompare(b))).toEqual([
         'action',
         'channel_required',
         'effect',
@@ -408,7 +408,7 @@ describe('US31 demo scenarios: low energy, overload, free fall, solar panel (SCR
             (f.source_id === fuse.customId || f.alert_type === 'FUSE_OPENING'),
         )
         .map((f) => f.alert_type)
-        .sort();
+        .sort((a, b) => a.localeCompare(b));
     expect(await types()).toEqual([
       'FREE_FALL',
       'FUSE_OPENING',

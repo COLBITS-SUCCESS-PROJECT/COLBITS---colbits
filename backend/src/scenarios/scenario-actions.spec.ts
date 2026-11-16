@@ -225,7 +225,11 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
     for (const action of SCENARIO_ACTION_NAMES.slice(6)) {
       expect(expectedEffectOf(action).length).toBeGreaterThan(30);
     }
-    expect(Object.keys(TELEMETRY_CONDITION_STATES).sort()).toEqual([
+    expect(
+      Object.keys(TELEMETRY_CONDITION_STATES).sort((a, b) =>
+        a.localeCompare(b),
+      ),
+    ).toEqual([
       'FALCON_LOW_ENERGY',
       'FREE_FALL',
       'OVERLOAD',
