@@ -8,6 +8,7 @@ import { server } from '@/mocks/server'
 import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
 import { useAuthStore, type AuthUser } from '@/stores/auth.store'
 import { INACTIVE_DEVICES_ENDPOINT } from '../api/inactiveDevices.api'
+import type { TimeWindow } from '../model/liveMonitoring.constants'
 import { useInactiveDevicesQuery } from './useInactiveDevicesQuery'
 
 const USER: AuthUser = { id: 'u1', name: 'Test', email: 't@colbits.test', role: 'OPERATOR' }
@@ -18,10 +19,10 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }
 
-async function loadDeviceIds() {
-  const { result } = renderHook(() => useInactiveDevicesQuery(), { wrapper })
+async function loadDeviceIds(timeWindow: TimeWindow = 'LAST_DAY') {
+  const { result } = renderHook(() => useInactiveDevicesQuery(timeWindow), { wrapper })
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
-  return (result.current.data ?? []).map((device) => device.id)
+  return (result.current.data?.devices ?? []).map((device) => device.id)
 }
 
 describe('useInactiveDevicesQuery', () => {
@@ -48,15 +49,18 @@ describe('useInactiveDevicesQuery', () => {
     expect(await loadDeviceIds()).toEqual(['1306420A08', '1307120D05'])
   })
 
-  it('asks for the last day', async () => {
+  it.each([
+    ['LAST_DAY', '24'],
+    ['LAST_HOUR', '1'],
+  ] as const)('asks the server for the window %s as ?hours=%s', async (timeWindow, hours) => {
     useAuthStore.getState().setSession(USER, MOCK_TOKENS.DEV)
     let requested: string | null = null
     server.use(
       http.get(`*${INACTIVE_DEVICES_ENDPOINT}`, ({ request }) => {
         requested = new URL(request.url).searchParams.get('hours')
         return HttpResponse.json({
-          from: '',
-          to: '',
+          from: '2026-11-11T12:00:00.000Z',
+          to: '2026-11-12T12:00:00.000Z',
           thresholds: {},
           count: 0,
           devices: [],
@@ -64,8 +68,34 @@ describe('useInactiveDevicesQuery', () => {
       })
     )
 
-    expect(await loadDeviceIds()).toEqual([])
-    expect(requested).toBe('24')
+    expect(await loadDeviceIds(timeWindow)).toEqual([])
+    expect(requested).toBe(hours)
+  })
+
+  it('keeps the server time of the answer', async () => {
+    useAuthStore.getState().setSession(USER, MOCK_TOKENS.DEV)
+    server.use(
+      http.get(`*${INACTIVE_DEVICES_ENDPOINT}`, () =>
+        HttpResponse.json({
+          from: '2026-11-11T12:00:00.000Z',
+          to: '2026-11-12T12:00:00.000Z',
+          thresholds: {},
+          count: 0,
+          devices: [],
+        })
+      )
+    )
+
+    const { result } = renderHook(() => useInactiveDevicesQuery('LAST_DAY'), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.to).toEqual(new Date('2026-11-12T12:00:00.000Z'))
+  })
+
+  it('leaves out, in the last hour, the devices that came back before it', async () => {
+    useAuthStore.getState().setSession(USER, MOCK_TOKENS.DEV)
+
+    expect(await loadDeviceIds('LAST_HOUR')).toEqual(['0504410C07', '1308890C04', '1306420A08'])
   })
 
   it('reports an error when the service fails', async () => {
@@ -79,7 +109,7 @@ describe('useInactiveDevicesQuery', () => {
       )
     )
 
-    const { result } = renderHook(() => useInactiveDevicesQuery(), { wrapper })
+    const { result } = renderHook(() => useInactiveDevicesQuery('LAST_DAY'), { wrapper })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
   })

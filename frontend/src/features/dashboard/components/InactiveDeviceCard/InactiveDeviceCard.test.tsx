@@ -2,14 +2,14 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import '@/i18n'
-import { buildInactiveDevicesMock } from '@/mocks/data/inactiveDevices.fixtures'
+import { buildInactiveDevicesSnapshot } from '@/mocks/data/inactiveDevices.fixtures'
 import { selectInactiveDevices } from '../../model/inactiveDevices.rules'
 import { ALL } from '../../model/liveMonitoring.constants'
 import { InactiveDeviceCard } from './InactiveDeviceCard'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
 const EVERYWHERE = { zone: ALL, substation: ALL, circuit: ALL }
-const views = selectInactiveDevices(buildInactiveDevicesMock(NOW), 'LAST_DAY', EVERYWHERE, NOW)
+const views = selectInactiveDevices(buildInactiveDevicesSnapshot(NOW), EVERYWHERE)
 const byId = (id: string) => {
   const view = views.find((candidate) => candidate.device.id === id)
   if (!view) throw new Error(`No sample device ${id}`)
@@ -17,13 +17,13 @@ const byId = (id: string) => {
 }
 
 describe('InactiveDeviceCard', () => {
-  it('shows a device silent now with the time since its last record, total and open period', () => {
+  it('shows a device silent now with what it monitors, the time since its last record, total and open period', () => {
     render(<InactiveDeviceCard view={byId('1308890C04')} />)
 
     const card = screen.getByRole('article', { name: 'ND08890C04 · Inactivo ahora' })
     expect(within(card).getByText('FALCON')).toBeInTheDocument()
     expect(within(card).getByText('Sin datos 21 h 30 min')).toBeInTheDocument()
-    expect(within(card).getByText('S/E CENTRO 1 › CTO 3 · 1308890C04')).toBeInTheDocument()
+    expect(within(card).getByText('S/E CENTRO 1 › CTO 3 · ND08890C04-A-R')).toBeInTheDocument()
     expect(within(card).getByText('Total inactivo en el periodo')).toBeInTheDocument()
     expect(within(card).getAllByText('12 h 30 min').length).toBeGreaterThan(0)
     expect(within(card).getByText(/→ en curso/)).toBeInTheDocument()

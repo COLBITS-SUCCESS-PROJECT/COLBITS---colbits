@@ -115,7 +115,7 @@
       "silent": "Sin datos {{duration}}",
       "neverReported": "Nunca ha reportado",
       "reporting": "Reportando",
-      "location": "{{substation}} › {{circuit}} · {{deviceId}}",
+      "location": "{{substation}} › {{circuit}} · {{sourceId}}",
       "total": "Total inactivo en el periodo",
       "periodsLabel": "Periodos de inactividad",
       "period": "{{start}} → {{end}}",

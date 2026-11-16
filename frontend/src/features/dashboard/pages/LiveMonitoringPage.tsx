@@ -44,7 +44,7 @@ export function LiveMonitoringPage() {
   const { zone, substation, circuit } = filters
   const location = useMemo(() => ({ zone, substation, circuit }), [zone, substation, circuit])
   // F-41: the inactive-device list follows the same map filter; it has no location filter of its own.
-  const inactive = useInactiveDevicesPanel(now, location)
+  const inactive = useInactiveDevicesPanel(location)
   // F-33: the map shows only the nodes of the selected zone / substation / circuit.
   const visibleNodes = useMemo(
     () => filterNodesByLocation(allNodes, location),

@@ -1,8 +1,8 @@
 /** Inactive-device service calls — one function per endpoint. */
 import { httpClient } from '@/services/http/httpClient'
-import type { InactiveDevice } from '../model/inactiveDevices.types'
+import type { InactiveDevicesSnapshot } from '../model/inactiveDevices.types'
 import type { InactiveDevicesResponseDto } from './inactiveDevices.dto'
-import { toInactiveDevices } from './inactiveDevices.mapper'
+import { toInactiveDevicesSnapshot } from './inactiveDevices.mapper'
 
 // Same path as backend/src/device/device.controller.ts.
 export const INACTIVE_DEVICES_ENDPOINT = '/device/inactive'
@@ -14,10 +14,10 @@ export const INACTIVE_DEVICES_ENDPOINT = '/device/inactive'
 export async function fetchInactiveDevices(
   hours: number,
   signal?: AbortSignal
-): Promise<InactiveDevice[]> {
+): Promise<InactiveDevicesSnapshot> {
   const response = await httpClient<InactiveDevicesResponseDto>(
     `${INACTIVE_DEVICES_ENDPOINT}?hours=${encodeURIComponent(String(hours))}`,
     { signal }
   )
-  return toInactiveDevices(response)
+  return toInactiveDevicesSnapshot(response)
 }

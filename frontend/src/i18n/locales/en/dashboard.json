@@ -115,7 +115,7 @@
       "silent": "Silent {{duration}}",
       "neverReported": "Never reported",
       "reporting": "Reporting",
-      "location": "{{substation}} › {{circuit}} · {{deviceId}}",
+      "location": "{{substation}} › {{circuit}} · {{sourceId}}",
       "total": "Total inactive in range",
       "periodsLabel": "Inactivity periods",
       "period": "{{start}} → {{end}}",

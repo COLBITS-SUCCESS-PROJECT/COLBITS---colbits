@@ -1,10 +1,14 @@
 /** Sample inactive devices in the shape of GET /device/inactive (US17), on the sample nodes of the map. */
-import type { InactiveDeviceDto } from '@/features/dashboard/api/inactiveDevices.dto'
-import { toInactiveDevice } from '@/features/dashboard/api/inactiveDevices.mapper'
-import type { InactiveDevice } from '@/features/dashboard/model/inactiveDevices.types'
+import type {
+  InactiveDeviceDto,
+  InactiveDevicesResponseDto,
+} from '@/features/dashboard/api/inactiveDevices.dto'
+import { toInactiveDevicesSnapshot } from '@/features/dashboard/api/inactiveDevices.mapper'
+import type { InactiveDevicesSnapshot } from '@/features/dashboard/model/inactiveDevices.types'
 import { NODE_FIXTURES } from './nodes.fixtures'
 
 const MS_PER_MINUTE = 60_000
+const MS_PER_HOUR = 3_600_000
 const FALCON_HOURS = 9
 const SMAC_HOURS = 3
 
@@ -105,7 +109,37 @@ export function inactiveDeviceDtoFixtures(now: number): InactiveDeviceDto[] {
   ]
 }
 
-/** The same sample devices as domain objects, for component and rule tests. */
-export function buildInactiveDevicesMock(now: number): InactiveDevice[] {
-  return inactiveDeviceDtoFixtures(now).map(toInactiveDevice)
+/**
+ * The answer of GET /device/inactive?hours=N at `now`, like the backend: the devices of `nodes`
+ * (null = every node) silent now, or with a period inside the window; `to` is the server clock.
+ */
+export function inactiveDevicesResponseFixture(
+  now: number,
+  hours = 24,
+  nodes: readonly string[] | null = null
+): InactiveDevicesResponseDto {
+  const from = now - hours * MS_PER_HOUR
+  const devices = inactiveDeviceDtoFixtures(now).filter(
+    (device) =>
+      (nodes === null || nodes.includes(device.node)) &&
+      (device.inactive_now ||
+        device.periods.some((period) => period.end === null || Date.parse(period.end) > from))
+  )
+  return {
+    from: new Date(from).toISOString(),
+    to: new Date(now).toISOString(),
+    thresholds: {
+      falcon_inactivity_hours: FALCON_HOURS,
+      smac_inactivity_hours: SMAC_HOURS,
+      falcon_low_energy_percent: 30,
+      smac_low_energy_percent: 30,
+    },
+    count: devices.length,
+    devices,
+  }
+}
+
+/** The same answer as domain objects, for component and rule tests. */
+export function buildInactiveDevicesSnapshot(now: number, hours = 24): InactiveDevicesSnapshot {
+  return toInactiveDevicesSnapshot(inactiveDevicesResponseFixture(now, hours))
 }

@@ -1,79 +1,60 @@
-/** Rules of the Inactive devices tab: time window, the map's location filter (F-41) and the F-40 order. */
-import { MS_PER_MINUTE, TIME_WINDOWS, type TimeWindow } from './liveMonitoring.constants'
+/** Rules of the Inactive devices tab: periods cut to the server window and the map's location filter (F-41). */
+import { MS_PER_MINUTE } from './liveMonitoring.constants'
 import { isLocationInFilter } from './mapFilters'
 import type { LocationFilter } from './scopeOptions'
 import type {
   InactiveDevice,
+  InactiveDevicesSnapshot,
   InactiveDeviceView,
   InactivePeriodInRange,
 } from './inactiveDevices.types'
 
-/** Cuts each period to [now − window, now]; periods outside the window disappear. */
-function clipPeriods(
-  device: InactiveDevice,
-  windowStart: number,
-  now: number
-): InactivePeriodInRange[] {
+/** Cuts each period to the server window [from, to]; periods outside it disappear. */
+function clipPeriods(device: InactiveDevice, from: number, to: number): InactivePeriodInRange[] {
   return device.periods.flatMap((period) => {
-    const start = Math.max(period.start.getTime(), windowStart)
-    const end = Math.min(period.end?.getTime() ?? now, now)
+    const start = Math.max(period.start.getTime(), from)
+    const end = Math.min(period.end?.getTime() ?? to, to)
     const minutes = Math.round((end - start) / MS_PER_MINUTE)
     if (minutes < 1) return []
     return [{ start: new Date(start), end: period.end, minutes }]
   })
 }
 
-/** `isInactiveNow` is the backend's `inactive_now`: a device that never reported has no period but is inactive. */
-function toView(device: InactiveDevice, windowStart: number, now: number): InactiveDeviceView {
-  const periods = clipPeriods(device, windowStart, now)
+/**
+ * `isInactiveNow` is the backend's `inactive_now`: a device that never reported has no period but is
+ * inactive. The silence is measured up to the server's `to`, never the browser clock (F-46).
+ */
+function toView(device: InactiveDevice, from: number, to: number): InactiveDeviceView {
+  const periods = clipPeriods(device, from, to)
   const { inactiveNow, lastRecordAt } = device
   return {
     device,
     isInactiveNow: inactiveNow,
     silentMinutes:
       inactiveNow && lastRecordAt
-        ? Math.floor((now - lastRecordAt.getTime()) / MS_PER_MINUTE)
+        ? Math.floor((to - lastRecordAt.getTime()) / MS_PER_MINUTE)
         : null,
     totalMinutes: periods.reduce((sum, period) => sum + period.minutes, 0),
     periods,
   }
 }
 
-const timeOf = (date: Date | null) => (date === null ? Number.NEGATIVE_INFINITY : date.getTime())
-
-const lastEnd = (device: InactiveDevice) =>
-  Math.max(0, ...device.periods.map((period) => period.end?.getTime() ?? 0))
-
 /**
- * Same order as the backend (F-40, backend/src/device/inactivity-periods.ts): devices silent now
- * first, from the oldest last record to the most recent, and one that never reported first of all;
- * then the devices that reported again, the most recently resolved first. Ties by hardware id.
- */
-function compareViews(a: InactiveDeviceView, b: InactiveDeviceView): number {
-  if (a.isInactiveNow !== b.isInactiveNow) return a.isInactiveNow ? -1 : 1
-  const byTime = a.isInactiveNow
-    ? timeOf(a.device.lastRecordAt) - timeOf(b.device.lastRecordAt)
-    : lastEnd(b.device) - lastEnd(a.device)
-  return byTime || a.device.id.localeCompare(b.device.id)
-}
-
-/**
- * Devices inactive inside the window, restricted to the zone / substation / circuit selected on the
- * map (F-41: the list has no location filter of its own), ordered so maintenance starts with the oldest.
+ * Devices of the window asked for, restricted to the zone / substation / circuit selected on the map
+ * (F-41: the list has no location filter of its own). The backend order (F-40) is kept as sent:
+ * filtering never changes it and the frontend does not sort.
  */
 export function selectInactiveDevices(
-  devices: InactiveDevice[],
-  timeWindow: TimeWindow,
-  location: LocationFilter,
-  now: number
+  snapshot: InactiveDevicesSnapshot,
+  location: LocationFilter
 ): InactiveDeviceView[] {
-  const windowStart = now - TIME_WINDOWS[timeWindow] * MS_PER_MINUTE
+  const from = snapshot.from.getTime()
+  const to = snapshot.to.getTime()
   return (
-    devices
+    snapshot.devices
       .filter((device) => isLocationInFilter(device.location, location))
-      .map((device) => toView(device, windowStart, now))
+      .map((device) => toView(device, from, to))
       // A device silent now always stays, even without a period (it never reported).
       .filter((view) => view.isInactiveNow || view.totalMinutes > 0)
-      .sort(compareViews)
   )
 }

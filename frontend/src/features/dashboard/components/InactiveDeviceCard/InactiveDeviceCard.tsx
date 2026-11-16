@@ -50,7 +50,7 @@ export function InactiveDeviceCard({ view }: InactiveDeviceCardProps) {
           {t('inactive.card.location', {
             substation: device.location.substation.name,
             circuit: device.location.circuit.name,
-            deviceId: device.id,
+            sourceId: device.sourceId,
           })}
         </span>
       </p>
