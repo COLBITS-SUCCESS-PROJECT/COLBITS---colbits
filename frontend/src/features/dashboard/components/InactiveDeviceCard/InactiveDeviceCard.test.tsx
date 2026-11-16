@@ -1,6 +1,7 @@
 /** Tests for the InactiveDeviceCard molecule. */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import '@/i18n'
 import { buildInactiveDevicesSnapshot } from '@/mocks/data/inactiveDevices.fixtures'
 import { selectInactiveDevices } from '../../model/inactiveDevices.rules'
@@ -60,5 +61,22 @@ describe('InactiveDeviceCard', () => {
     render(<InactiveDeviceCard view={twoPeriods} />)
 
     expect(screen.getByText(/2 periodos en el rango/)).toBeInTheDocument()
+  })
+
+  it('is not clickable without onSelect', () => {
+    render(<InactiveDeviceCard view={byId('1308890C04')} />)
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('reports its node when clicked, to center the map (M13)', async () => {
+    const onSelect = vi.fn()
+    render(<InactiveDeviceCard view={byId('1308890C04')} onSelect={onSelect} />)
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Ver ND08890C04 en el mapa y su detalle' })
+    )
+
+    expect(onSelect).toHaveBeenCalledWith('ND08890C04')
   })
 })

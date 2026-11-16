@@ -25,6 +25,7 @@ import {
   isInLocation,
   layersOf,
 } from '../model/mapFilters'
+import type { NetworkNode } from '../model/liveMonitoring.types'
 import { deriveScopeOptions } from '../model/scopeOptions'
 
 export function LiveMonitoringPage() {
@@ -90,8 +91,12 @@ export function LiveMonitoringPage() {
     if (query.trim() === '') return setSearchResult(null)
     const node = findNodeByIdentifier(allNodes, query)
     if (!node) return setSearchResult({ found: false, query: query.trim() })
+    focusOnNode(node)
+    setSearchResult({ found: true, nodeId: node.id })
+  }
 
-    // Make the node visible: clear a location filter that hides it and turn on a layer that draws it.
+  /** Centers the map on a node, first making it visible: clears a location filter that hides it and turns on a layer that draws it. */
+  function focusOnNode(node: NetworkNode) {
     const patch: Partial<FaultFilters> = {}
     if (!isInLocation(node, location))
       Object.assign(patch, { zone: ALL, substation: ALL, circuit: ALL })
@@ -102,7 +107,18 @@ export function LiveMonitoringPage() {
     }
     if (Object.keys(patch).length > 0) updateFilters(patch)
     setFocusRequest((current) => ({ nodeId: node.id, requestId: (current?.requestId ?? 0) + 1 }))
-    setSearchResult({ found: true, nodeId: node.id })
+  }
+
+  /**
+   * M13: a card of the panel (active, resolved or inactive) centers the map on its node and opens its
+   * detail, as clicking the marker does (F-27). On mobile the sheet closes so the map shows.
+   */
+  function handleSelectCard(nodeId: string) {
+    const node = allNodes.find((candidate) => candidate.id === nodeId)
+    if (!node) return
+    focusOnNode(node)
+    setSelectedNodeId(node.id)
+    closeMobilePanel()
   }
 
   useEffect(() => {
@@ -155,6 +171,7 @@ export function LiveMonitoringPage() {
           resolved={resolved}
           counters={query.isSuccess ? counters : null}
           inactive={inactive}
+          onSelectCard={handleSelectCard}
           filters={filters}
           onFiltersChange={updateFilters}
           isLoading={query.isPending}

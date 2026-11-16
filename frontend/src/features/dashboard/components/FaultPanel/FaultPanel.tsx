@@ -34,6 +34,8 @@ export interface FaultPanelProps {
   onRetry: () => void
   /** Inactive devices tab data; null/undefined until the backend reports them: the tab says they are coming. */
   inactive?: InactiveDevicesTabProps | null
+  /** M13: a card was clicked; the page centers the map on that node. Without it the cards are not clickable. */
+  onSelectCard?: (nodeId: string) => void
   closeLabel?: string
   isMobileOpen?: boolean
   onClose?: () => void
@@ -50,6 +52,7 @@ export function FaultPanel(props: FaultPanelProps) {
     filters,
     onFiltersChange,
     inactive,
+    onSelectCard,
     closeLabel,
     isMobileOpen = false,
     onClose,
@@ -158,7 +161,7 @@ export function FaultPanel(props: FaultPanelProps) {
           aria-labelledby={getTabId(ID_PREFIX, tab)}
           className="flex flex-col gap-3"
         >
-          {inactiveTab && <InactiveDevicesTab {...inactiveTab} />}
+          {inactiveTab && <InactiveDevicesTab {...inactiveTab} onSelect={onSelectCard} />}
           {tab === 'INACTIVE' && !inactiveTab && (
             <p className="p-6 text-center text-sm text-text-subtle">{t('panel.inactiveSoon')}</p>
           )}
@@ -207,7 +210,7 @@ export function FaultPanel(props: FaultPanelProps) {
                 onChange={onFiltersChange}
                 note={t(isResolvedTab ? 'panel.resolvedNote' : 'panel.sortNote')}
               />
-              <FaultList {...list} />
+              <FaultList {...list} onSelect={onSelectCard} />
             </>
           )}
         </div>

@@ -61,6 +61,7 @@
     "TRANSFORMERS": "Transformers · SMAC"
   },
   "panel": {
+    "showOnMap": "Show {{nodeId}} on the map with its detail",
     "title": "Fault management",
     "openMobile": "Faults ({{count}})",
     "closeMobile": "Close fault panel",

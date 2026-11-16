@@ -21,6 +21,8 @@ export interface InactiveDevicesTabProps {
   isLoading: boolean
   isError: boolean
   onRetry: () => void
+  /** A card was clicked: its node. */
+  onSelect?: (nodeId: string) => void
 }
 
 function List({
@@ -28,7 +30,8 @@ function List({
   isLoading,
   isError,
   onRetry,
-}: Pick<InactiveDevicesTabProps, 'devices' | 'isLoading' | 'isError' | 'onRetry'>) {
+  onSelect,
+}: Pick<InactiveDevicesTabProps, 'devices' | 'isLoading' | 'isError' | 'onRetry' | 'onSelect'>) {
   const { t } = useTranslation('dashboard')
 
   if (isLoading) {
@@ -62,7 +65,7 @@ function List({
     <ul className="flex flex-col gap-2">
       {devices.map((view) => (
         <li key={view.device.id}>
-          <InactiveDeviceCard view={view} />
+          <InactiveDeviceCard view={view} onSelect={onSelect} />
         </li>
       ))}
     </ul>

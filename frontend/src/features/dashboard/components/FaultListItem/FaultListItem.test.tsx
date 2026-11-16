@@ -1,6 +1,7 @@
 /** Unit tests for the FaultListItem molecule. */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import '@/i18n'
 import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
 import type { FaultAlert } from '../../model/liveMonitoring.types'
@@ -95,5 +96,24 @@ describe('FaultListItem', () => {
 
     expect(screen.getByText('Bifásica')).toBeInTheDocument()
     expect(screen.queryByRole('img', { name: /^Fase/ })).not.toBeInTheDocument()
+  })
+
+  it('is not clickable without onSelect', () => {
+    render(<FaultListItem fault={fault('f-1')} />)
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('reports its node when clicked, to center the map (M13)', async () => {
+    const onSelect = vi.fn()
+    const item = fault('f-1')
+    render(<FaultListItem fault={item} onSelect={onSelect} />)
+
+    await userEvent.click(
+      screen.getByRole('button', { name: `Ver ${item.nodeId} en el mapa y su detalle` })
+    )
+
+    expect(onSelect).toHaveBeenCalledWith(item.nodeId)
+    expect(screen.getByRole('article')).toBeInTheDocument()
   })
 })
