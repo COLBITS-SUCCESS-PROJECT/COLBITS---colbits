@@ -41,6 +41,8 @@ If you change `VITE_API_BASE_URL` later, run **Manual Deploy** on `colbits-web`:
 3. If something looks wrong, the `colbits-api` **Logs** show the `[prepare-db]` lines of the last start.
 
 ## Demo scenarios (staging only)
+Reference of the 20 actions and their rules: [`docs/demo-scenarios.md`](demo-scenarios.md).
+
 The scenario panel (US31) writes synthetic telemetry, so the backend refuses every scenario (`POST /scenarios` answers 403 and writes nothing) unless all three hold, and `GET /scenarios` reports `enabled: false` otherwise:
 
 | Condition | Where it comes from |

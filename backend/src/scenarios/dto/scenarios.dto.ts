@@ -46,7 +46,7 @@ export class RunScenarioDto {
   @ApiProperty({
     example: '0000100002-A-R',
     description:
-      'Fuse custom_id for OPEN_FUSE, CLOSE_FUSE, CUT_VOLTAGE, RESTORE_VOLTAGE; transformer custom_id for DROP_PHASE, RESTORE_PHASE.',
+      'A fuse custom_id for the actions whose target is FUSE (its Falcon), a transformer custom_id for those whose target is TRANSFORMER (its SMAC), as GET /scenarios lists them.',
   })
   target: string;
 
@@ -98,7 +98,8 @@ export class ScenarioResultDto {
 
   @ApiProperty({
     format: 'date-time',
-    description: 'Timestamp of the reading and the event.',
+    description:
+      'Timestamp of the reading and the event (database clock). For SILENCE_*, which writes no reading, the database time of the silence.',
   })
   recorded_at: string;
 

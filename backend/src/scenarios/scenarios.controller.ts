@@ -49,7 +49,7 @@ export class ScenariosController {
   @ApiOperation({
     summary: 'Demo mode and the scenarios it offers (US31 · F-100).',
     description:
-      'enabled is true only where scenarios could write: DEMO_SCENARIOS_ENABLED=true, DEMO_SCENARIOS_DATABASE names the connected database, and that database has its synthetic-dataset marker (never in production, NF-03). The frontend shows the scenario panel only when enabled is true.',
+      'enabled is true only where scenarios could write: DEMO_SCENARIOS_ENABLED=true, DEMO_SCENARIOS_DATABASE names the connected database, and that database has its synthetic-dataset marker (never in production, NF-03). The frontend shows the scenario panel only when enabled is true. actions lists the 20 actions in a fixed order, each start right before its stop: the six fuse, voltage and phase actions (SCRUM-252), then low energy, free fall, solar panel, overload and inactivity (SCRUM-253). docs/demo-scenarios.md describes each one.',
   })
   @ApiOkResponse({ type: ScenariosStatusDto })
   @ApiUnauthorizedResponse({ type: ErrorResponseDto })
@@ -61,9 +61,9 @@ export class ScenariosController {
   @HttpCode(201)
   @ApiOperation({
     summary:
-      'Run a demo scenario: open or close a fuse, cut or restore voltage, drop or restore a transformer phase (US31 · F-100).',
+      'Run a demo scenario: fuse, voltage, phase, low energy, free fall, solar panel, overload or device inactivity (US31 · F-100).',
     description:
-      'Writes what the device would send: one telemetry reading (falcon_values or smac_vc_values) and one alarm event with the Technical Annex §4.2 code (13xx20, 13xx21, 05xx21y), SET or CLEAR, both stamped now. The map, GET /faults and the node detail then react through their normal rules on the next refresh. Only for Colbits administrators, inside their scope, and only in demo mode. An action that would repeat the current state (opening an open fuse) is refused with 409.',
+      "Writes what the device would send, stamped with the database clock and strictly after its previous record, under a per-device lock. Fuse, voltage and phase actions write one reading and one alarm event with the Technical Annex §4.2 code (13xx20, 13xx21, 05xx21y), SET or CLEAR. Low energy, solar panel and overload write one reading with only their own fields changed and no event; FREE_FALL also writes a 13xx01 MSG event. SILENCE_FALCON / SILENCE_SMAC remove the device's readings of the last inactivity threshold plus one minute and record the silence; RESUME_FALCON / RESUME_SMAC write one reading copied from the last one. The map, GET /faults, GET /device/low-energy and GET /device/inactive then react through their normal rules. Only for Colbits administrators, inside their scope, and only in a designated synthetic demo database (403 otherwise). An action that would change nothing, or that would break another scenario, is refused with 409 and nothing is written.",
   })
   @ApiCreatedResponse({ type: ScenarioResultDto })
   @ApiBadRequestResponse({
@@ -83,7 +83,8 @@ export class ScenariosController {
   })
   @ApiConflictResponse({
     type: ErrorResponseDto,
-    description: 'The target is already in the state the action would set.',
+    description:
+      'Nothing is written. The target is already in the state the action would set; or its device is silenced (run RESUME_* first); or SILENCE would remove alarm events, erase or bring back another scenario, change an overload or imbalance alert, or has no older reading to keep; or the device has a record too far in the future; or the target changed during the request. The message says which.',
   })
   async run(@Body() body: RunScenarioDto, @Req() request: Request) {
     const user = (
