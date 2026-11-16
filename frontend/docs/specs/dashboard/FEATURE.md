@@ -27,7 +27,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - Node detail panel: live status (F-27, F-29) ✅ · time series and alarm history 🔲 (node view, F-28)
 - Time of the last successful map refresh (F-32): in the top bar with the _Live_ / _Stale_ state (shared, in `AppShell`), on the map below 1024 px ✅ ([SCRUM-111](./SCRUM-111.md))
 - Warning when the map stops refreshing (F-31): banner on the map (M10) and red dot in the top bar ✅ ([SCRUM-111](./SCRUM-111.md))
-- Alarm selection → map focus: clicking a card of the _Active_, _Resolved_ or _Inactive devices_ tab centers the map on its node, like the search (F-34) ✅
+- Alarm selection → map focus: clicking a card of the _Active_, _Resolved_ or _Inactive devices_ tab centers the map on its node, like the search (F-34), and opens its detail (F-27) ✅
 - Demo scenario panel in the node detail, for the administrator in demo mode only (F-100, NF-01, NF-03) 🔲 ([SCRUM-218](./SCRUM-218.md))
 - Responsive layout: mobile navigation drawer, collapsible location filters and map legend, and fault panel bottom sheet below desktop width ✅
 
