@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Node } from '../nodes/node.entity';
@@ -7,8 +7,28 @@ import { ScopeContext } from '../scope/scope.types';
 import {
   ActiveFaultDto,
   ActiveFaultsResponseDto,
+  FaultNodeCountersDto,
   FaultWarning,
+  ResolvedWindow,
 } from './dto/faults.dto';
+import {
+  FREE_FALL_ALERT_PARAMETERS,
+  FREE_FALL_ALERTS_SQL,
+  FalconAlertRow,
+  OVERLOAD_ALERTS_SQL,
+  OverloadAlertRow,
+  RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_OVERLOAD_ALERTS_SQL,
+  RESOLVED_SOLAR_PANEL_ALERTS_SQL,
+  ResolvedFalconAlertRow,
+  ResolvedOverloadAlertRow,
+  SOLAR_PANEL_ALERTS_SQL,
+  toFalconAlertDto,
+  toOverloadAlertDto,
+  toResolvedFalconAlertDto,
+  toResolvedOverloadAlertDto,
+} from './device-alert-queries';
+import { DeviceAlertThresholds } from './device-alert-thresholds';
 import {
   ALERT_TYPE_DEFINITIONS,
   ALERT_TYPES,
@@ -21,24 +41,25 @@ import { orderFaults } from './fault-ordering';
 import { FaultsService } from './faults.service';
 import {
   ACTIVE_SOURCE_ALARMS_SQL,
+  RESOLVED_SOURCE_ALARMS_SQL,
   SOURCE_ALARM_PATTERNS,
+  SourceAlarmEpisode,
+  SourceAlarmEpisodeRow,
   SourceAlarmRow,
   SourceAlarmSkipReason,
   toSourceAlarmDto,
+  toSourceAlarmEpisode,
 } from './source-alarms';
 
 const FUSE_OPENING_PATTERN = requiredPattern('FUSE_OPENING');
 
-/** Every documented Annex §4.2 pattern: a code that matches none of them is unrecognized. */
 const DOCUMENTED_PATTERNS: string[] = ALERT_TYPES.flatMap((type) => {
   const { eventCodePattern } = ALERT_TYPE_DEFINITIONS[type];
   return eventCodePattern === null ? [] : [eventCodePattern];
 });
 
-/** Distinct unrecognized codes logged per process, so a bad code cannot flood the log. */
 const MAX_REPORTED_CODES = 100;
 
-/** `alarms.event_type` values of the fuse-opening lifecycle (Annex §4.2 writes them in lower case). */
 const LIFECYCLE_TYPES = new Map<string, FuseEvent['type']>([
   ['SET', 'SET'],
   ['set', 'SET'],
@@ -46,33 +67,8 @@ const LIFECYCLE_TYPES = new Map<string, FuseEvent['type']>([
   ['clear', 'CLEAR'],
 ]);
 
-/**
- * US10 · F-47 / F-48 / F-49: the events of every fuse set that has a fuse currently open, in one
- * statement (one consistent snapshot).
- *
- * `latest` takes the latest fuse-opening event of each in-scope fuse (a same-instant tie counts as
- * SET, as in the grouping rule); `open_sets` keeps the sets where it is a SET. The final SELECT
- * returns every fuse-opening event of those sets, so a fault that has been open for months still has
- * its first opening, and a chain of openings is complete. It also returns the rows of those fuses
- * whose code matches no documented pattern, only so they can be reported as unrecognized.
- * There is no time lookback. Fuses are joined by `custom_id`: `current_hw_id` keeps no history.
- *
- * Parameters: $1 node names in scope, $2 the fuse-opening pattern, $3 every documented pattern.
- * The patterns are the registry's, passed as values; `~` and `classifyEventCode` agree on every
- * input (checked against PostgreSQL in test/faults.e2e-spec.ts), and the code is not normalized.
- *
- * Source of truth: `alarms`. A fuse whose telemetry (`last_falcon_values.fuse_state`) says open but
- * whose alarm history does not is NOT listed: Scope v6.0 §3.2 takes openings and closings from the
- * alarms, and the seed has such a case (0000100002-A-R). The map may then show a node as critical
- * while the list has no fault for it.
- *
- * Performance: step 1 reads the alarms of every in-scope fuse through `idx_alarms_custom_id`, so its
- * cost grows with the alarm history. Measured on 2.9M alarm rows, 18,000 fuses and 4 open sets:
- * about 3.9 s with the existing indexes and about 0.26 s with an index on
- * `alarms (custom_id, recorded_at DESC)`, which makes it independent of the history length.
- * That index is recommended but is not created here: it changes a Colbits table and needs a team
- * decision. Orphan alarms (no fuse with that `custom_id`) cannot be placed in a set and are ignored.
- */
+const HOUR_MS = 3_600_000;
+
 export const ACTIVE_FAULT_EVENTS_SQL = `
   WITH latest AS (
     SELECT fs.id AS fuses_set_id, last_event.is_set
@@ -97,6 +93,33 @@ export const ACTIVE_FAULT_EVENTS_SQL = `
          a.event_code, a.event_type, a.recorded_at
   FROM open_sets o
   JOIN public.fuses_sets fs ON fs.id = o.fuses_set_id
+  JOIN public.nodes n ON n.name = fs.node_id
+  JOIN public.circuits c ON c.id = n.circuit_id
+  JOIN public.fuses f ON f.fuses_set_id = fs.id
+  JOIN public.alarms a ON a.custom_id = f.custom_id
+  WHERE (a.event_code ~ $2::text AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear'))
+     OR NOT (a.event_code ~ ANY($3::text[]))
+  ORDER BY fs.id, a.recorded_at, a.event_type, f.custom_id
+`;
+
+export const RESOLVED_FAULT_EVENTS_SQL = `
+  WITH candidate_sets AS (
+    SELECT DISTINCT fs.id AS fuses_set_id
+    FROM public.fuses_sets fs
+    JOIN public.fuses f ON f.fuses_set_id = fs.id
+    JOIN public.alarms a ON a.custom_id = f.custom_id
+    WHERE fs.node_id = ANY($1::text[])
+      AND a.event_code ~ $2::text
+      AND a.event_type IN ('CLEAR', 'clear')
+      AND a.recorded_at >= $4::timestamptz
+      AND a.recorded_at <= $5::timestamptz
+  )
+  SELECT fs.id AS fuses_set_id, fs.node_id, fs.set_id AS branch, fs.client_count,
+         c.id AS circuit_id, c.name AS circuit_name,
+         f.custom_id AS fuse_id, f.phase,
+         a.event_code, a.event_type, a.recorded_at
+  FROM candidate_sets cs
+  JOIN public.fuses_sets fs ON fs.id = cs.fuses_set_id
   JOIN public.nodes n ON n.name = fs.node_id
   JOIN public.circuits c ON c.id = n.circuit_id
   JOIN public.fuses f ON f.fuses_set_id = fs.id
@@ -133,14 +156,27 @@ interface SetInfo {
  * - fuse-opening faults (US10): the alarm events are grouped per fuse set within the configured
  *   window, classified by distinct canonical phases, and only the open ones are returned;
  * - source alarms (SCRUM-225): loss of voltage per fuse and SMAC phase alarms per transformer
- *   channel, never grouped (see source-alarms.ts).
+ *   channel, never grouped (see source-alarms.ts);
+ * - device alerts (SCRUM-245, US18): free fall and solar-panel failure per Falcon fuse, and overload
+ *   or imbalance per SMAC transformer, never grouped (see device-alerts.ts and
+ *   device-alert-queries.ts). They come from `alarms` (free fall) and from the telemetry
+ *   (solar panel, overload, imbalance), all derived on each request like the rest.
  * It filters and groups; it does not detect anything new (F-47).
+ *
+ * Alarm lifecycles (F-59, F-60) are derived from `alarms` on every request; nothing is stored:
+ * - source alarms: active from the first SET after the last CLEAR until the next CLEAR, which is
+ *   the resolution time; a CLEAR wins at the same instant (details in source-alarms.ts);
+ * - fuse openings: each fuse has an opening from its first SET to its next CLEAR, and a SET wins at
+ *   the same instant (fault-grouping.ts). The openings are listed grouped as one fault, which is
+ *   open while any of them is open. Resolved faults and alarms (F-61, F-62) are listed by
+ *   resolvedFaults.
  */
 @Injectable()
-export class ActiveFaultsService {
+export class ActiveFaultsService implements OnModuleInit {
   private readonly logger = new Logger(ActiveFaultsService.name);
   private readonly reportedCodes = new Set<string>();
   private readonly reportedSourceAlarms = new Set<string>();
+  private readonly reportedThresholdNotices = new Set<string>();
 
   constructor(
     @InjectRepository(Node)
@@ -148,7 +184,11 @@ export class ActiveFaultsService {
     private readonly faultsService: FaultsService,
   ) {}
 
-  /** `now` is injectable so open durations are exact in tests. */
+  /** Says once, at startup, which device-alert thresholds are invalid or unset (TD-10). */
+  onModuleInit(): void {
+    this.deviceAlertThresholds();
+  }
+
   async activeFaults(
     scope: ScopeContext,
     now: Date = new Date(),
@@ -156,20 +196,198 @@ export class ActiveFaultsService {
     const nodes = await this.nodesInScope(scope);
     if (nodes.length === 0) return responseOf(now, []);
 
-    // Independent statements on the same node list, so they run in parallel.
-    const [rows, sourceRows]: [EventRow[], SourceAlarmRow[]] =
-      await Promise.all([
-        this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
-          nodes,
-          FUSE_OPENING_PATTERN,
-          DOCUMENTED_PATTERNS,
-        ]),
-        this.nodesRepository.query(ACTIVE_SOURCE_ALARMS_SQL, [
-          nodes,
-          ...SOURCE_ALARM_PATTERNS,
-        ]),
-      ]);
+    const thresholds = this.deviceAlertThresholds();
+    const [rows, sourceRows, freeFallRows, solarRows, overloadRows]: [
+      EventRow[],
+      SourceAlarmRow[],
+      FalconAlertRow[],
+      FalconAlertRow[],
+      OverloadAlertRow[],
+    ] = await Promise.all([
+      this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
+        nodes,
+        FUSE_OPENING_PATTERN,
+        DOCUMENTED_PATTERNS,
+      ]),
+      this.nodesRepository.query(ACTIVE_SOURCE_ALARMS_SQL, [
+        nodes,
+        ...SOURCE_ALARM_PATTERNS,
+      ]),
+      this.nodesRepository.query(FREE_FALL_ALERTS_SQL, [
+        nodes,
+        ...FREE_FALL_ALERT_PARAMETERS,
+      ]),
+      this.nodesRepository.query(SOLAR_PANEL_ALERTS_SQL, [nodes]),
+      this.nodesRepository.query(OVERLOAD_ALERTS_SQL, [
+        nodes,
+        thresholds.overloadPercent,
+        thresholds.voltageUnbalancePercent,
+        thresholds.currentUnbalancePercent,
+      ]),
+    ]);
 
+    const { sets, events } = this.collectEvents(rows);
+
+    const fuseFaults = groupFuseFaults(
+      events,
+      this.faultsService.getGroupingWindowMinutes(),
+    )
+      .filter((fault) => fault.state === 'OPEN')
+      .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
+
+    const sourceAlarms = this.collectSourceAlarms(sourceRows, now);
+    const deviceAlerts = [
+      ...freeFallRows.map((row) => toFalconAlertDto('FREE_FALL', row, now)),
+      ...solarRows.map((row) =>
+        toFalconAlertDto('SOLAR_PANEL_FAILURE', row, now),
+      ),
+      ...this.collectOverloadAlerts(overloadRows, thresholds, now),
+    ];
+    const weights = this.faultsService.getSeverityWeights?.();
+
+    return responseOf(
+      now,
+      orderFaults([...fuseFaults, ...sourceAlarms, ...deviceAlerts], weights),
+    );
+  }
+
+  async resolvedFaults(
+    scope: ScopeContext,
+    window: ResolvedWindow = '24h',
+    now: Date = new Date(),
+  ): Promise<ActiveFaultsResponseDto> {
+    const nodes = await this.nodesInScope(scope);
+    if (nodes.length === 0) return responseOf(now, []);
+
+    const hours = window === '1h' ? 1 : 24;
+    const cutoff = new Date(now.getTime() - hours * HOUR_MS);
+
+    const thresholds = this.deviceAlertThresholds();
+    const [
+      rows,
+      sourceRows,
+      freeFallRows,
+      solarRows,
+      overloadRows,
+    ]: [
+      EventRow[],
+      SourceAlarmRow[],
+      ResolvedFalconAlertRow[],
+      ResolvedFalconAlertRow[],
+      ResolvedOverloadAlertRow[],
+    ] = await Promise.all([
+      this.nodesRepository.query(RESOLVED_FAULT_EVENTS_SQL, [
+        nodes,
+        FUSE_OPENING_PATTERN,
+        DOCUMENTED_PATTERNS,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+      // RESOLVED_SOURCE_ALARMS_SQL takes $1-$5 only; the upper bound (now) is applied below.
+      this.nodesRepository.query(RESOLVED_SOURCE_ALARMS_SQL, [
+        nodes,
+        ...SOURCE_ALARM_PATTERNS,
+        cutoff.toISOString(),
+      ]),
+      this.nodesRepository.query(RESOLVED_FREE_FALL_ALERTS_SQL, [
+        nodes,
+        ...FREE_FALL_ALERT_PARAMETERS,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+      this.nodesRepository.query(RESOLVED_SOLAR_PANEL_ALERTS_SQL, [
+        nodes,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+      this.nodesRepository.query(RESOLVED_OVERLOAD_ALERTS_SQL, [
+        nodes,
+        thresholds.overloadPercent,
+        thresholds.voltageUnbalancePercent,
+        thresholds.currentUnbalancePercent,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+    ]);
+
+    const { sets, events } = this.collectEvents(rows);
+
+    const fuseFaults = groupFuseFaults(
+      events,
+      this.faultsService.getGroupingWindowMinutes(),
+    )
+      .filter(
+        (fault) =>
+          fault.state === 'RESOLVED' &&
+          fault.endedAt !== null &&
+          fault.endedAt.getTime() >= cutoff.getTime() &&
+          fault.endedAt.getTime() <= now.getTime(),
+      )
+      .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
+
+    const sourceAlarms = this.collectSourceAlarms(sourceRows, now).filter(
+      (alarm) =>
+        alarm.state === 'RESOLVED' &&
+        alarm.ended_at !== null &&
+        new Date(alarm.ended_at).getTime() >= cutoff.getTime() &&
+        new Date(alarm.ended_at).getTime() <= now.getTime(),
+    );
+
+    const deviceAlerts = [
+      ...freeFallRows.map((row) => toResolvedFalconAlertDto('FREE_FALL', row)),
+      ...solarRows.map((row) =>
+        toResolvedFalconAlertDto('SOLAR_PANEL_FAILURE', row),
+      ),
+      ...overloadRows.map((row) => toResolvedOverloadAlertDto(row)),
+    ];
+
+    const allResolved = [...fuseFaults, ...sourceAlarms, ...deviceAlerts].sort(
+      (a, b) => {
+      const endedDiff =
+        new Date(b.ended_at as string).getTime() -
+        new Date(a.ended_at as string).getTime();
+      if (endedDiff !== 0) return endedDiff;
+      const startedDiff =
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime();
+      if (startedDiff !== 0) return startedDiff;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
+
+    return responseOf(now, allResolved);
+  }
+
+  async resolvedSourceAlarms(
+    scope: ScopeContext,
+    resolvedSince: Date,
+  ): Promise<SourceAlarmEpisode[]> {
+    if (
+      !(resolvedSince instanceof Date) ||
+      Number.isNaN(resolvedSince.getTime())
+    ) {
+      throw new RangeError('resolvedSince must be a valid Date');
+    }
+
+    const nodes = await this.nodesInScope(scope);
+    if (nodes.length === 0) return [];
+
+    const rows: SourceAlarmEpisodeRow[] = await this.nodesRepository.query(
+      RESOLVED_SOURCE_ALARMS_SQL,
+      [nodes, ...SOURCE_ALARM_PATTERNS, resolvedSince],
+    );
+
+    const episodes: SourceAlarmEpisode[] = [];
+    for (const row of rows) {
+      const mapped = toSourceAlarmEpisode(row);
+      if ('episode' in mapped) episodes.push(mapped.episode);
+      else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Resolved');
+    }
+    return episodes;
+  }
+
+  private collectEvents(rows: EventRow[]): {
+    sets: Map<number, SetInfo>;
+    events: FuseEvent[];
+  } {
     const sets = new Map<number, SetInfo>();
     const events: FuseEvent[] = [];
     for (const row of rows) {
@@ -191,25 +409,60 @@ export class ActiveFaultsService {
         at: new Date(row.recorded_at),
       });
     }
+    return { sets, events };
+  }
 
-    const fuseFaults = groupFuseFaults(
-      events,
-      this.faultsService.getGroupingWindowMinutes(),
-    )
-      .filter((fault) => fault.state === 'OPEN')
-      .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
-
+  private collectSourceAlarms(
+    sourceRows: SourceAlarmRow[],
+    now: Date,
+  ): ActiveFaultDto[] {
     const sourceAlarms: ActiveFaultDto[] = [];
     for (const row of sourceRows) {
       const mapped = toSourceAlarmDto(row, now);
       if ('fault' in mapped) sourceAlarms.push(mapped.fault);
-      else this.reportSkippedSourceAlarm(row, mapped.skipped);
+      else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Active');
     }
-
-    return responseOf(now, orderFaults([...fuseFaults, ...sourceAlarms]));
+    return sourceAlarms;
   }
 
-  /** Same scope rule as the nodes list: the names of the nodes the user may see. */
+  private collectOverloadAlerts(
+    rows: OverloadAlertRow[],
+    thresholds: DeviceAlertThresholds,
+    now: Date,
+  ): ActiveFaultDto[] {
+    const alerts: ActiveFaultDto[] = [];
+    for (const row of rows) {
+      const alert = toOverloadAlertDto(row, thresholds, now);
+      if (alert !== null) {
+        alerts.push(alert);
+        continue;
+      }
+      const key = `OVERLOAD_UNBALANCE:${row.source_id}`;
+      if (
+        !this.reportedSourceAlarms.has(key) &&
+        this.reportedSourceAlarms.size < MAX_REPORTED_CODES
+      ) {
+        this.reportedSourceAlarms.add(key);
+        this.logger.warn(
+          `Overload alert for transformer ${JSON.stringify(row.source_id)} not listed: no condition is above its threshold for its last values`,
+        );
+      }
+    }
+    return alerts;
+  }
+
+  /** The device-alert thresholds, logging each notice (invalid or unset setting) only once. */
+  private deviceAlertThresholds(): DeviceAlertThresholds {
+    const { thresholds, warnings } =
+      this.faultsService.getDeviceAlertThresholds();
+    for (const warning of warnings) {
+      if (this.reportedThresholdNotices.has(warning)) continue;
+      this.reportedThresholdNotices.add(warning);
+      this.logger.warn(warning);
+    }
+    return thresholds;
+  }
+
   private async nodesInScope(scope: ScopeContext): Promise<string[]> {
     if (scope.kind === 'empty') return [];
 
@@ -221,7 +474,6 @@ export class ActiveFaultsService {
     return (await query.getMany()).map((node) => node.name);
   }
 
-  /** Minimal diagnostic: each distinct unrecognized code is logged once, never mapped or returned. */
   private reportUnrecognized(row: EventRow): void {
     if (
       this.reportedCodes.has(row.event_code) ||
@@ -235,12 +487,13 @@ export class ActiveFaultsService {
     );
   }
 
-  /** An active source alarm that could not be listed (e.g. unknown SMAC channel): logged once, not guessed. */
+  /** A source alarm that could not be listed (e.g. unknown SMAC channel): logged once per list, not guessed. */
   private reportSkippedSourceAlarm(
     row: SourceAlarmRow,
     reason: SourceAlarmSkipReason,
+    list: 'Active' | 'Resolved',
   ): void {
-    const key = `${reason}:${row.source_id}:${row.event_code}`;
+    const key = `${list}:${reason}:${row.source_id}:${row.event_code}`;
     if (
       this.reportedSourceAlarms.has(key) ||
       this.reportedSourceAlarms.size >= MAX_REPORTED_CODES
@@ -249,7 +502,7 @@ export class ActiveFaultsService {
     }
     this.reportedSourceAlarms.add(key);
     this.logger.warn(
-      `Active alarm event_code ${JSON.stringify(row.event_code)} on ${JSON.stringify(row.source_id)} not listed: ${reason}`,
+      `${list} alarm event_code ${JSON.stringify(row.event_code)} on ${JSON.stringify(row.source_id)} not listed: ${reason}`,
     );
   }
 }
@@ -271,11 +524,17 @@ function setInfoOf(row: EventRow): SetInfo {
   };
 }
 
-function toDto(fault: FuseFault, info: SetInfo, now: Date): ActiveFaultDto {
+export function toDto(
+  fault: FuseFault,
+  info: SetInfo,
+  now: Date,
+): ActiveFaultDto {
   const rawPhases = fault.openings.map((opening) => opening.phase);
   const classification = classifyFault(rawPhases);
   const warnings: FaultWarning[] =
     classification === null ? ['PHASES_UNCLASSIFIED'] : [];
+
+  const endInstant = fault.endedAt ?? now;
 
   return {
     id: `${fault.fusesSetId}:${fault.startedAt.toISOString()}`,
@@ -287,15 +546,15 @@ function toDto(fault: FuseFault, info: SetInfo, now: Date): ActiveFaultDto {
     device: 'FALCON',
     source_id: null,
     channel: null,
-    state: 'OPEN',
+    state: fault.state,
     phases: classification === null ? null : canonicalPhases(rawPhases),
     classification,
     client_count: info.clientCount,
     started_at: fault.startedAt.toISOString(),
-    ended_at: null,
+    ended_at: fault.endedAt === null ? null : fault.endedAt.toISOString(),
     duration_seconds: Math.max(
       0,
-      Math.floor((now.getTime() - fault.startedAt.getTime()) / 1000),
+      Math.floor((endInstant.getTime() - fault.startedAt.getTime()) / 1000),
     ),
     openings: fault.openings.map((opening) => ({
       fuse_id: opening.fuseId,
@@ -303,7 +562,46 @@ function toDto(fault: FuseFault, info: SetInfo, now: Date): ActiveFaultDto {
       opened_at: opening.openedAt.toISOString(),
       closed_at: opening.closedAt ? opening.closedAt.toISOString() : null,
     })),
+    conditions: null,
+    transformer_load: null,
     warnings,
+  };
+}
+
+/**
+ * US15 · F-58: Counts distinct nodes with a fuse alarm, voltage alarm,
+ * phase out of range, and phase drop among the returned faults.
+ */
+export function countNodesByAlertType(
+  faults: readonly ActiveFaultDto[],
+): FaultNodeCountersDto {
+  const fuseNodes = new Set<string>();
+  const voltageNodes = new Set<string>();
+  const phaseOutOfRangeNodes = new Set<string>();
+  const phaseDropNodes = new Set<string>();
+
+  for (const fault of faults) {
+    switch (fault.alert_type) {
+      case 'FUSE_OPENING':
+        fuseNodes.add(fault.node);
+        break;
+      case 'NO_VOLTAGE':
+        voltageNodes.add(fault.node);
+        break;
+      case 'PHASE_OUT_OF_RANGE':
+        phaseOutOfRangeNodes.add(fault.node);
+        break;
+      case 'PHASE_LOSS':
+        phaseDropNodes.add(fault.node);
+        break;
+    }
+  }
+
+  return {
+    fuseAlarmNodes: fuseNodes.size,
+    voltageAlarmNodes: voltageNodes.size,
+    phaseOutOfRangeNodes: phaseOutOfRangeNodes.size,
+    phaseDroppedNodes: phaseDropNodes.size,
   };
 }
 
@@ -314,6 +612,7 @@ function responseOf(
   return {
     generated_at: now.toISOString(),
     count: faults.length,
+    counters: countNodesByAlertType(faults),
     faults,
   };
 }

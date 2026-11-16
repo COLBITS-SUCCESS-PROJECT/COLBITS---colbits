@@ -78,6 +78,7 @@ No hex/rgb colors and no `[13px]`-style arbitrary values in components. Use thes
 | `DataField`        | Fault List Item cells | Uppercase caption + value; shows "—" when empty. Inside a `<dl>`                                             | `label`, `value`                                                                                           |
 | `ScopeTag`         | Scope Tag             | Blue pill naming one network element of a data scope (user list, selected scope)                             | `label`, `icon`                                                                                            |
 | `ScopeTreeRow`     | Scope Tree Row        | Indented checkable row of the zone › substation › circuit › node › device tree                               | `label`, `icon`, `level` (0–4), `isChecked`, `isIndeterminate`, `isDisabled`, `meta`, `expand`, `onToggle` |
+| `Banner`           | Banner · Kind=Stale   | Message strip with icon and optional text action, announced as an alert. Only Kind=Stale is built            | `kind`, `message`, `actionLabel`, `onAction`                                                               |
 
 ## Organisms — `organisms/`
 
@@ -94,7 +95,7 @@ No hex/rgb colors and no `[13px]`-style arbitrary values in components. Use thes
 
 | Figma component                                                | Layer                | Where it should live                  |
 | -------------------------------------------------------------- | -------------------- | ------------------------------------- |
-| Banner / Alert (Stale · Filter active · Info)                  | Molecule             | design-system                         |
+| Banner kinds Filter active and Info (Stale is built)           | Molecule             | design-system (new `kind`)            |
 | KPI Card                                                       | Molecule             | design-system (`analysis`, `reports`) |
 | Level Bar                                                      | Atom (`ProgressBar`) | design-system                         |
 | Telemetry Row, Fuse Row, Fuse Group Card, Inactive Device Card | Molecule / organism  | feature `dashboard`                   |

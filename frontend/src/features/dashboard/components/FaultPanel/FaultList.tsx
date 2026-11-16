@@ -11,9 +11,11 @@ export interface FaultListProps {
   isLoading: boolean
   isError: boolean
   onRetry: () => void
+  /** A card was clicked: its node. */
+  onSelect?: (nodeId: string) => void
 }
 
-export function FaultList({ faults, isLoading, isError, onRetry }: FaultListProps) {
+export function FaultList({ faults, isLoading, isError, onRetry, onSelect }: FaultListProps) {
   const { t } = useTranslation('dashboard')
 
   if (isLoading) {
@@ -50,7 +52,7 @@ export function FaultList({ faults, isLoading, isError, onRetry }: FaultListProp
     <ul className="flex flex-col gap-2">
       {faults.map((fault) => (
         <li key={fault.id}>
-          <FaultListItem fault={fault} />
+          <FaultListItem fault={fault} onSelect={onSelect} />
         </li>
       ))}
     </ul>

@@ -12,6 +12,9 @@ const DTO: ActiveFaultDto = {
   fuses_set_id: 2,
   branch: 'B',
   alert_type: 'FUSE_OPENING',
+  device: 'FALCON',
+  source_id: null,
+  channel: null,
   state: 'OPEN',
   phases: ['R', 'S'],
   classification: 'BIPHASIC',
@@ -46,6 +49,7 @@ describe('toFaultAlert', () => {
       phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'OK' },
       classification: 'BIPHASIC',
       startedAt: new Date(STARTED_AT),
+      endedAt: null,
       durationMinutes: 15,
       customersAffected: 80,
       transformerLoad: null,
@@ -81,6 +85,73 @@ describe('toFaultAlert', () => {
 
   it('draws no phases for an empty list', () => {
     expect(toFaultAlert({ ...DTO, phases: [] }).phases).toBeNull()
+  })
+})
+
+describe('toFaultAlert — source alarms (SCRUM-225)', () => {
+  const SOURCE_ALARM: ActiveFaultDto = {
+    ...DTO,
+    id: `NO_VOLTAGE:0000100002-A-R:${STARTED_AT}`,
+    fuses_set_id: null,
+    branch: null,
+    alert_type: 'NO_VOLTAGE',
+    source_id: '0000100002-A-R',
+    phases: ['R'],
+    classification: null,
+    client_count: null,
+    openings: [],
+  }
+  const SMAC_ALARM: ActiveFaultDto = {
+    ...SOURCE_ALARM,
+    id: `PHASE_LOSS:T-1:A:${STARTED_AT}`,
+    alert_type: 'PHASE_LOSS',
+    device: 'SMAC',
+    source_id: 'T-1',
+    channel: 'A',
+    phases: null,
+  }
+
+  it('maps a loss of voltage as a Falcon alert, amber, with the phase of its fuse', () => {
+    const fault = toFaultAlert(SOURCE_ALARM)
+
+    expect(fault).toMatchObject({
+      device: 'FALCON',
+      type: 'NO_VOLTAGE',
+      severity: 'WARNING',
+      branch: null,
+      phases: { R: 'CRITICAL', S: 'OK', T: 'OK' },
+      classification: null,
+      customersAffected: null,
+    })
+  })
+
+  it.each(['PHASE_LOSS', 'PHASE_OUT_OF_RANGE'] as const)(
+    'maps %s as a SMAC alert, amber, without R · S · T phases (a channel is not a phase)',
+    (alertType) => {
+      const fault = toFaultAlert({ ...SMAC_ALARM, alert_type: alertType })
+
+      expect(fault).toMatchObject({ device: 'SMAC', type: alertType, severity: 'WARNING' })
+      expect(fault.phases).toBeNull()
+    }
+  )
+
+  it('keeps a fuse opening red', () => {
+    expect(toFaultAlert(DTO).severity).toBe('CRITICAL')
+  })
+})
+
+describe('toFaultAlert — resolved alarms (US16)', () => {
+  it('maps a resolved alarm with its resolution time and its total duration (F-60, F-63)', () => {
+    const fault = toFaultAlert({
+      ...DTO,
+      state: 'RESOLVED',
+      ended_at: '2026-10-29T15:50:00.000Z',
+      duration_seconds: 2700,
+    })
+
+    expect(fault.status).toBe('RESOLVED')
+    expect(fault.endedAt).toEqual(new Date('2026-10-29T15:50:00.000Z'))
+    expect(fault.durationMinutes).toBe(45)
   })
 })
 

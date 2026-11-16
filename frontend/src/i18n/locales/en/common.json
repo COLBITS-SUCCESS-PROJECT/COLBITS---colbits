@@ -84,6 +84,7 @@
     "lastUpdate": "Last update: {{time}}",
     "live": "Live data",
     "stale": "Stale data",
+    "interrupted": "Updates interrupted",
     "refresh": "Refresh data"
   },
   "language": {

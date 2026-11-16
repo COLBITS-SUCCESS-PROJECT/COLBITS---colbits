@@ -1,20 +1,22 @@
 import { ActiveFaultDto } from './dto/faults.dto';
-import { ALERT_TYPES } from './fault-alert-types';
 
 /**
- * Order of the active fault listing (F-57, SCRUM-237): by severity, which is the number of affected
- * clients, and for equal severity by the age of the fault. Pure functions; the listing is
- * `orderFaults`.
- *
- * Sort keys, in this order:
- *   1. `client_count`, highest first. A null count sorts as 0 (provisional sorting fallback, pending
- *      team review; not a client requirement). Only the sort treats it so: null still means
- *      "unknown or not available" (CL-17), is never turned into 0 in the response, and a known 0 and
- *      a null tie on this key. Every source alarm has a null count today.
- *   2. `started_at`, oldest first (the first opening of a fault, the first SET of a source alarm).
- *   3. Tie-breakers, which keep the result independent of the order of the input: alert type
- *      (registry order, FUSE_OPENING first), source, SMAC channel, fuse set, id.
+ * Configurable severity weights per alarm type (US15 · NF-11, SCRUM-238).
+ * Higher weight = higher priority in the fault list.
  */
+export interface SeverityWeights {
+  fuseAlarm: number;
+  voltageAlarm: number;
+  droppedPhase: number;
+  phaseOutOfRange: number;
+}
+
+export const DEFAULT_SEVERITY_WEIGHTS: Readonly<SeverityWeights> = {
+  fuseAlarm: 100,
+  voltageAlarm: 75,
+  droppedPhase: 50,
+  phaseOutOfRange: 25,
+};
 
 /** The fields of an active fault that decide its position in the listing. */
 export type FaultOrderKey = Pick<
@@ -28,17 +30,51 @@ export type FaultOrderKey = Pick<
   | 'id'
 >;
 
-/** Order of the alert types at the same instant: the registry order (FUSE_OPENING first). */
-const TYPE_ORDER = new Map<string, number>(
-  ALERT_TYPES.map((type, index) => [type, index]),
-);
+export function weightOfAlertType(
+  alertType: FaultOrderKey['alert_type'],
+  weights: SeverityWeights = DEFAULT_SEVERITY_WEIGHTS,
+): number {
+  switch (alertType) {
+    case 'FUSE_OPENING':
+      return weights.fuseAlarm;
+    case 'NO_VOLTAGE':
+      return weights.voltageAlarm;
+    case 'PHASE_LOSS':
+      return weights.droppedPhase;
+    case 'PHASE_OUT_OF_RANGE':
+      return weights.phaseOutOfRange;
+    default:
+      return 0;
+  }
+}
+
+function isCustomWeights(weights: SeverityWeights): boolean {
+  return (
+    weights.fuseAlarm !== DEFAULT_SEVERITY_WEIGHTS.fuseAlarm ||
+    weights.voltageAlarm !== DEFAULT_SEVERITY_WEIGHTS.voltageAlarm ||
+    weights.droppedPhase !== DEFAULT_SEVERITY_WEIGHTS.droppedPhase ||
+    weights.phaseOutOfRange !== DEFAULT_SEVERITY_WEIGHTS.phaseOutOfRange
+  );
+}
 
 /** Negative when `a` is listed before `b`. */
-export function compareFaultOrder(a: FaultOrderKey, b: FaultOrderKey): number {
+export function compareFaultOrder(
+  a: FaultOrderKey,
+  b: FaultOrderKey,
+  weights: SeverityWeights = DEFAULT_SEVERITY_WEIGHTS,
+): number {
+  const weightDiff =
+    weightOfAlertType(b.alert_type, weights) -
+    weightOfAlertType(a.alert_type, weights);
+
+  if (isCustomWeights(weights) && weightDiff !== 0) {
+    return weightDiff;
+  }
+
   return (
     (b.client_count ?? 0) - (a.client_count ?? 0) ||
     Date.parse(a.started_at) - Date.parse(b.started_at) ||
-    (TYPE_ORDER.get(a.alert_type) ?? 0) - (TYPE_ORDER.get(b.alert_type) ?? 0) ||
+    weightDiff ||
     compareText(a.source_id ?? '', b.source_id ?? '') ||
     compareText(a.channel ?? '', b.channel ?? '') ||
     (a.fuses_set_id ?? 0) - (b.fuses_set_id ?? 0) ||
@@ -49,8 +85,9 @@ export function compareFaultOrder(a: FaultOrderKey, b: FaultOrderKey): number {
 /** A new array in listing order; the input is not changed. */
 export function orderFaults<T extends FaultOrderKey>(
   faults: readonly T[],
+  weights: SeverityWeights = DEFAULT_SEVERITY_WEIGHTS,
 ): T[] {
-  return [...faults].sort(compareFaultOrder);
+  return [...faults].sort((a, b) => compareFaultOrder(a, b, weights));
 }
 
 /** Code-unit order, independent of the server locale. */

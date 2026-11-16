@@ -1,4 +1,4 @@
-/** Tests for useLiveMonitoringQuery — real fault service (MSW), error and data-freshness reporting. */
+/** Tests for useLiveMonitoringQuery — real fault service (MSW) and error state. */
 import type { ReactNode } from 'react'
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
@@ -25,7 +25,7 @@ describe('useLiveMonitoringQuery', () => {
   afterEach(() => server.resetHandlers())
   afterAll(() => server.close())
 
-  it('returns the open faults of the fault service and records when they arrived', async () => {
+  it('returns the open faults of the fault service', async () => {
     // Arrange & Act
     const { result } = renderHook(() => useLiveMonitoringQuery(), { wrapper })
 
@@ -36,16 +36,22 @@ describe('useLiveMonitoringQuery', () => {
       'ND04821A07',
     ]) // the third mock fault is outside the north user's scope (F-10)
     expect(result.current.data?.counters).toBeNull() // no counters endpoint yet (US15)
-    expect(useDataFreshnessStore.getState().lastSyncedAt).toBe(result.current.dataUpdatedAt)
   })
 
-  it('exposes the error and does not mark the data as fresh when the request fails', async () => {
+  it('leaves the last update time to the map refresh (F-32)', async () => {
+    const { result } = renderHook(() => useLiveMonitoringQuery(), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(useDataFreshnessStore.getState().lastSyncedAt).toBeNull() // set by useNodesQuery
+  })
+
+  it('exposes the error when the request fails', async () => {
     const failing = () => Promise.reject(new Error('network'))
 
     const { result } = renderHook(() => useLiveMonitoringQuery(failing), { wrapper })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
-    expect(useDataFreshnessStore.getState().lastSyncedAt).toBeNull()
+    expect(result.current.error).toEqual(new Error('network'))
   })
 
   it('handles a network without faults', async () => {

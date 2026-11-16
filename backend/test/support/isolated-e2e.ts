@@ -113,6 +113,9 @@ export const SMAC_TABLES = {
 export interface SmacReading {
   table: keyof typeof SMAC_TABLES;
   hoursAgo: number;
+  // #CORRECTION CL-07/TD-04 (2026-11-09): optional voltages for the phase tests.
+  /** smac_vc_values only: phase-to-neutral voltages; NULL = the phase does not exist (CL-07). */
+  voltages?: { va: number | null; vb: number | null; vc: number | null };
 }
 
 export interface TransformerFixture {
@@ -152,6 +155,22 @@ export async function createSmacNodes(
         [trafo.customId, node, trafo.hwId],
       );
       for (const reading of trafo.readings) {
+        // #CORRECTION CL-07/TD-04 (2026-11-09): insert the voltages when the fixture has them.
+        if (reading.voltages) {
+          await dataSource.query(
+            `INSERT INTO smac_vc_values (hw_id, custom_id, recorded_at, va, vb, vc)
+             VALUES ($1, $2, now() - $3 * interval '1 hour', $4, $5, $6)`,
+            [
+              trafo.hwId,
+              trafo.customId,
+              reading.hoursAgo,
+              reading.voltages.va,
+              reading.voltages.vb,
+              reading.voltages.vc,
+            ],
+          );
+          continue;
+        }
         await dataSource.query(
           `INSERT INTO ${SMAC_TABLES[reading.table]} (hw_id, custom_id, recorded_at) VALUES ($1, $2, now() - $3 * interval '1 hour')`,
           [trafo.hwId, trafo.customId, reading.hoursAgo],

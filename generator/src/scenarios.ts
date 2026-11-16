@@ -390,7 +390,9 @@ function applyScenario(ctx: Ctx, spec: ScenarioSpec): void {
       const count = (spec.phases as number | undefined) ?? 1;
       const node = pickNode(ctx, spec, (n) => (ctx.trafoByNode.get(n)?.phases ?? 0) >= count, 'transformer');
       const trafo = ctx.trafoByNode.get(node) as Trafo;
-      for (let p = 0; p < count; p++) {
+      // #CORRECTION CL-07/TD-22 (2026-11-09): dropped A, B, C by position; now only phases the transformer has.
+      // Only phases the transformer has (CL-07): on a B-C transformer "1 phase" drops B, not A.
+      for (const p of trafo.phaseIndexes.slice(0, count)) {
         const volts = Math.round(ctx.rng.range(80, 95) * 100) / 100;
         const code = `05${FW}21${SMAC_PHASES[p]}`;
         addEffect(ctx, trafo.currentHwId, { kind: 'phase-drop', from: at, to: to(at), phase: p, value: volts });
@@ -405,7 +407,8 @@ function applyScenario(ctx: Ctx, spec: ScenarioSpec): void {
       const trafo = ctx.trafoByNode.get(node) as Trafo;
       const load = Math.round(ctx.rng.range(1.15, 1.35) * 100) / 100;
       addEffect(ctx, trafo.currentHwId, { kind: 'overload', from: at, to: to(at), value: load });
-      push(node, [trafo.customId], `load_percent about ${Math.round(load * 100)} % (> 100 %), telemetry only`, to(at));
+      // #CORRECTION CL-05 (2026-11-09): the text said > 100 %; overload is above 90 %.
+      push(node, [trafo.customId], `load_percent about ${Math.round(load * 100)} % (above the 90 % overload threshold, CL-05), telemetry only`, to(at));
       return;
     }
     case 'low-energy': {

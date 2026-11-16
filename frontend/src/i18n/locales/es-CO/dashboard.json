@@ -17,8 +17,11 @@
     "allZones": "Todas",
     "allSubstations": "Todas",
     "allCircuits": "Todos",
-    "search": "Buscar nodo",
-    "searchPlaceholder": "Buscar nodo o ID…"
+    "search": "Buscar nodo o dispositivo",
+    "searchPlaceholder": "Buscar nodo o ID…",
+    "searchLabel": "Buscar en el mapa",
+    "searchFound": "Mapa centrado en el nodo {{id}}",
+    "searchNotFound": "No hay ningún nodo ni dispositivo «{{query}}» en tu alcance"
   },
   "map": {
     "label": "Mapa de la red",
@@ -33,6 +36,7 @@
     "loading": "Cargando nodos",
     "empty": "No hay nodos dentro de tu alcance.",
     "error": "No se pudieron cargar los nodos.",
+    "interrupted": "Actualización en vivo interrumpida: el mapa dejó de actualizarse.",
     "retry": "Reintentar"
   },
   "fuseState": {
@@ -57,11 +61,16 @@
     "TRANSFORMERS": "Transformadores · SMAC"
   },
   "panel": {
+    "showOnMap": "Ver {{nodeId}} en el mapa y su detalle",
     "title": "Gestión de fallas",
     "openMobile": "Fallas ({{count}})",
     "closeMobile": "Cerrar panel de fallas",
     "activeCount_one": "{{count}} activa",
     "activeCount_other": "{{count}} activas",
+    "resolvedCount_one": "{{count}} resuelta",
+    "resolvedCount_other": "{{count}} resueltas",
+    "resize": "Ajustar el ancho del panel de fallas",
+    "resizeHint": "Arrastra o usa las flechas ← → para ensanchar el panel. Doble clic para restablecer.",
     "tabsLabel": "Tipo de alarmas",
     "tab": {
       "ACTIVE": "Activas",
@@ -85,26 +94,49 @@
       "LAST_HOUR": "Última hora",
       "LAST_DAY": "Último día"
     },
-    "alertType": "Tipo de alerta",
-    "allTypes": "Todos los tipos",
-    "classification": "Clasificación",
-    "allClassifications": "Todas",
-    "minDuration": "Duración mínima ≥ {{minutes}} min",
-    "minDurationHint": "Filtro de duración mínima: se ocultan las fallas más cortas que el umbral.",
-    "minDurationInfo": "Qué hace el filtro de duración mínima",
     "sortNote": "Ordenadas por clientes afectados y luego por la más antigua",
+    "resolvedNote": "Resueltas automáticamente por el equipo · la más reciente primero",
     "empty": "No hay fallas que coincidan con los filtros.",
     "error": "No se pudieron cargar las fallas.",
     "retry": "Reintentar",
     "loading": "Cargando fallas",
-    "inactiveSoon": "La vista de dispositivos inactivos llegará en una próxima historia.",
-    "resolvedSoon": "La lista de fallas resueltas llegará en una próxima historia."
+    "inactiveSoon": "La vista de dispositivos inactivos llegará en una próxima historia."
+  },
+  "inactive": {
+    "title": "Dispositivos inactivos",
+    "nowCount_one": "{{count}} inactivo ahora",
+    "nowCount_other": "{{count}} inactivos ahora",
+    "summary_one": "{{count}} dispositivo · {{window}} · mayor silencio primero",
+    "summary_other": "{{count}} dispositivos · {{window}} · mayor silencio primero",
+    "empty": "No hay dispositivos inactivos en este periodo.",
+    "error": "No se pudieron cargar los dispositivos inactivos.",
+    "loading": "Cargando dispositivos inactivos",
+    "card": {
+      "label": "{{nodeId}} · {{state}}",
+      "now": "Inactivo ahora",
+      "inRange": "Inactivo en el periodo",
+      "silent": "Sin datos {{duration}}",
+      "neverReported": "Nunca ha reportado",
+      "reporting": "Reportando",
+      "location": "{{substation}} › {{circuit}} · {{sourceId}}",
+      "total": "Total inactivo en el periodo",
+      "periodsLabel": "Periodos de inactividad",
+      "period": "{{start}} → {{end}}",
+      "ongoing": "en curso",
+      "threshold_one": "Umbral {{hours}} h ({{device}}) · {{count}} periodo en el rango",
+      "threshold_other": "Umbral {{hours}} h ({{device}}) · {{count}} periodos en el rango"
+    }
   },
   "alertType": {
     "FUSE_OPENING": "Apertura de fusible",
     "NO_VOLTAGE": "Sin tensión",
+    "FREE_FALL": "Caída libre o movimiento anormal",
+    "SOLAR_PANEL_FAILURE": "Falla de panel solar",
     "PHASE_LOSS": "Pérdida de fase",
-    "OVERLOAD_UNBALANCE": "Sobrecarga y desbalance"
+    "PHASE_OUT_OF_RANGE": "Fase fuera de rango",
+    "OVERLOAD_UNBALANCE": "Sobrecarga y desbalance",
+    "LOW_ENERGY": "Baja energía",
+    "DEVICE_INACTIVITY": "Inactividad de dispositivo"
   },
   "classification": {
     "MONOPHASIC": "Monofásica",
@@ -120,6 +152,7 @@
     "phases": "Fases",
     "started": "Inicio",
     "duration": "Duración",
+    "durationClosed": "{{duration}} · cerrada {{time}}",
     "branchValue": "Ramal {{branch}}",
     "customersOut": "clientes sin servicio",
     "customersAffected": "clientes afectados",
@@ -191,5 +224,48 @@
     "retry": "Reintentar",
     "notFound": "Este nodo no está disponible.",
     "volts": "{{value}} V"
+  },
+  "scenarios": {
+    "title": "Escenarios de demo",
+    "note": "Crean datos de prueba como los enviaría el equipo en campo. Solo existen en el entorno de demostración.",
+    "empty": "Este nodo no tiene equipos para simular escenarios.",
+    "fuses": "Escenarios de fusible",
+    "fuse": "Fusible",
+    "fuseOption": "{{id}} · {{state}} · {{voltage}}",
+    "voltage": {
+      "present": "con tensión",
+      "absent": "sin tensión",
+      "unknown": "tensión sin dato"
+    },
+    "transformer": "Escenarios del transformador",
+    "transformerId": "Transformador",
+    "channel": "Fase",
+    "channelOption": "Fase {{channel}} · {{volts}} V",
+    "channelOptionNoReading": "Fase {{channel}}",
+    "action": {
+      "OPEN_FUSE": "Abrir fusible",
+      "CLOSE_FUSE": "Cerrar fusible",
+      "CUT_VOLTAGE": "Cortar tensión",
+      "RESTORE_VOLTAGE": "Restaurar tensión",
+      "DROP_PHASE": "Quitar fase",
+      "RESTORE_PHASE": "Restaurar fase"
+    },
+    "result": {
+      "OPEN_FUSE": "Fusible abierto",
+      "CLOSE_FUSE": "Fusible cerrado",
+      "CUT_VOLTAGE": "Tensión cortada",
+      "RESTORE_VOLTAGE": "Tensión restaurada",
+      "DROP_PHASE": "Fase {{channel}} quitada",
+      "RESTORE_PHASE": "Fase {{channel}} restaurada"
+    },
+    "resultFallback": "{{code}} aplicado",
+    "done": "{{result}} en {{target}} ({{time}}).",
+    "failure": {
+      "ALREADY": "No cambió nada: {{target}} ya está en ese estado.",
+      "NOT_ALLOWED": "El modo demo está apagado o tu usuario no puede lanzar escenarios.",
+      "NOT_FOUND": "No se encontró {{target}} o está fuera de tu alcance.",
+      "INVALID": "El equipo no acepta esta acción. Revisa el fusible o la fase.",
+      "FAILED": "No se pudo lanzar el escenario. Intenta de nuevo."
+    }
   }
 }

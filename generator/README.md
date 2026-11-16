@@ -273,7 +273,11 @@ generated records, so it cannot confirm a gap.
   Device `hw_id`s are 10 hex characters starting with `13` (Falcon) or `05` (SMAC).
 - **Telemetry** — `falcon_values` and the three SMAC tables. Values follow a day/night cycle
   (solar panel, temperature, load). The three SMAC tables are a few seconds apart for the same
-  reading, like the real LoRaWAN uplinks (RF-HIS-10). Two-phase transformers have no phase C values.
+  reading, like the real LoRaWAN uplinks (RF-HIS-10). Two-phase transformers have any pair of phases
+  (A-B, B-C or A-C, chosen per device from the seed), and the missing phase is `NULL` in all three
+  tables, never `0` (CL-07, TD-21, TD-22). `load_percent` is total apparent power ÷ rated VA × 100
+  (CL-05, TD-23), so it matches the generated powers and `rated_kva`; normal operation stays below the
+  90 % overload threshold.
 - `last_*` tables are **not** written by the generator: Colbits' own triggers fill them.
 - Coordinates: each circuit is a short line of poles (~100 m apart) near its substation, so it looks
   like one compact area on the map (F-98).

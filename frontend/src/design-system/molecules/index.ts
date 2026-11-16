@@ -1,4 +1,5 @@
 /** Molecules barrel — composed from atoms. Catalog: src/design-system/README.md */
+export { Banner, type BannerKind, type BannerProps } from './Banner'
 export { CounterCard, type CounterCardProps, type CounterCardTone } from './CounterCard'
 export { DataField, type DataFieldProps } from './DataField'
 export { FormField, type FormFieldProps } from './FormField'

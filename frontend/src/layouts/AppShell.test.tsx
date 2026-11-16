@@ -174,6 +174,23 @@ describe('AppShell', () => {
     )
   })
 
+  it('marks the refresh as interrupted at once when the map refresh fails (F-31)', () => {
+    // Arrange: fresh data, but the last refresh of the map failed
+    useDataFreshnessStore.getState().markSynced(Date.now())
+    useDataFreshnessStore.getState().setInterrupted(true)
+
+    // Act
+    renderShellAt(ROUTES.dashboard)
+
+    // Assert: red dot with its own meaning, and the time of the last successful refresh
+    expect(screen.getByRole('img', { name: 'Actualización interrumpida' })).toHaveAttribute(
+      'data-status',
+      'critical'
+    )
+    expect(screen.queryByRole('img', { name: 'Datos en vivo' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Última actualización:/)).toBeInTheDocument()
+  })
+
   describe('user management entry (F-05, US19)', () => {
     const ADMIN = { id: '1', name: 'admin@colbits.com', role: 'ADMIN' } as const
     const VIEWER = { id: '2', name: 'client@colbits.com', role: 'VIEWER' } as const

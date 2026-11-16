@@ -7,6 +7,8 @@ import {
 
 // US7 · F-19 to F-23 against a real database: the transformer-layer state of GET /nodes comes from
 // the SMAC phase-drop events in `alarms` (05xx21y, SET / CLEAR) and the SMAC inactivity rule.
+// CL-07 / TD-04: the phases a transformer has come from its non-NULL voltage columns within
+// SMAC_PHASE_WINDOW_DAYS (0 by default = the latest reading only); without voltages, the identifier.
 // Uses the isolated database of the F-10 tests and removes every row it creates.
 
 const LABEL = 'US7';
@@ -19,13 +21,21 @@ type Event = {
   code?: '21' | '20';
   withoutCustomId?: boolean;
 };
+// #CORRECTION CL-07/TD-04 (2026-11-09): fixtures can now carry voltages, also older readings.
+type Voltages = { va: number | null; vb: number | null; vc: number | null };
 type Fixture = {
   node: string;
   phases: 2 | 3;
   hoursSinceReading: number;
   events: Event[];
+  /** Voltages of the latest reading, and optionally of older readings (days before it). */
+  voltages?: Voltages;
+  olderReadings?: { daysBefore: number; voltages: Voltages }[];
   expected: string;
 };
+
+const B_C: Voltages = { va: null, vb: 220.4, vc: 219.8 };
+const A_C: Voltages = { va: 220.1, vb: null, vc: 220.6 };
 
 const FIXTURES: Fixture[] = [
   {
@@ -105,6 +115,57 @@ const FIXTURES: Fixture[] = [
     ],
     expected: 'WARNING',
   },
+  // #CORRECTION CL-07/TD-04 (2026-11-09): new cases for B-C and A-C transformers and the 7-day window.
+  // CL-07: a two-phase B-C transformer. A drop on C counts; one on A (a phase it lacks) is ignored.
+  {
+    node: 'TRE2E00010',
+    phases: 2,
+    hoursSinceReading: 1,
+    voltages: B_C,
+    events: [{ channel: 'C', type: 'SET', minutesAgo: 30 }],
+    expected: 'WARNING',
+  },
+  {
+    node: 'TRE2E00011',
+    phases: 2,
+    hoursSinceReading: 1,
+    voltages: B_C,
+    events: [{ channel: 'A', type: 'SET', minutesAgo: 30 }],
+    expected: 'NORMAL',
+  },
+  // CL-07: an A-C transformer with both of its phases down is red; B does not exist.
+  {
+    node: 'TRE2E00012',
+    phases: 2,
+    hoursSinceReading: 1,
+    voltages: A_C,
+    events: [
+      { channel: 'A', type: 'SET', minutesAgo: 30 },
+      { channel: 'B', type: 'SET', minutesAgo: 30 },
+      { channel: 'C', type: 'SET', minutesAgo: 29 },
+    ],
+    expected: 'CRITICAL',
+  },
+  // #CORRECTION TD-04 (2026-11-11): replaces the 7-day cases. CL-24: a failed phase always reports a
+  // number, so a NULL in the latest reading means the phase does not exist, whatever older readings say.
+  {
+    node: 'TRE2E00013',
+    phases: 3,
+    hoursSinceReading: 1,
+    voltages: { va: 220, vb: 220, vc: null },
+    olderReadings: [{ daysBefore: 3, voltages: { va: 220, vb: 220, vc: 221 } }],
+    events: [{ channel: 'C', type: 'SET', minutesAgo: 30 }],
+    expected: 'NORMAL',
+  },
+  // CL-24: a failed phase that still reports a (low) value exists, so its drop counts.
+  {
+    node: 'TRE2E00014',
+    phases: 3,
+    hoursSinceReading: 1,
+    voltages: { va: 220, vb: 220, vc: 85 },
+    events: [{ channel: 'C', type: 'SET', minutesAgo: 30 }],
+    expected: 'WARNING',
+  },
 ];
 
 const NODES = FIXTURES.map((f) => f.node);
@@ -126,7 +187,18 @@ async function create(dataSource: DataSource): Promise<void> {
         {
           customId: trafoOf(f),
           hwId: hwIdOf(f.node),
-          readings: [{ table: 'vc', hoursAgo: f.hoursSinceReading }],
+          readings: [
+            ...(f.olderReadings ?? []).map((older) => ({
+              table: 'vc' as const,
+              hoursAgo: f.hoursSinceReading + older.daysBefore * 24,
+              voltages: older.voltages,
+            })),
+            {
+              table: 'vc' as const,
+              hoursAgo: f.hoursSinceReading,
+              voltages: f.voltages,
+            },
+          ],
         },
       ],
     })),

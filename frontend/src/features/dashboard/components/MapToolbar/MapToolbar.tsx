@@ -7,7 +7,7 @@ import { cn } from '@/utils/cn'
 import type { FaultFilters } from '../../model/faultRules'
 import { ALL, MAP_LAYERS } from '../../model/liveMonitoring.constants'
 import type { MapLayer } from '../../model/liveMonitoring.types'
-import type { ScopeOptions } from '../../model/scopeOptions'
+import type { ScopeOption, ScopeOptions } from '../../model/scopeOptions'
 
 const LAYER_ICON = { FUSES: 'fuse', TRANSFORMERS: 'transformer' } as const
 
@@ -16,14 +16,27 @@ export interface MapToolbarProps {
   scope: ScopeOptions
   onToggleLayer: (layer: MapLayer) => void
   onChange: (patch: Partial<FaultFilters>) => void
+  /** Searches a node or device identifier (F-34), on Enter. */
+  onSearch: (query: string) => void
+  /** Outcome of the last search, shown under the field; null before any search. */
+  searchResult: SearchResult | null
 }
 
-const toOptions = (allLabel: string, values: string[]): SelectOption[] => [
+export type SearchResult = { found: true; nodeId: string } | { found: false; query: string }
+
+const toOptions = (allLabel: string, options: ScopeOption[]): SelectOption[] => [
   { value: ALL, label: allLabel },
-  ...values.map((value) => ({ value, label: value })),
+  ...options,
 ]
 
-export function MapToolbar({ filters, scope, onToggleLayer, onChange }: MapToolbarProps) {
+export function MapToolbar({
+  filters,
+  scope,
+  onToggleLayer,
+  onChange,
+  onSearch,
+  searchResult,
+}: MapToolbarProps) {
   const { t } = useTranslation('dashboard')
   const [locationFiltersOpen, setLocationFiltersOpen] = useState(false)
   const filtersId = `location-filters-${useId()}`
@@ -88,7 +101,10 @@ export function MapToolbar({ filters, scope, onToggleLayer, onChange }: MapToolb
           label={t('toolbar.zone')}
           value={filters.zone}
           options={toOptions(t('toolbar.allZones'), scope.zones)}
-          onChange={(event) => onChange({ zone: event.target.value })}
+          // A new zone restarts the levels below it, which depend on it (F-33).
+          onChange={(event) =>
+            onChange({ zone: event.target.value, substation: ALL, circuit: ALL })
+          }
         />
         <Select
           className="w-full 2xl:w-37.5"
@@ -96,7 +112,7 @@ export function MapToolbar({ filters, scope, onToggleLayer, onChange }: MapToolb
           label={t('toolbar.substation')}
           value={filters.substation}
           options={toOptions(t('toolbar.allSubstations'), scope.substations)}
-          onChange={(event) => onChange({ substation: event.target.value })}
+          onChange={(event) => onChange({ substation: event.target.value, circuit: ALL })}
         />
         <Select
           className="w-full 2xl:w-37.5"
@@ -107,16 +123,41 @@ export function MapToolbar({ filters, scope, onToggleLayer, onChange }: MapToolb
           onChange={(event) => onChange({ circuit: event.target.value })}
         />
       </div>
-      <SearchField
+      <form
+        role="search"
+        aria-label={t('toolbar.searchLabel')}
         className={cn(
-          'min-w-0 flex-1 2xl:ml-auto 2xl:w-57.5 2xl:flex-none',
+          'relative min-w-0 flex-1 2xl:ml-auto 2xl:w-57.5 2xl:flex-none',
           locationFiltersOpen ? 'basis-full sm:basis-full' : 'basis-40 sm:basis-50'
         )}
-        label={t('toolbar.search')}
-        placeholder={t('toolbar.searchPlaceholder')}
-        value={filters.search}
-        onChange={(event) => onChange({ search: event.target.value })}
-      />
+        onSubmit={(event) => {
+          event.preventDefault()
+          onSearch(filters.search)
+        }}
+      >
+        <SearchField
+          label={t('toolbar.search')}
+          placeholder={t('toolbar.searchPlaceholder')}
+          value={filters.search}
+          onChange={(event) => onChange({ search: event.target.value })}
+        />
+        <p
+          role="status"
+          className={cn(
+            'absolute top-full right-0 left-0 z-20 mt-1 rounded-md border px-2 py-1 text-xs shadow-card',
+            searchResult === null && 'sr-only',
+            searchResult?.found
+              ? 'border-border-default bg-bg-surface text-text-primary'
+              : 'border-status-critical bg-feedback-danger-bg text-status-critical'
+          )}
+        >
+          {searchResult === null
+            ? ''
+            : searchResult.found
+              ? t('toolbar.searchFound', { id: searchResult.nodeId })
+              : t('toolbar.searchNotFound', { query: searchResult.query })}
+        </p>
+      </form>
     </div>
   )
 }

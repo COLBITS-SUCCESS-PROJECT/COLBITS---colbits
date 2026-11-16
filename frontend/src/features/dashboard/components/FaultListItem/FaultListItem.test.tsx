@@ -1,6 +1,7 @@
 /** Unit tests for the FaultListItem molecule. */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import '@/i18n'
 import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
 import type { FaultAlert } from '../../model/liveMonitoring.types'
@@ -53,6 +54,29 @@ describe('FaultListItem', () => {
     expect(screen.getByText('Resuelta')).toHaveAttribute('data-tone', 'success')
   })
 
+  it('shows a resolved alarm with its total duration, when it closed and a gray accent (F-63)', () => {
+    const resolved: FaultAlert = {
+      ...fault('f-7'),
+      startedAt: new Date(2026, 9, 2, 10, 0),
+      endedAt: new Date(2026, 9, 2, 10, 45),
+      durationMinutes: 45,
+    }
+    render(<FaultListItem fault={resolved} />)
+
+    const card = screen.getByRole('article', { name: 'Apertura de fusible · ND01120A02' })
+    expect(within(card).getByText('Resuelta')).toBeInTheDocument()
+    expect(within(card).getByText('45 min · cerrada 10:45')).toBeInTheDocument()
+    expect(card.querySelector('span[aria-hidden="true"]')).toHaveClass('bg-status-offline')
+  })
+
+  it('shows an open alarm with the duration so far and the accent of its severity (F-63)', () => {
+    render(<FaultListItem fault={{ ...fault('f-1'), durationMinutes: 90 }} />)
+
+    const card = screen.getByRole('article', { name: 'Apertura de fusible · ND04821A07' })
+    expect(within(card).getByText('1 h 30 min')).toBeInTheDocument()
+    expect(card.querySelector('span[aria-hidden="true"]')).toHaveClass('bg-status-critical')
+  })
+
   it('shows only the circuit when the service does not send the substation (GET /faults)', () => {
     render(<FaultListItem fault={{ ...fault('f-1'), zone: null, substation: null }} />)
 
@@ -72,5 +96,24 @@ describe('FaultListItem', () => {
 
     expect(screen.getByText('Bifásica')).toBeInTheDocument()
     expect(screen.queryByRole('img', { name: /^Fase/ })).not.toBeInTheDocument()
+  })
+
+  it('is not clickable without onSelect', () => {
+    render(<FaultListItem fault={fault('f-1')} />)
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('reports its node when clicked, to center the map (M13)', async () => {
+    const onSelect = vi.fn()
+    const item = fault('f-1')
+    render(<FaultListItem fault={item} onSelect={onSelect} />)
+
+    await userEvent.click(
+      screen.getByRole('button', { name: `Ver ${item.nodeId} en el mapa y su detalle` })
+    )
+
+    expect(onSelect).toHaveBeenCalledWith(item.nodeId)
+    expect(screen.getByRole('article')).toBeInTheDocument()
   })
 })
