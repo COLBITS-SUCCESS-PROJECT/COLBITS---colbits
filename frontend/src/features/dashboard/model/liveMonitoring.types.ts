@@ -70,6 +70,9 @@ export type FaultSeverity = 'CRITICAL' | 'WARNING' | 'INACTIVE'
 
 export type FaultStatus = 'OPEN' | 'RESOLVED'
 
+/** Conditions of an OVERLOAD_UNBALANCE alarm that are active (backend OVERLOAD_CONDITIONS). */
+export type OverloadCondition = 'OVERLOAD' | 'VOLTAGE_UNBALANCE' | 'CURRENT_UNBALANCE'
+
 export interface TransformerLoad {
   /** A value the transformer never reported is null. */
   loadPct: number | null
@@ -91,6 +94,8 @@ export interface FaultAlert {
   substation: string | null
   circuit: string
   branch: string | null
+  /** custom_id of the single fuse or transformer behind the alarm; null for fuse openings and inactivity. */
+  sourceId: string | null
   /** SMAC channel (A · B · C) of a transformer alarm; null on the others. It is not a phase: never mapped to R · S · T. */
   channel: 'A' | 'B' | 'C' | null
   /** R · S · T states; null when they do not apply or cannot be drawn as R · S · T. */
@@ -105,6 +110,8 @@ export interface FaultAlert {
   /** Clients of the affected fuse set (F-55); null when the number is not recorded. */
   customersAffected: number | null
   transformerLoad: TransformerLoad | null
+  /** Active conditions of an OVERLOAD_UNBALANCE alarm; null on every other alarm. */
+  conditions: OverloadCondition[] | null
 }
 
 export interface FaultCounters {

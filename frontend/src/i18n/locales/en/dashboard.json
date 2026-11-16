@@ -150,6 +150,13 @@
   "fault": {
     "branch": "Branch",
     "channel": "Channel",
+    "transformer": "Transformer",
+    "conditions": "Conditions",
+    "condition": {
+      "OVERLOAD": "Overload",
+      "VOLTAGE_UNBALANCE": "Voltage unbalance",
+      "CURRENT_UNBALANCE": "Current unbalance"
+    },
     "singleSet": "Single fuse set",
     "phases": "Phases",
     "started": "Started",

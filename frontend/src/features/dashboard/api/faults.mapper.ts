@@ -63,6 +63,7 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
     substation: null,
     circuit: dto.circuit.name,
     branch: dto.branch,
+    sourceId: dto.source_id,
     channel: dto.channel,
     phases: toPhaseStates(dto.phases),
     classification: dto.classification,
@@ -71,6 +72,7 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
     durationMinutes: Math.floor(dto.duration_seconds / SECONDS_PER_MINUTE),
     customersAffected: dto.client_count,
     transformerLoad: toTransformerLoad(dto.transformer_load),
+    conditions: dto.conditions,
   }
 }
 

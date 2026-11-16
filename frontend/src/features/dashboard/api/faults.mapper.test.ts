@@ -54,6 +54,7 @@ describe('toFaultAlert', () => {
       substation: null,
       circuit: 'CTO 1',
       branch: 'B',
+      sourceId: null,
       channel: null,
       phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'OK' },
       classification: 'BIPHASIC',
@@ -62,6 +63,7 @@ describe('toFaultAlert', () => {
       durationMinutes: 15,
       customersAffected: 80,
       transformerLoad: null,
+      conditions: null,
     })
   })
 
@@ -74,10 +76,13 @@ describe('toFaultAlert', () => {
       ...DTO,
       device: 'SMAC',
       alert_type: 'OVERLOAD_UNBALANCE',
+      source_id: 'TR-0007',
       conditions: ['OVERLOAD'],
       transformer_load: { load_percent: 92.5, vuf_percent: null, cuf_percent: 1.2 },
     })
 
+    expect(fault.sourceId).toBe('TR-0007')
+    expect(fault.conditions).toEqual(['OVERLOAD'])
     expect(fault.transformerLoad).toEqual({
       loadPct: 92.5,
       voltageUnbalancePct: null,

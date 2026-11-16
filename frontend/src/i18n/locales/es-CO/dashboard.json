@@ -150,6 +150,13 @@
   "fault": {
     "branch": "Ramal",
     "channel": "Canal",
+    "transformer": "Transformador",
+    "conditions": "Condiciones",
+    "condition": {
+      "OVERLOAD": "Sobrecarga",
+      "VOLTAGE_UNBALANCE": "Desbalance de tensión",
+      "CURRENT_UNBALANCE": "Desbalance de corriente"
+    },
     "singleSet": "Conjunto único",
     "phases": "Fases",
     "started": "Inicio",

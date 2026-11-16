@@ -76,6 +76,12 @@ export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
     : fault.device === 'FALCON' && fault.type !== 'DEVICE_INACTIVITY'
       ? t('fault.singleSet')
       : null
+  // A SMAC alarm belongs to a transformer, not to a fuse set: it has no branch and no phases, so the
+  // card shows the transformer and, instead, its channel or its active conditions.
+  const isTransformerAlarm = fault.device === 'SMAC' && fault.type !== 'DEVICE_INACTIVITY'
+  const conditions = fault.conditions?.length
+    ? fault.conditions.map((condition) => t(`fault.condition.${condition}`)).join(', ')
+    : null
   // Load and unbalance the transformer reported; a value it never reported is left out.
   const loadSummary = transformerLoadSummary(fault, t)
   // F-63: an open alarm counts up to the last refresh; a resolved one shows its total and when it closed.
@@ -127,12 +133,21 @@ export function FaultListItem({ fault, onSelect }: FaultListItemProps) {
       </p>
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
-        {fault.channel ? (
-          <DataField label={t('fault.channel')} value={fault.channel} />
+        {isTransformerAlarm ? (
+          <>
+            <DataField label={t('fault.transformer')} value={fault.sourceId} />
+            {fault.channel ? (
+              <DataField label={t('fault.channel')} value={fault.channel} />
+            ) : (
+              <DataField label={t('fault.conditions')} value={conditions} />
+            )}
+          </>
         ) : (
-          <DataField label={t('fault.branch')} value={branchValue} />
+          <>
+            <DataField label={t('fault.branch')} value={branchValue} />
+            <DataField label={t('fault.phases')} value={phases} />
+          </>
         )}
-        <DataField label={t('fault.phases')} value={phases} />
         <DataField
           label={t('fault.started')}
           value={formatDateTime(fault.startedAt, i18n.language, 'short')}

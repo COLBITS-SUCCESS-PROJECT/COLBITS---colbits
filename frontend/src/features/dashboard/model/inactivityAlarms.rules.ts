@@ -25,6 +25,7 @@ function toAlarm(
     substation: device.location.substation.name,
     circuit: device.location.circuit.name,
     branch: null,
+    sourceId: null,
     channel: null,
     phases: null,
     classification: null,
@@ -34,6 +35,7 @@ function toAlarm(
     durationMinutes: Math.floor(((end?.getTime() ?? serverNow) - start.getTime()) / MS_PER_MINUTE),
     customersAffected: null,
     transformerLoad: null,
+    conditions: null,
   }
 }
 
