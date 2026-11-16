@@ -20,7 +20,9 @@ Feature: [FEATURE.md](./FEATURE.md)
 
 The tab reads `GET /device/inactive?hours=24` or `?hours=1`, one request per window (backend PR #79, Q1), and polls it like the map, so an inactivity alarm opens when the threshold passes (F-38) and closes at the next record (F-39) without a reload. The list follows the map filter (SCRUM-236, F-41), keeps the backend order and measures every time against the server's `to`, never the browser clock (F-46). Each card shows what the device monitors (`source_id`: the fuse or transformer `custom_id`).
 
-The inactivity alarm is also listed in the _Active_ and _Resolved_ tabs (Q2, AC6). The backend does not put it in `GET /faults` and will not (its tests check that silent devices are not there, Q3): the frontend turns each period of `GET /device/inactive` into one `DEVICE_INACTIVITY` alarm and adds it to the panel's lists.
+The inactivity alarm is also listed in the _Active_ and _Resolved_ tabs (Q2, AC6). The backend does not put it in `GET /faults` (its tests check that silent devices are not there, Q3): the frontend turns each period of `GET /device/inactive` into one `DEVICE_INACTIVITY` alarm and adds it to the panel's lists.
+
+**TEMPORARY (2026-11-16).** The frontend now proposes that `GET /faults` and `GET /faults/resolved` list `DEVICE_INACTIVITY`, which is in the closed F-47 list ([SCRUM-116](./SCRUM-116.md) Q1). Until then the merge stays, marked `TEMPORARY` in the code and guarded by `model/temporaryAlarms.rules.ts` so an alarm the backend starts sending never shows twice. When it does, the merge is removed ([SCRUM-116](./SCRUM-116.md) §9) and the resolved inactivity alarms come from `GET /faults/resolved`; the _Inactive devices_ tab keeps reading `GET /device/inactive`.
 
 ## 2. Acceptance criteria
 
