@@ -3,7 +3,7 @@ feature: users
 title: User Management
 status: IN_PROGRESS
 owner: Monica
-last_updated: 2026-11-11
+last_updated: 2026-11-16
 ---
 
 # Feature: User Management
@@ -59,10 +59,10 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | `UserRow`, `UserTable`, `UserFormDrawer`, `ConfirmDeactivateDialog` | Molecule / organism | feature |
 
 ## 7. API contract (PROVISIONAL)
-Not defined yet — pending backend OpenAPI (OQ-02). SCRUM-250 builds the views on in-memory sample data.
+`GET`, `POST` and `PATCH /users`, `PATCH /users/:id/deactivate` and `GET /nodes` (network tree), as in `backend/src/users`; pending OpenAPI (OQ-02). Details and what the backend still lacks: [SCRUM-250 §6](./SCRUM-250.md#6-data-and-endpoints-provisional).
 
 ## 8. Open questions and decisions
 
 | ID | Question | Owner | Answer | Date |
 |---|---|---|---|---|
-| Q1 | Exact roles and what each can see? (`auth.store` has `ADMIN`, `OPERATOR`, `VIEWER`) | Paola (PO) | F-03: Colbits administrator (`ADMIN`, sees the whole network, F-04) and consultation user (`VIEWER`, sees only their scope, F-10). `OPERATOR` is removed. The user form creates consultation users only (SCRUM-250 Q2). | 2026-11-11 |
+| Q1 | Exact roles and what each can see? (`auth.store` has `ADMIN`, `OPERATOR`, `VIEWER`) | Paola (PO) | F-03: Colbits administrator (`ADMIN`, sees the whole network, F-04) and consultation user (`VIEWER`, sees only their scope, F-10). `OPERATOR` is removed. The user form creates consultation users only (SCRUM-250 Q2). There is a single Colbits administrator, confirmed by the client on 2026-11-16 (SCRUM-250 Q5). | 2026-11-16 |

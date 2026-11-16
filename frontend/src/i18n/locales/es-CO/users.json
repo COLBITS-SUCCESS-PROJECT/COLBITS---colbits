@@ -44,7 +44,7 @@
     "email": "Correo electrónico",
     "emailPlaceholder": "usuario@colbits.com",
     "password": "Contraseña temporal",
-    "passwordPlaceholder": "Autogenerada · se envía por correo",
+    "passwordPlaceholder": "Autogenerada · se muestra al crear el usuario",
     "cancel": "Cancelar",
     "create": "Crear usuario",
     "validation": {
@@ -59,8 +59,9 @@
     "editSubtitle": "Solo un administrador de Colbits puede modificar esta cuenta",
     "save": "Guardar cambios",
     "resetPassword": "Enviar enlace de restablecimiento",
-    "resetPasswordNotice": "El envío del enlace estará disponible cuando el servicio de usuarios esté conectado.",
-    "deactivate": "Desactivar usuario"
+    "resetPasswordNotice": "El envío del enlace estará disponible cuando el backend lo habilite.",
+    "deactivate": "Desactivar usuario",
+    "submitError": "No se pudieron guardar los cambios. Inténtalo de nuevo."
   },
   "scope": {
     "title": "Alcance de datos",
@@ -75,5 +76,21 @@
     "rowWithDescription": "{{level}} {{name}} · {{description}}",
     "expand": "Mostrar contenido de {{name}}",
     "collapse": "Ocultar contenido de {{name}}"
+  },
+  "page": {
+    "loading": "Cargando usuarios…",
+    "loadError": "No se pudieron cargar los usuarios ni la red.",
+    "retry": "Reintentar",
+    "statusError": "No se pudo cambiar el estado de {{name}}. Inténtalo de nuevo."
+  },
+  "password": {
+    "title": "Usuario creado",
+    "description": "Comparte esta contraseña temporal con {{name}} ({{email}}) por un canal seguro.",
+    "label": "Contraseña temporal",
+    "onceNotice": "Solo se muestra esta vez. Si la pierdes, tendrás que restablecerla.",
+    "copy": "Copiar contraseña",
+    "copied": "Contraseña copiada",
+    "failed": "No se pudo copiar. Selecciónala y cópiala a mano.",
+    "done": "Listo"
   }
 }

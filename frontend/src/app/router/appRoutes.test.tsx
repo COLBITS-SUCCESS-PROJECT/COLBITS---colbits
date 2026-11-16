@@ -43,8 +43,9 @@ describe('appRoutes', () => {
 
     renderAppAt(ROUTES.users)
 
+    // The page asks the user service first; its contents are covered by UserManagementPage.test.tsx.
     expect(
-      await screen.findByRole('heading', { name: 'Usuarios de consulta' }, LAZY_ROUTE_TIMEOUT)
+      await screen.findByRole('status', { name: 'Cargando usuarios…' }, LAZY_ROUTE_TIMEOUT)
     ).toBeInTheDocument()
   })
 

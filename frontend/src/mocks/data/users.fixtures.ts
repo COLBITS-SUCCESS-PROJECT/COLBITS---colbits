@@ -37,6 +37,7 @@ const INITIAL_USERS: UserDto[] = [
     scopes: [
       { entity_type: 'circuit', entity_id: '1' },
       { entity_type: 'substation', entity_id: '2' },
+      { entity_type: 'node', entity_id: 'ND03377A15' },
     ],
   },
   {

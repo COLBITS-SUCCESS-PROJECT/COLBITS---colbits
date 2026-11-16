@@ -1,6 +1,6 @@
 /**
- * Sample network tree and consultation users (Figma: Admin / User list) used while the user
- * endpoints are built. TODO SCRUM-117: replace with GET /users and the scope tree from the API.
+ * Sample network tree and consultation users (Figma: Admin / User list) for the component tests.
+ * The page gets both from the API (`useUserManagement`).
  */
 import type { ManagedUser, ScopeItem, ScopeLevel, ScopeNode } from './users.types'
 

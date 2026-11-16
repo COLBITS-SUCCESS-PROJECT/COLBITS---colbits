@@ -32,6 +32,9 @@ export interface ManagedUser {
   scope: ScopeItem[]
 }
 
+/** Outcome of saving the form: close it, mark the email as taken, or say it could not save. */
+export type SaveUserResult = 'saved' | 'emailTaken' | 'failed'
+
 export type UserStatusFilter = 'ALL' | UserStatus
 
 export interface UserFilters {

@@ -8,8 +8,9 @@ import {
   selectionToScope,
   toggleScopeNode,
   visibleScopeRows,
+  withScopeNames,
 } from './scopeTree'
-import type { ScopeItem, ScopeNode } from './users.types'
+import type { ManagedUser, ScopeItem, ScopeNode } from './users.types'
 
 const EMPTY = new Set<string>()
 const node = (id: string): ScopeNode => {
@@ -147,5 +148,25 @@ describe('partiallyCheckedIds', () => {
     expect(partiallyCheckedIds(TREE, new Set(['CIRCUIT:CR-12']))).toEqual(
       new Set(['ZONE:Z-01', 'SUBSTATION:SE-Norte'])
     )
+  })
+})
+
+describe('withScopeNames', () => {
+  it('names each assigned element from the tree and keeps the id of one that is gone', () => {
+    const user: ManagedUser = {
+      id: '7',
+      name: 'Paula Ríos',
+      email: 'paula@colbits.com',
+      status: 'ACTIVE',
+      scope: [
+        { id: 'SUBSTATION:SE-Norte', level: 'SUBSTATION', name: 'SE-Norte-id' },
+        { id: 'CIRCUIT:CR-99', level: 'CIRCUIT', name: 'CR-99' },
+      ],
+    }
+
+    expect(withScopeNames([user], TREE)[0]?.scope).toEqual([
+      { id: 'SUBSTATION:SE-Norte', level: 'SUBSTATION', name: 'SE-Norte' },
+      { id: 'CIRCUIT:CR-99', level: 'CIRCUIT', name: 'CR-99' },
+    ])
   })
 })

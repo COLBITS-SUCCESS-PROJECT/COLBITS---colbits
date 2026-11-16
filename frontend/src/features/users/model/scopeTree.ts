@@ -5,7 +5,7 @@
  * circuit assigns that node, not the circuit (new nodes of the circuit stay out of the scope).
  */
 import { normalizeSearch } from './normalizeSearch'
-import type { ScopeItem, ScopeNode } from './users.types'
+import type { ManagedUser, ScopeItem, ScopeNode } from './users.types'
 
 export type CheckState = 'checked' | 'partial' | 'unchecked'
 
@@ -70,6 +70,24 @@ export function selectionToScope(tree: ScopeNode[], selected: ReadonlySet<string
 export function scopeToSelection(tree: ScopeNode[], scope: ScopeItem[]): Set<string> {
   const assigned = new Set(scope.map((item) => item.id))
   return new Set(selectionToScope(tree, assigned).map((item) => item.id))
+}
+
+/**
+ * The backend stores only the level and id of an assigned element: its name comes from the tree. An
+ * element that is no longer in the network keeps its id as name.
+ */
+export function withScopeNames(users: ManagedUser[], tree: ScopeNode[]): ManagedUser[] {
+  const names = new Map<string, string>()
+  const visit = (nodes: ScopeNode[]) =>
+    nodes.forEach((node) => {
+      names.set(node.id, node.name)
+      visit(node.children)
+    })
+  visit(tree)
+  return users.map((user) => ({
+    ...user,
+    scope: user.scope.map((item) => ({ ...item, name: names.get(item.id) ?? item.name })),
+  }))
 }
 
 /** Elements with something ticked below them: opened when the tree is first shown. */

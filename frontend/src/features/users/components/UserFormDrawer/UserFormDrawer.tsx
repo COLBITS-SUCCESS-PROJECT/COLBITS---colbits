@@ -7,7 +7,7 @@ import { Button, IconButton } from '@/design-system/atoms'
 import { FormField } from '@/design-system/molecules'
 import { cn } from '@/utils/cn'
 import { useDialogFocus } from '../../hooks/useDialogFocus'
-import type { ManagedUser, ScopeNode } from '../../model/users.types'
+import type { ManagedUser, SaveUserResult, ScopeNode } from '../../model/users.types'
 import {
   USER_NAME_MAX_LENGTH,
   userFormSchema,
@@ -19,9 +19,10 @@ export interface UserFormDrawerProps {
   tree: ScopeNode[]
   /** User to edit. Omit to create a new one. */
   user?: ManagedUser
-  /** True when another user already has this email. */
+  /** True when another listed user already has this email (checked before asking the backend). */
   isEmailTaken: (email: string) => boolean
-  onSubmit: (values: UserFormValues) => void
+  /** Saves the user. The drawer stays open, showing why, when the result is not `saved`. */
+  onSubmit: (values: UserFormValues) => Promise<SaveUserResult>
   /** Edit mode, active users only: shows "Deactivate user" in the footer. */
   onDeactivate?: () => void
   onClose: () => void
@@ -43,12 +44,13 @@ export function UserFormDrawer({
   const nameRef = useRef<HTMLInputElement | null>(null)
   const titleId = useId()
   const [showResetNotice, setShowResetNotice] = useState(false)
+  const [submitFailed, setSubmitFailed] = useState(false)
   const {
     register,
     control,
     handleSubmit,
     setError,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: user ? { name: user.name, email: user.email, scope: user.scope } : EMPTY_FORM,
@@ -59,12 +61,19 @@ export function UserFormDrawer({
 
   const errorText = (message?: string) => message && t(message, { max: USER_NAME_MAX_LENGTH })
 
-  function submit(values: UserFormValues) {
+  const markEmailTaken = () =>
+    setError('email', { message: 'form.validation.emailTaken' }, { shouldFocus: true })
+
+  async function submit(values: UserFormValues) {
+    setSubmitFailed(false)
     if (isEmailTaken(values.email)) {
-      setError('email', { message: 'form.validation.emailTaken' }, { shouldFocus: true })
+      markEmailTaken()
       return
     }
-    onSubmit(values)
+    // The backend also rejects an email taken by an account that is not listed (409).
+    const result = await onSubmit(values)
+    if (result === 'emailTaken') markEmailTaken()
+    else if (result === 'failed') setSubmitFailed(true)
   }
 
   return (
@@ -114,7 +123,7 @@ export function UserFormDrawer({
             />
             {isEdit ? (
               <div className="flex flex-col items-center gap-1">
-                {/* TODO SCRUM-117: call the backend reset endpoint, which emails the link (spec Q3). */}
+                {/* TODO: call POST /users/:id/password-reset once the backend has it (spec Q3, Sprint 6). */}
                 <Button
                   label={t('form.resetPassword')}
                   variant="ghost"
@@ -149,6 +158,11 @@ export function UserFormDrawer({
             />
           </div>
 
+          {submitFailed && (
+            <p role="alert" className="px-6 pt-3 text-label text-feedback-danger-text">
+              {t('form.submitError')}
+            </p>
+          )}
           <footer
             className={cn(
               'flex flex-wrap items-center gap-2.5 px-6 pt-3 pb-5.5',
@@ -165,7 +179,11 @@ export function UserFormDrawer({
             )}
             <div className="flex gap-2.5">
               <Button label={t('form.cancel')} variant="outline" onClick={onClose} />
-              <Button type="submit" label={t(isEdit ? 'form.save' : 'form.create')} />
+              <Button
+                type="submit"
+                label={t(isEdit ? 'form.save' : 'form.create')}
+                isLoading={isSubmitting}
+              />
             </div>
           </footer>
         </form>

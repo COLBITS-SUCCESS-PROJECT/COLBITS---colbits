@@ -44,7 +44,7 @@
     "email": "Email address",
     "emailPlaceholder": "user@colbits.com",
     "password": "Temporary password",
-    "passwordPlaceholder": "Auto-generated · sent by email",
+    "passwordPlaceholder": "Auto-generated · shown when the user is created",
     "cancel": "Cancel",
     "create": "Create user",
     "validation": {
@@ -59,8 +59,9 @@
     "editSubtitle": "Only a Colbits administrator can modify this account",
     "save": "Save changes",
     "resetPassword": "Send password reset link",
-    "resetPasswordNotice": "Sending the link will be available once the user service is connected.",
-    "deactivate": "Deactivate user"
+    "resetPasswordNotice": "Sending the link will be available once the backend supports it.",
+    "deactivate": "Deactivate user",
+    "submitError": "The changes could not be saved. Try again."
   },
   "scope": {
     "title": "Data scope",
@@ -75,5 +76,21 @@
     "rowWithDescription": "{{level}} {{name}} · {{description}}",
     "expand": "Show the contents of {{name}}",
     "collapse": "Hide the contents of {{name}}"
+  },
+  "page": {
+    "loading": "Loading users…",
+    "loadError": "The users and the network could not be loaded.",
+    "retry": "Retry",
+    "statusError": "The status of {{name}} could not be changed. Try again."
+  },
+  "password": {
+    "title": "User created",
+    "description": "Share this temporary password with {{name}} ({{email}}) through a secure channel.",
+    "label": "Temporary password",
+    "onceNotice": "It is shown only this once. If it is lost, it will have to be reset.",
+    "copy": "Copy password",
+    "copied": "Password copied",
+    "failed": "It could not be copied. Select it and copy it by hand.",
+    "done": "Done"
   }
 }

@@ -1,14 +1,14 @@
-/** Unit tests for the UserFormDrawer organism in create mode (SCRUM-250 AC5). */
+/** Unit tests for the UserFormDrawer organism in create and edit mode (SCRUM-250 AC5, AC8). */
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@/i18n'
 import { SAMPLE_SCOPE_TREE, SAMPLE_USERS } from '../../model/users.sampleData'
-import type { ManagedUser } from '../../model/users.types'
+import type { ManagedUser, SaveUserResult } from '../../model/users.types'
 import { UserFormDrawer } from './UserFormDrawer'
 
-function renderDrawer(isEmailTaken = () => false) {
-  const onSubmit = vi.fn()
+function renderDrawer(isEmailTaken = () => false, result: SaveUserResult = 'saved') {
+  const onSubmit = vi.fn().mockResolvedValue(result)
   const onClose = vi.fn()
   render(
     <UserFormDrawer
@@ -91,11 +91,33 @@ describe('UserFormDrawer', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
+  it('marks the email as taken when the backend rejects it', async () => {
+    renderDrawer(() => false, 'emailTaken')
+
+    await fillValidForm()
+    await userEvent.click(screen.getByRole('button', { name: 'Crear usuario' }))
+
+    expect(await screen.findByText('Ya existe un usuario con este correo')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /Correo/ })).toHaveFocus()
+  })
+
+  it('stays open and says so when the user cannot be saved', async () => {
+    renderDrawer(() => false, 'failed')
+
+    await fillValidForm()
+    await userEvent.click(screen.getByRole('button', { name: 'Crear usuario' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudieron guardar los cambios. Inténtalo de nuevo.'
+    )
+    expect(screen.getByRole('dialog', { name: 'Nuevo usuario de consulta' })).toBeInTheDocument()
+  })
+
   describe('edit mode', () => {
     const DIANA = SAMPLE_USERS.find((user) => user.id === 'u-3') as ManagedUser
 
     function renderEdit(onDeactivate?: () => void) {
-      const onSubmit = vi.fn()
+      const onSubmit = vi.fn().mockResolvedValue('saved')
       render(
         <UserFormDrawer
           tree={SAMPLE_SCOPE_TREE}
@@ -148,7 +170,7 @@ describe('UserFormDrawer', () => {
       )
 
       expect(screen.getByRole('status')).toHaveTextContent(
-        'El envío del enlace estará disponible cuando el servicio de usuarios esté conectado.'
+        'El envío del enlace estará disponible cuando el backend lo habilite.'
       )
     })
 

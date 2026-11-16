@@ -29,10 +29,13 @@ const ENTITY_TYPE_BY_LEVEL: Record<ScopeLevel, ScopeEntityTypeDto> = {
 
 const CONSULTATION_ROLE = 'consultation user'
 
-/** Until the scope tree is known, an assigned element is shown by its backend id. */
+/**
+ * Until the scope tree is known, an assigned element is shown by its backend id. A level the views
+ * do not know is left out.
+ */
 function toScopeItem(dto: ScopeAssignmentDto): ScopeItem[] {
-  const level = LEVEL_BY_ENTITY_TYPE[dto.entity_type]
-  if (!level) return []
+  const level = (LEVEL_BY_ENTITY_TYPE as Partial<Record<string, ScopeLevel>>)[dto.entity_type]
+  if (level === undefined) return []
   return [{ id: scopeNodeId(level, dto.entity_id), level, name: dto.entity_id }]
 }
 
@@ -46,7 +49,7 @@ export function toManagedUser(dto: UserDto): ManagedUser {
   }
 }
 
-/** The page manages consultation users only (spec Q2): administrators are left out. */
+/** The page manages consultation users only (spec Q2): the single administrator is left out (Q5). */
 export function toManagedUsers(dtos: UserDto[]): ManagedUser[] {
   return dtos.filter((dto) => dto.role === CONSULTATION_ROLE).map(toManagedUser)
 }
