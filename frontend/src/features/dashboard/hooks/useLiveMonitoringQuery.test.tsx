@@ -35,7 +35,13 @@ describe('useLiveMonitoringQuery', () => {
       'ND04821A07',
       'ND04821A07',
     ]) // the third mock fault is outside the north user's scope (F-10)
-    expect(result.current.data?.counters).toBeNull() // no counters endpoint yet (US15)
+    // The node counters come from the service (F-58), over its whole in-scope list
+    expect(result.current.data?.counters).toEqual({
+      fuseAlarmNodes: 1,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 0,
+    })
   })
 
   it('leaves the last update time to the map refresh (F-32)', async () => {
@@ -55,7 +61,15 @@ describe('useLiveMonitoringQuery', () => {
   })
 
   it('handles a network without faults', async () => {
-    const empty = async () => ({ faults: [], counters: null })
+    const empty = async () => ({
+      faults: [],
+      counters: {
+        fuseAlarmNodes: 0,
+        voltageAlarmNodes: 0,
+        phaseOutOfRangeNodes: 0,
+        phaseDroppedNodes: 0,
+      },
+    })
 
     const { result } = renderHook(() => useLiveMonitoringQuery(empty), { wrapper })
 

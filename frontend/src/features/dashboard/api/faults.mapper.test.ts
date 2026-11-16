@@ -1,8 +1,14 @@
 /** Unit tests for the fault DTO → domain mapper. */
 import { describe, it, expect } from 'vitest'
 import type { ActiveFaultDto } from './faults.dto'
-import { toFaultAlert, toFaultAlerts } from './faults.mapper'
+import { toFaultAlert, toFaultAlerts, toLiveMonitoringData } from './faults.mapper'
 
+const COUNTERS = {
+  fuseAlarmNodes: 2,
+  voltageAlarmNodes: 1,
+  phaseOutOfRangeNodes: 3,
+  phaseDroppedNodes: 4,
+}
 const STARTED_AT = '2026-10-29T15:05:00.000Z'
 
 const DTO: ActiveFaultDto = {
@@ -159,12 +165,33 @@ describe('toFaultAlerts', () => {
   it('maps every fault of the response in the order received', () => {
     const second = { ...DTO, id: 'second', node: '0000100003' }
 
-    const faults = toFaultAlerts({ generated_at: STARTED_AT, count: 2, faults: [DTO, second] })
+    const faults = toFaultAlerts({
+      generated_at: STARTED_AT,
+      count: 2,
+      counters: COUNTERS,
+      faults: [DTO, second],
+    })
 
     expect(faults.map((fault) => fault.nodeId)).toEqual(['0000100002', '0000100003'])
   })
 
   it('returns an empty list when there are no open faults', () => {
-    expect(toFaultAlerts({ generated_at: STARTED_AT, count: 0, faults: [] })).toEqual([])
+    expect(
+      toFaultAlerts({ generated_at: STARTED_AT, count: 0, counters: COUNTERS, faults: [] })
+    ).toEqual([])
+  })
+})
+
+describe('toLiveMonitoringData', () => {
+  it('keeps the node counters of the backend as they come, without recounting (F-58)', () => {
+    const data = toLiveMonitoringData({
+      generated_at: STARTED_AT,
+      count: 1,
+      counters: COUNTERS,
+      faults: [DTO],
+    })
+
+    expect(data.counters).toEqual(COUNTERS)
+    expect(data.faults).toHaveLength(1)
   })
 })

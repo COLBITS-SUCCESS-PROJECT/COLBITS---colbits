@@ -113,6 +113,6 @@ export interface FaultCounters {
 /** Fault panel data. Map nodes come from the node service (`useNodesQuery`). */
 export interface LiveMonitoringData {
   faults: FaultAlert[]
-  /** null until the backend reports the node counters (US15). */
-  counters: FaultCounters | null
+  /** Nodes in alarm per type, as GET /faults counts them over its whole list (US15 · F-58). */
+  counters: FaultCounters
 }

@@ -16,7 +16,7 @@ import { useLiveMonitoringFilters } from '../hooks/useLiveMonitoringFilters'
 import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useNodesQuery } from '../hooks/useNodesQuery'
 import { useResolvedFaultsPanel } from '../hooks/useResolvedFaultsPanel'
-import { countAlarmNodes, selectFaults, type FaultFilters } from '../model/faultRules'
+import { selectFaults, type FaultFilters } from '../model/faultRules'
 import { ALL } from '../model/liveMonitoring.constants'
 import {
   filterNodesByLocation,
@@ -75,12 +75,9 @@ export function LiveMonitoringPage() {
     inactivity
   )
 
-  // The summary counts the faults the list shows, so it follows the map filter.
-  // BACKEND EXPECTED: there is no counters endpoint (US15), so they are derived from GET /faults.
-  // That list must carry every alarm type of F-58 (FUSE_OPENING, NO_VOLTAGE, PHASE_OUT_OF_RANGE,
-  // PHASE_LOSS), each with its `node` and `device`; until the mapper reads them, the counters
-  // other than the fuse one stay at 0.
-  const counters = useMemo(() => countAlarmNodes(activeFaults), [activeFaults])
+  // F-58: the summary shows the counters GET /faults computes (US15); the frontend does not recount.
+  // They cover every active fault in the user's scope, not only the area chosen on the map.
+  const counters = query.data?.counters ?? null
   function handleFiltersChange(patch: Partial<FaultFilters>) {
     if (patch.search !== undefined) setSearchResult(null)
     updateFilters(patch)
@@ -169,7 +166,7 @@ export function LiveMonitoringPage() {
           onTabChange={setTab}
           activeFaults={activeFaults}
           resolved={resolved}
-          counters={query.isSuccess ? counters : null}
+          counters={counters}
           inactive={inactive}
           onSelectCard={handleSelectCard}
           filters={filters}

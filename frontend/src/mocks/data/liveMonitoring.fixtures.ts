@@ -1,6 +1,6 @@
 /**
  * Sample fault-panel data for component and rule tests, copied from the Figma screen "Monitor / Fuses layer" (M1):
- * every alert type, resolved faults and node counters, which the API does not report yet (US15, US16).
+ * every alert type, resolved faults and node counters (the page itself gets its counters from GET /faults, US15).
  * The page itself reads GET /faults (useLiveMonitoringQuery; mock service: faults.fixtures.ts).
  */
 import { MS_PER_MINUTE } from '@/features/dashboard/model/liveMonitoring.constants'

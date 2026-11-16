@@ -1,6 +1,12 @@
 /** Fault DTO → domain model. The only place that knows the backend field names of GET /faults. */
-import type { FaultAlert, FaultSeverity, PhaseStates } from '../model/liveMonitoring.types'
-import type { ActiveFaultDto, ActiveFaultsResponseDto } from './faults.dto'
+import type {
+  FaultAlert,
+  FaultCounters,
+  FaultSeverity,
+  LiveMonitoringData,
+  PhaseStates,
+} from '../model/liveMonitoring.types'
+import type { ActiveFaultDto, ActiveFaultsResponseDto, FaultNodeCountersDto } from './faults.dto'
 
 const SECONDS_PER_MINUTE = 60
 const DRAWN_PHASES: (keyof PhaseStates)[] = ['R', 'S', 'T']
@@ -51,6 +57,21 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
   }
 }
 
+/** Faults in the order the backend sent them (F-57): never sorted here or later. */
 export function toFaultAlerts(response: ActiveFaultsResponseDto): FaultAlert[] {
   return response.faults.map(toFaultAlert)
+}
+
+/** Node counters the backend computed over the whole list (F-58). */
+export function toFaultCounters(dto: FaultNodeCountersDto): FaultCounters {
+  return {
+    fuseAlarmNodes: dto.fuseAlarmNodes,
+    voltageAlarmNodes: dto.voltageAlarmNodes,
+    phaseOutOfRangeNodes: dto.phaseOutOfRangeNodes,
+    phaseDroppedNodes: dto.phaseDroppedNodes,
+  }
+}
+
+export function toLiveMonitoringData(response: ActiveFaultsResponseDto): LiveMonitoringData {
+  return { faults: toFaultAlerts(response), counters: toFaultCounters(response.counters) }
 }

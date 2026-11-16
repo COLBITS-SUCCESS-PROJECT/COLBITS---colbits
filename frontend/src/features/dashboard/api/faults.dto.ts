@@ -60,12 +60,27 @@ export interface ActiveFaultDto {
   warnings: FaultWarningDto[]
 }
 
+/** Distinct nodes of the returned list per alarm kind (US15 · F-58). Same names as backend FaultNodeCountersDto. */
+export interface FaultNodeCountersDto {
+  /** Nodes with a fuse alarm (FUSE_OPENING). */
+  fuseAlarmNodes: number
+  /** Nodes with a voltage alarm (NO_VOLTAGE). */
+  voltageAlarmNodes: number
+  /** Nodes with a phase out of range (PHASE_OUT_OF_RANGE). */
+  phaseOutOfRangeNodes: number
+  /** Nodes with a dropped phase (PHASE_LOSS). */
+  phaseDroppedNodes: number
+}
+
 /**
- * GET /faults — open faults and alarms within the authenticated user's scope (F-10), by affected clients then oldest first (F-57).
+ * GET /faults — open faults and alarms within the authenticated user's scope (F-10), in the order the
+ * backend decides (F-57, severity weights of NF-11): the frontend does not sort them again.
+ * `counters` counts the nodes of that whole list (F-58).
  * GET /faults/resolved answers the same shape with the resolved ones, newest resolution first (F-62).
  */
 export interface ActiveFaultsResponseDto {
   generated_at: string
   count: number
+  counters: FaultNodeCountersDto
   faults: ActiveFaultDto[]
 }
