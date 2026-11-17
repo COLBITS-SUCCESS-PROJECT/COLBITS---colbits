@@ -71,6 +71,8 @@ function serviceWith(
     fuse?: unknown;
     trafo?: unknown;
     latest?: string | null;
+    /** The latest SET / CLEAR by alarm pattern (LATEST_EVENT_SQL $3); wins over `latest`. */
+    latestWhen?: (pattern: string) => string | null;
     firmware?: string | null;
     inScope?: boolean;
     /** SCRUM-253: the database clock and the device's latest record, read under the lock. */
@@ -103,6 +105,7 @@ function serviceWith(
   const {
     enabled = 'true',
     latest = null,
+    latestWhen,
     firmware = '14',
     inScope = true,
     databaseNow = NOW,
@@ -142,7 +145,7 @@ function serviceWith(
     (statements) => statements.map((statement) => statement.deleteRecent),
   );
   const silenced = () => writes.some(([sql]) => SILENCE_DELETES.includes(sql));
-  const query = jest.fn((sql: string) => {
+  const query = jest.fn((sql: string, params: unknown[] = []) => {
     if (silenced() && sql in responsesAfterSilence) {
       return Promise.resolve(responsesAfterSilence[sql]);
     }
@@ -169,7 +172,8 @@ function serviceWith(
       return Promise.resolve(trafo ? [trafo] : []);
     }
     if (sql === LATEST_EVENT_SQL) {
-      return Promise.resolve(latest ? [{ event_type: latest }] : []);
+      const found = latestWhen ? latestWhen(String(params[2])) : latest;
+      return Promise.resolve(found ? [{ event_type: found }] : []);
     }
     if (sql === FIRMWARE_SQL) {
       return Promise.resolve(firmware ? [{ firmware }] : []);
@@ -215,7 +219,7 @@ function serviceWith(
           return await work({
             query: jest.fn((sql: string, params: unknown[]) => {
               steps.push([sql, params]);
-              if (!WRITES.includes(sql)) return query(sql);
+              if (!WRITES.includes(sql)) return query(sql, params);
               writes.push([sql, params]);
               return Promise.resolve([]);
             }),
@@ -374,6 +378,189 @@ describe('ScenariosService (US31 · F-100, SCRUM-252)', () => {
 
     expect(writes[0][1].slice(3)).toEqual(['A', 220, false]);
     expect(writes[1][1].slice(2, 4)).toEqual(['051421A', 'CLEAR']);
+  });
+
+  describe('PHASE_OUT_OF_RANGE / PHASE_IN_RANGE (05xx20y)', () => {
+    type Channel = 'A' | 'B' | 'C';
+    const OUT = (channel: Channel) =>
+      ({
+        action: 'PHASE_OUT_OF_RANGE',
+        target: TRAFO.custom_id,
+        channel,
+      }) as const;
+    const IN = (channel: Channel) =>
+      ({
+        action: 'PHASE_IN_RANGE',
+        target: TRAFO.custom_id,
+        channel,
+      }) as const;
+    /** SET only for the alarm pattern of one event number ('20' out of range, '21' phase drop). */
+    const setFor = (event: '20' | '21') => (pattern: string) =>
+      pattern.includes(`${event}(`) ? 'SET' : null;
+
+    it('PHASE_OUT_OF_RANGE writes 198.4 V on that channel, no current change, and a 05xx20y SET', async () => {
+      const { service, writes } = serviceWith({ firmware: '15' });
+
+      const result = await service.run(OUT('B'), ADMIN);
+
+      expect(result).toMatchObject({
+        action: 'PHASE_OUT_OF_RANGE',
+        channel: 'B',
+        event_code: '051520B',
+        event_type: 'SET',
+      });
+      expect(writes[0]).toEqual([
+        INSERT_SMAC_READING_SQL,
+        ['0501000001', '0000100004-T1-3', NOW.toISOString(), 'B', 198.4, false],
+      ]);
+      expect(writes[1]).toEqual([
+        INSERT_ALARM_SQL,
+        [
+          '0501000001',
+          '0000100004-T1-3',
+          '051520B',
+          'SET',
+          'Fase B fuera de rango',
+          '198.4',
+          NOW.toISOString(),
+        ],
+      ]);
+    });
+
+    it('PHASE_IN_RANGE writes 220 V back with a CLEAR', async () => {
+      const { service, writes } = serviceWith({
+        latestWhen: setFor('20'),
+        firmware: null,
+      });
+
+      await service.run(IN('A'), ADMIN);
+
+      expect(writes[0][1].slice(3)).toEqual(['A', 220, false]);
+      expect(writes[1][1].slice(2)).toEqual([
+        '051420A',
+        'CLEAR',
+        'Fase A dentro de rango',
+        '220',
+        NOW.toISOString(),
+      ]);
+    });
+
+    it('409 for a repeated SET or CLEAR, nothing written', async () => {
+      for (const [body, options] of [
+        [OUT('A'), { latestWhen: setFor('20') }],
+        [IN('A'), {}],
+      ] as const) {
+        const { service, writes } = serviceWith(options);
+        await expect(service.run(body, ADMIN)).rejects.toThrow(
+          ConflictException,
+        );
+        expect(writes).toEqual([]);
+      }
+    });
+
+    it('400 without a channel, 400 for a channel the transformer does not have', async () => {
+      const { service, query } = serviceWith();
+      await expect(
+        service.run(
+          { action: 'PHASE_OUT_OF_RANGE', target: TRAFO.custom_id } as never,
+          ADMIN,
+        ),
+      ).rejects.toThrow(/PHASE_OUT_OF_RANGE needs channel A, B or C/);
+      await expect(
+        service.run(
+          { action: 'PHASE_IN_RANGE', target: TRAFO.custom_id } as never,
+          ADMIN,
+        ),
+      ).rejects.toThrow(/PHASE_IN_RANGE needs channel A, B or C/);
+      expect(query).not.toHaveBeenCalled();
+      await expect(serviceWith().service.run(OUT('C'), ADMIN)).rejects.toThrow(
+        /no phase on channel C/,
+      );
+    });
+
+    it('is independent of the phase drop of another channel: it writes its own voltage', async () => {
+      const { service, writes } = serviceWith({
+        latestWhen: (pattern) => (pattern.includes('21(B|2)') ? 'SET' : null),
+      });
+
+      await service.run(OUT('A'), ADMIN);
+
+      expect(writes[0][1].slice(3)).toEqual(['A', 198.4, false]);
+      expect(writes.map(([sql]) => sql)).toEqual([
+        INSERT_SMAC_READING_SQL,
+        INSERT_ALARM_SQL,
+      ]);
+    });
+
+    it.each([
+      ['PHASE_OUT_OF_RANGE', OUT('A'), undefined, 198.4, 'SET'],
+      ['PHASE_IN_RANGE', IN('A'), setFor('20'), 220, 'CLEAR'],
+    ] as const)(
+      '%s while the phase drop of the same channel is active: the alarm is written and the reading keeps the channel as it is (NULL channel)',
+      async (_name, body, latestOf20, volts, type) => {
+        const { service, writes } = serviceWith({
+          latestWhen: (pattern) =>
+            pattern.includes('21(A|1)')
+              ? 'SET'
+              : (latestOf20?.(pattern) ?? null),
+        });
+
+        await service.run(body, ADMIN);
+
+        // $4 NULL: no `$4 = 'A'` is true, so every column of the latest reading is copied.
+        expect(writes[0]).toEqual([
+          INSERT_SMAC_READING_SQL,
+          [
+            '0501000001',
+            '0000100004-T1-3',
+            NOW.toISOString(),
+            null,
+            volts,
+            false,
+          ],
+        ]);
+        expect(writes[1][1].slice(2, 4)).toEqual(['051420A', type]);
+      },
+    );
+
+    it('DROP_PHASE and RESTORE_PHASE are unchanged and never look at the out of range alarm', async () => {
+      const drop = serviceWith({
+        latestWhen: (pattern) => (pattern.includes('20(') ? 'SET' : null),
+      });
+      await drop.service.run(
+        { action: 'DROP_PHASE', target: TRAFO.custom_id, channel: 'A' },
+        ADMIN,
+      );
+      expect(drop.writes[0][1].slice(3)).toEqual(['A', 0, true]);
+      expect(drop.writes[1][1].slice(2, 4)).toEqual(['051421A', 'SET']);
+
+      const restore = serviceWith({
+        latestWhen: (pattern) => (pattern.includes('21(') ? 'SET' : null),
+      });
+      await restore.service.run(
+        { action: 'RESTORE_PHASE', target: TRAFO.custom_id, channel: 'A' },
+        ADMIN,
+      );
+      expect(restore.writes[0][1].slice(3)).toEqual(['A', 220, false]);
+      expect(restore.writes[1][1].slice(2, 4)).toEqual(['051421A', 'CLEAR']);
+    });
+
+    it('status lists both with channel_required, 22 actions in all', async () => {
+      const { actions } = await serviceWith().service.status();
+      expect(actions).toHaveLength(22);
+      expect(actions.slice(6, 8)).toMatchObject([
+        {
+          action: 'PHASE_OUT_OF_RANGE',
+          target: 'TRANSFORMER',
+          channel_required: true,
+        },
+        {
+          action: 'PHASE_IN_RANGE',
+          target: 'TRANSFORMER',
+          channel_required: true,
+        },
+      ]);
+    });
   });
 
   it('refuses a phase the transformer does not have (CL-07)', async () => {
@@ -1314,8 +1501,20 @@ describe('ScenariosService inactivity: SILENCE / RESUME (SCRUM-253)', () => {
         ],
         [
           trafo('SILENCE_SMAC'),
-          { latest: 'SET', responses: SMAC_READY },
+          {
+            latestWhen: (pattern) => (pattern.includes('21(') ? 'SET' : null),
+            responses: SMAC_READY,
+          },
           /: DROP_PHASE A, DROP_PHASE B, DROP_PHASE C;/,
+        ],
+        [
+          trafo('SILENCE_SMAC'),
+          {
+            latestWhen: (pattern) =>
+              pattern.includes('20(B|2)') ? 'SET' : null,
+            responses: SMAC_READY,
+          },
+          /: PHASE_OUT_OF_RANGE B;/,
         ],
       ];
       for (const [body, options, message] of cases) {
@@ -1560,6 +1759,8 @@ describe('ScenariosService inactivity: SILENCE / RESUME (SCRUM-253)', () => {
       ['RESTORE_VOLTAGE', { latest: 'SET' }],
       ['DROP_PHASE', {}],
       ['RESTORE_PHASE', { latest: 'SET' }],
+      ['PHASE_OUT_OF_RANGE', {}],
+      ['PHASE_IN_RANGE', { latest: 'SET' }],
       [
         'DRAIN_SUPERCAPS',
         { responses: { [SUPERCAPS_LEVEL_SQL]: [{ value: 85 }] } },

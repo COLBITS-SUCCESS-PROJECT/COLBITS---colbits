@@ -7,7 +7,8 @@
  * rules within one refresh. Javier's SCRUM-253 adds the other actions to SCENARIO_ACTIONS.
  *
  * SCRUM-253: every action has a `kind`, so actions that write differently can share the service:
- *  - `event`: one reading plus one SET or CLEAR alarm event (the six SCRUM-252 actions);
+ *  - `event`: one reading plus one SET or CLEAR alarm event (the six SCRUM-252 actions, and the
+ *    SMAC phase out of range 05xx20y pair);
  *  - `telemetry`: one reading with the device's own fields changed, and optionally one MSG event
  *    (the device conditions whose origin is telemetry: low energy, overload, free fall, solar panel);
  *  - `silence`: the device stops or resumes reporting (inactivity).
@@ -109,6 +110,20 @@ export const SCENARIO_ACTIONS = {
     kind: 'event',
     device: 'SMAC',
     event: '21',
+    eventType: 'CLEAR',
+    channel: true,
+  },
+  PHASE_OUT_OF_RANGE: {
+    kind: 'event',
+    device: 'SMAC',
+    event: '20',
+    eventType: 'SET',
+    channel: true,
+  },
+  PHASE_IN_RANGE: {
+    kind: 'event',
+    device: 'SMAC',
+    event: '20',
     eventType: 'CLEAR',
     channel: true,
   },
@@ -241,6 +256,12 @@ export const OPEN_FUSE_ANGLE = 125;
 export const CLOSED_FUSE_ANGLE = 1;
 export const DROPPED_PHASE_VOLTS = 0;
 export const NOMINAL_PHASE_VOLTS = 220;
+/**
+ * Voltage written by PHASE_OUT_OF_RANGE: the sample value of the seed (051420A SET, 198.4 V). An
+ * illustrative demo measurement only, NOT a threshold or a range rule: no out-of-range band is
+ * documented, and the platform decides nothing from this number (the alarm event is the source).
+ */
+export const OUT_OF_RANGE_PHASE_VOLTS = 198.4;
 
 /**
  * SCRUM-253: values of the telemetry actions, always derived from the configured thresholds
@@ -315,6 +336,10 @@ export function alarmTextOf(
       return `Caída de la fase ${channel}`;
     case 'RESTORE_PHASE':
       return `Recuperación de la fase ${channel}`;
+    case 'PHASE_OUT_OF_RANGE':
+      return `Fase ${channel} fuera de rango`;
+    case 'PHASE_IN_RANGE':
+      return `Fase ${channel} dentro de rango`;
     case 'FREE_FALL':
       return 'Movimiento anormal detectado';
     default:
@@ -332,9 +357,24 @@ export function alarmValueOf(action: ScenarioAction): string | null {
     case 'DROP_PHASE':
       return String(DROPPED_PHASE_VOLTS);
     case 'RESTORE_PHASE':
+    case 'PHASE_IN_RANGE':
       return String(NOMINAL_PHASE_VOLTS);
+    case 'PHASE_OUT_OF_RANGE':
+      return String(OUT_OF_RANGE_PHASE_VOLTS);
     default:
       return null;
+  }
+}
+
+/** Volts the reading of a SMAC phase action gives its channel (DROP_PHASE: 0 V). */
+export function phaseVoltsOf(action: ScenarioAction): number {
+  switch (action) {
+    case 'DROP_PHASE':
+      return DROPPED_PHASE_VOLTS;
+    case 'PHASE_OUT_OF_RANGE':
+      return OUT_OF_RANGE_PHASE_VOLTS;
+    default:
+      return NOMINAL_PHASE_VOLTS;
   }
 }
 
@@ -399,6 +439,10 @@ export function expectedEffectOf(action: ScenarioAction): string {
       return 'Transformer layer: WARNING with one phase down, CRITICAL with two or more; an open PHASE_LOSS alarm.';
     case 'RESTORE_PHASE':
       return 'The PHASE_LOSS alarm resolves; the transformer state is recomputed.';
+    case 'PHASE_OUT_OF_RANGE':
+      return 'An open PHASE_OUT_OF_RANGE alarm (05xx20y SET) on that channel in GET /faults; the node counts in counters.phaseOutOfRangeNodes. The transformer map state does not change (a phase out of range is not a phase drop).';
+    case 'PHASE_IN_RANGE':
+      return 'The PHASE_OUT_OF_RANGE alarm resolves (05xx20y CLEAR) and moves to GET /faults/resolved; the counter drops when the node has no other channel out of range.';
     case 'DRAIN_SUPERCAPS':
       return 'The Falcon supercapacitors drop below FALCON_LOW_ENERGY_PERCENT: a low-energy alert in GET /device/low-energy. Telemetry only, no alarm event.';
     case 'RECHARGE_SUPERCAPS':

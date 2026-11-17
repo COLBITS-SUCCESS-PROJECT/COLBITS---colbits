@@ -41,9 +41,7 @@ import {
   DEFAULT_FIRMWARE,
   DEMO_SCENARIOS_DATABASE_SETTING,
   DEMO_SCENARIOS_SETTING,
-  DROPPED_PHASE_VOLTS,
   EventScenarioActionDefinition,
-  NOMINAL_PHASE_VOLTS,
   OPEN_FUSE_ANGLE,
   SCENARIO_ACTIONS,
   SCENARIO_ACTION_NAMES,
@@ -64,6 +62,7 @@ import {
   isScenarioChannel,
   normalLoad,
   overloadedLoad,
+  phaseVoltsOf,
   rechargedEnergyLevel,
   repeatsCurrentState,
   scenarioActionDefinition,
@@ -628,14 +627,24 @@ export class ScenariosService {
           ...falconOverrides(action),
         ]);
       } else {
-        const drop = action === 'DROP_PHASE';
+        // A phase out of range / back in range never contradicts a phase drop of the same
+        // channel: while that channel is dropped, the reading is copied as it is (no channel
+        // matches NULL, so every column keeps the latest value). The alarm is written anyway.
+        const keepsReading =
+          (action === 'PHASE_OUT_OF_RANGE' || action === 'PHASE_IN_RANGE') &&
+          (await this.isActive(
+            manager,
+            SCENARIO_ACTIONS.DROP_PHASE,
+            resolved,
+            channel,
+          ));
         await manager.query(INSERT_SMAC_READING_SQL, [
           resolved.hwId,
           target,
           recordedAt,
-          channel,
-          drop ? DROPPED_PHASE_VOLTS : NOMINAL_PHASE_VOLTS,
-          drop,
+          keepsReading ? null : channel,
+          phaseVoltsOf(action),
+          action === 'DROP_PHASE',
         ]);
       }
       await manager.query(INSERT_ALARM_SQL, [
@@ -1115,7 +1124,8 @@ export class ScenariosService {
 
   /**
    * The scenarios active on the device now, by the start action that would have set them: the
-   * SCRUM-252 alarm states (fuse open, voltage cut, phase dropped) and the telemetry conditions.
+   * SCRUM-252 alarm states (fuse open, voltage cut, phase dropped, phase out of range) and the
+   * telemetry conditions.
    */
   private async activeScenarios(
     runner: Queryable,
@@ -1152,6 +1162,18 @@ export class ScenariosService {
         )
       ) {
         active.push(`DROP_PHASE ${channel}`);
+      }
+    }
+    for (const channel of ['A', 'B', 'C'] as const) {
+      if (
+        await this.isActive(
+          runner,
+          SCENARIO_ACTIONS.PHASE_OUT_OF_RANGE,
+          resolved,
+          channel,
+        )
+      ) {
+        active.push(`PHASE_OUT_OF_RANGE ${channel}`);
       }
     }
     for (const [action, condition] of [

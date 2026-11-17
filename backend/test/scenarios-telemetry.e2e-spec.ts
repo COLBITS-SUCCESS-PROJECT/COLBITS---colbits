@@ -202,7 +202,7 @@ describe('US31 demo scenarios: low energy, overload, free fall, solar panel (SCR
     expect(await rowsOf(hwId)).toEqual(before);
   };
 
-  it('GET /scenarios lists the new actions after the six SCRUM-252 ones, each start before its stop', async () => {
+  it('GET /scenarios lists the new actions after the SCRUM-252 ones and the phase out of range pair, each start before its stop', async () => {
     const response = await request(server())
       .get('/scenarios')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -216,13 +216,15 @@ describe('US31 demo scenarios: low energy, overload, free fall, solar panel (SCR
       effect: string;
     }[];
     // The inactivity actions follow these (scenarios-inactivity.e2e-spec.ts).
-    expect(actions.slice(0, 16).map((a) => a.action)).toEqual([
+    expect(actions.slice(0, 18).map((a) => a.action)).toEqual([
       'OPEN_FUSE',
       'CLOSE_FUSE',
       'CUT_VOLTAGE',
       'RESTORE_VOLTAGE',
       'DROP_PHASE',
       'RESTORE_PHASE',
+      'PHASE_OUT_OF_RANGE',
+      'PHASE_IN_RANGE',
       'DRAIN_SUPERCAPS',
       'RECHARGE_SUPERCAPS',
       'FREE_FALL',
@@ -234,7 +236,7 @@ describe('US31 demo scenarios: low energy, overload, free fall, solar panel (SCR
       'START_OVERLOAD',
       'END_OVERLOAD',
     ]);
-    for (const action of actions.slice(6)) {
+    for (const action of actions.slice(8)) {
       expect(Object.keys(action).sort((a, b) => a.localeCompare(b))).toEqual([
         'action',
         'channel_required',

@@ -54,7 +54,8 @@ export class RunScenarioDto {
     enum: [...SMAC_CHANNELS],
     required: false,
     example: 'A',
-    description: 'SMAC channel, only for DROP_PHASE and RESTORE_PHASE.',
+    description:
+      'SMAC channel, required by the phase actions (channel_required in GET /scenarios) and not allowed for the others.',
   })
   channel?: ScenarioChannel;
 }
