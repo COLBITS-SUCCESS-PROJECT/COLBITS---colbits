@@ -198,6 +198,7 @@
     "location": "Circuit {{circuit}} · Substation {{substation}}",
     "close": "Close node detail",
     "liveStatus": "Live status",
+    "moveHint": "Drag to move the panel; double click to put it back",
     "fuseSets": "Fuse groups · Falcon",
     "fuseSetsSummary": "{{sets}} groups · {{fuses}} fuses",
     "fuseSetBranch": "Fuse group · Branch {{branch}}",

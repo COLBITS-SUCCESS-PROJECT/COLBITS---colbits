@@ -198,6 +198,7 @@
     "location": "Circuito {{circuit}} · Subestación {{substation}}",
     "close": "Cerrar detalle del nodo",
     "liveStatus": "Estado actual",
+    "moveHint": "Arrastra para mover el panel; doble clic para volver a su lugar",
     "fuseSets": "Conjuntos de fusibles · Falcon",
     "fuseSetsSummary": "{{sets}} conj. · {{fuses}} fusibles",
     "fuseSetBranch": "Conjunto · Rama {{branch}}",
