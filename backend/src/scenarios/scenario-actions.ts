@@ -444,9 +444,9 @@ export function expectedEffectOf(action: ScenarioAction): string {
     case 'PHASE_IN_RANGE':
       return 'The PHASE_OUT_OF_RANGE alarm resolves (05xx20y CLEAR) and moves to GET /faults/resolved; the counter drops when the node has no other channel out of range.';
     case 'DRAIN_SUPERCAPS':
-      return 'The Falcon supercapacitors drop below FALCON_LOW_ENERGY_PERCENT: a low-energy alert in GET /device/low-energy. Telemetry only, no alarm event.';
+      return 'The Falcon supercapacitors drop below FALCON_LOW_ENERGY_PERCENT: a low-energy alert in GET /device/low-energy and a LOW_ENERGY alert in GET /faults. Telemetry only, no alarm event.';
     case 'RECHARGE_SUPERCAPS':
-      return 'The Falcon supercapacitors are back at or above the threshold: the low-energy alert ends.';
+      return 'The Falcon supercapacitors are back at or above the threshold: the low-energy alert ends and the LOW_ENERGY alert moves to GET /faults/resolved.';
     case 'FREE_FALL':
       return 'The Falcon reports abnormal movement (a 13xx01 MSG event and is_free_fall_alarm = true): a FREE_FALL alert in GET /faults.';
     case 'END_FREE_FALL':
@@ -456,19 +456,19 @@ export function expectedEffectOf(action: ScenarioAction): string {
     case 'CLEAR_SOLAR_PANEL_ALARM':
       return 'The Falcon reports is_solar_panel_alarm = false: the SOLAR_PANEL_FAILURE alert ends.';
     case 'DRAIN_BATTERY':
-      return 'The SMAC battery drops below SMAC_LOW_ENERGY_PERCENT: a low-energy alert in GET /device/low-energy. Telemetry only, no alarm event.';
+      return 'The SMAC battery drops below SMAC_LOW_ENERGY_PERCENT: a low-energy alert in GET /device/low-energy and a LOW_ENERGY alert in GET /faults. Telemetry only, no alarm event.';
     case 'RECHARGE_BATTERY':
-      return 'The SMAC battery is back at or above the threshold: the low-energy alert ends.';
+      return 'The SMAC battery is back at or above the threshold: the low-energy alert ends and the LOW_ENERGY alert moves to GET /faults/resolved.';
     case 'START_OVERLOAD':
       return 'The transformer load goes above SMAC_OVERLOAD_PERCENT: an OVERLOAD_UNBALANCE alert with the OVERLOAD condition in GET /faults. Imbalance values are kept as they are.';
     case 'END_OVERLOAD':
       return 'The load is back at or below the threshold: the OVERLOAD condition ends; the alert stays while a voltage or current imbalance remains.';
     case 'SILENCE_FALCON':
-      return 'The Falcon stops reporting: its readings of the last FALCON_INACTIVITY_HOURS (plus one minute) are removed, so it is inactive in GET /device/inactive and its node turns gray. Refused while another scenario is active on it or when it would erase resolved history (an inactivity period, a resolved free fall, solar-panel or overload episode).';
+      return 'The Falcon stops reporting: its readings of the last FALCON_INACTIVITY_HOURS (plus one minute) are removed, so it is inactive in GET /device/inactive (an open DEVICE_INACTIVITY alert in GET /faults) and its node turns gray. Refused while another scenario is active on it or when it would erase resolved history (an inactivity period, a resolved free fall, solar-panel, overload or low-energy episode).';
     case 'RESUME_FALCON':
       return 'The Falcon reports again (one reading, copied from its last one): it is active again, and the silence stays in its inactivity history.';
     case 'SILENCE_SMAC':
-      return 'The SMAC stops reporting: its readings of the last SMAC_INACTIVITY_HOURS (plus one minute) are removed from its three tables, so it is inactive in GET /device/inactive and its transformer turns gray. Refused while another scenario is active on it or when it would erase resolved history (an inactivity period, a resolved free fall, solar-panel or overload episode).';
+      return 'The SMAC stops reporting: its readings of the last SMAC_INACTIVITY_HOURS (plus one minute) are removed from its three tables, so it is inactive in GET /device/inactive (an open DEVICE_INACTIVITY alert in GET /faults) and its transformer turns gray. Refused while another scenario is active on it or when it would erase resolved history (an inactivity period, a resolved free fall, solar-panel, overload or low-energy episode).';
     case 'RESUME_SMAC':
       return 'The SMAC reports again (one reading, copied from its last one): it is active again, and the silence stays in its inactivity history.';
   }

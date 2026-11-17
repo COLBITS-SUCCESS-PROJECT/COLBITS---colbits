@@ -38,13 +38,13 @@ The database checks run inside the transaction that writes. The marker shows tha
 | `CUT_VOLTAGE` / `RESTORE_VOLTAGE` | FUSE | Reading + `13xx21` SET / CLEAR | Map, `GET /faults` (NO_VOLTAGE) |
 | `DROP_PHASE` / `RESTORE_PHASE` (channel) | TRANSFORMER | Reading + `05xx21y` SET / CLEAR | Map, `GET /faults` (PHASE_LOSS) |
 | `PHASE_OUT_OF_RANGE` / `PHASE_IN_RANGE` (channel) | TRANSFORMER | Reading + `05xx20y` SET / CLEAR | `GET /faults` (PHASE_OUT_OF_RANGE), `counters.phaseOutOfRangeNodes`; map unchanged |
-| `DRAIN_SUPERCAPS` / `RECHARGE_SUPERCAPS` | FUSE | `supercaps_per` below / back at or above `FALCON_LOW_ENERGY_PERCENT` | `GET /device/low-energy` |
+| `DRAIN_SUPERCAPS` / `RECHARGE_SUPERCAPS` | FUSE | `supercaps_per` below / back at or above `FALCON_LOW_ENERGY_PERCENT` | `GET /device/low-energy`, `GET /faults` (LOW_ENERGY; resolved in `GET /faults/resolved`) |
 | `FREE_FALL` / `END_FREE_FALL` | FUSE | `is_free_fall_alarm` true + `13xx01` MSG / a later reading with it false | `GET /faults` (FREE_FALL) |
 | `SOLAR_PANEL_ALARM` / `CLEAR_SOLAR_PANEL_ALARM` | FUSE | `is_solar_panel_alarm` true, `solar_panel` 0 / false, earlier value | `GET /faults` (SOLAR_PANEL_FAILURE) |
-| `DRAIN_BATTERY` / `RECHARGE_BATTERY` | TRANSFORMER | `battery_per` below / back at or above `SMAC_LOW_ENERGY_PERCENT` | `GET /device/low-energy` |
+| `DRAIN_BATTERY` / `RECHARGE_BATTERY` | TRANSFORMER | `battery_per` below / back at or above `SMAC_LOW_ENERGY_PERCENT` | `GET /device/low-energy`, `GET /faults` (LOW_ENERGY; resolved in `GET /faults/resolved`) |
 | `START_OVERLOAD` / `END_OVERLOAD` | TRANSFORMER | `load_percent` above / back at or below `SMAC_OVERLOAD_PERCENT` | `GET /faults` (OVERLOAD_UNBALANCE) |
-| `SILENCE_FALCON` / `RESUME_FALCON` | FUSE | See below | `GET /device/inactive`, map (gray) |
-| `SILENCE_SMAC` / `RESUME_SMAC` | TRANSFORMER | See below | `GET /device/inactive`, map (gray) |
+| `SILENCE_FALCON` / `RESUME_FALCON` | FUSE | See below | `GET /device/inactive`, `GET /faults` (DEVICE_INACTIVITY; resolved in `GET /faults/resolved`), map (gray) |
+| `SILENCE_SMAC` / `RESUME_SMAC` | TRANSFORMER | See below | `GET /device/inactive`, `GET /faults` (DEVICE_INACTIVITY; resolved in `GET /faults/resolved`), map (gray) |
 
 Values come from the configured thresholds, never fixed ones; a stop writes back the device's value from before the condition when it has one.
 
@@ -59,14 +59,14 @@ Values come from the configured thresholds, never fixed ones; a stop writes back
 
 - `SILENCE_*` removes the device's readings after `database time − inactivity threshold − 1 minute` (`FALCON_INACTIVITY_HOURS` 9, `SMAC_INACTIVITY_HOURS` 3; for a SMAC in its three tables), rebuilds its latest-value rows from what is left, and records the silence in `public.demo_silenced_devices`, all in one transaction. Alarm events are never removed.
 - It is refused (409, nothing written) when the device is already inactive, has no reading before the cutoff to resume from (for a SMAC, in `smac_vc_values`), has alarm events after the cutoff, has another scenario active, or when the removal would bring back a condition or change the transformer's OVERLOAD_UNBALANCE alert (id, start or conditions).
-- It is also refused (409, nothing written) when the removal would erase resolved history of that device: the end of a resolved inactivity period (a record more than the threshold after the previous one, for example SILENCE, RESUME and SILENCE again within the threshold), or of a resolved FREE_FALL, SOLAR_PANEL_FAILURE (Falcon) or OVERLOAD_UNBALANCE (SMAC) episode of `GET /faults/resolved`, that falls after the cutoff. The message names what would be erased and when to try again (the latest end + threshold + 1 minute); history that ended before the cutoff does not block it, and neither does a device with none.
+- It is also refused (409, nothing written) when the removal would erase resolved history of that device: the end of a resolved inactivity period (a record more than the threshold after the previous one, for example SILENCE, RESUME and SILENCE again within the threshold), or of a resolved FREE_FALL, SOLAR_PANEL_FAILURE (Falcon), OVERLOAD_UNBALANCE (SMAC) or LOW_ENERGY (Falcon or SMAC: its recharge reading) episode of `GET /faults/resolved`, that falls after the cutoff. The message names what would be erased and when to try again (the latest end + threshold + 1 minute); history that ended before the cutoff does not block it, and neither does a device with none.
 - While a silence holds, every other action on that device is refused (409, "run RESUME_* first"). A silence stops holding as soon as the device has any record after its cutoff. A device that is only stale (no silence of its own) accepts every other action, as before SCRUM-253 (its first reading makes it report again); `SILENCE_*` on it is refused as already silent, and `RESUME_*` works.
 - `RESUME_*` removes the record and writes one reading copied from the latest one: the device is active again and the silence stays in its history as an inactivity period.
 - `demo_silenced_devices` is created by the same synthetic loaders as the marker and emptied by every generator run. Without it, `SILENCE_*` is refused and the other actions work.
 
 ## Known limitations
 
-- SILENCE removes up to threshold + 1 minute of history of that one synthetic device; anything derived from it changes accordingly (a low-energy `since`). Resolved inactivity periods and resolved free fall, solar-panel and overload episodes are protected: SILENCE is refused instead of erasing them. Low energy has no resolved list yet, so it is not covered.
+- SILENCE removes up to threshold + 1 minute of history of that one synthetic device; anything derived from it changes accordingly (a low-energy `since`). Resolved inactivity periods and resolved free fall, solar-panel, overload and low-energy episodes are protected: SILENCE is refused instead of erasing them.
 - Restore values come from the device's history: a device whose only earlier values come from scenarios gets those back.
 - A threshold changed between a start and its stop applies at the stop. Raising the inactivity threshold after a SILENCE keeps the device silenced until `RESUME_*`.
 - `SILENCE_SMAC` reads SCRUM-245's overload query for the transformer's node twice (about 4 ms, or 26 ms for 30 days of imbalanced history, on a 150-transformer test dataset).

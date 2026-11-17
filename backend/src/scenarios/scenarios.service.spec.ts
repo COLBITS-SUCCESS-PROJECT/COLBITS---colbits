@@ -10,6 +10,7 @@ import {
   FREE_FALL_ALERT_PARAMETERS,
   OVERLOAD_ALERTS_SQL,
   RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_LOW_ENERGY_ALERTS_SQL,
   RESOLVED_OVERLOAD_ALERTS_SQL,
   RESOLVED_SOLAR_PANEL_ALERTS_SQL,
 } from '../faults/device-alert-queries';
@@ -1351,6 +1352,7 @@ describe('ScenariosService inactivity: SILENCE / RESUME (SCRUM-253)', () => {
         FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
         RESOLVED_FREE_FALL_ALERTS_SQL,
         RESOLVED_SOLAR_PANEL_ALERTS_SQL,
+        RESOLVED_LOW_ENERGY_ALERTS_SQL,
       ]);
       expect(sqls.slice(firstWrite + 3, firstWrite + 5)).toEqual([
         DEVICE_LAST_RECORD_SQL,
@@ -1808,6 +1810,28 @@ describe('ScenariosService inactivity: SILENCE / RESUME (SCRUM-253)', () => {
         3,
         iso(2),
       ],
+      [
+        'a resolved LOW_ENERGY (Falcon)',
+        fuse('SILENCE_FALCON'),
+        FALCON_READY,
+        {
+          [RESOLVED_LOW_ENERGY_ALERTS_SQL]: [endedRow(FUSE.custom_id, iso(5))],
+        },
+        'a resolved LOW_ENERGY ended at ' + iso(5),
+        9,
+        iso(5),
+      ],
+      [
+        'a resolved LOW_ENERGY (SMAC)',
+        trafo('SILENCE_SMAC'),
+        SMAC_READY,
+        {
+          [RESOLVED_LOW_ENERGY_ALERTS_SQL]: [endedRow(TRAFO.custom_id, iso(1))],
+        },
+        'a resolved LOW_ENERGY ended at ' + iso(1),
+        3,
+        iso(1),
+      ],
     ] as [
       string,
       unknown,
@@ -1882,6 +1906,97 @@ describe('ScenariosService inactivity: SILENCE / RESUME (SCRUM-253)', () => {
 
       await expect(refusal).rejects.toThrow(
         `a resolved inactivity period ended at ${iso(5)}, a resolved FREE_FALL ended at ${iso(1)}, a resolved SOLAR_PANEL_FAILURE ended at ${iso(2)}.`,
+      );
+      await expect(refusal).rejects.toThrow(`try again after ${retryAt} `);
+      expect(writes).toEqual([]);
+    });
+
+    it.each([
+      ['Falcon', fuse('SILENCE_FALCON'), FALCON_READY, FUSE.node_id, 9],
+      ['SMAC', trafo('SILENCE_SMAC'), SMAC_READY, TRAFO.node_id, 3],
+    ] as const)(
+      '%s: asks the resolved low-energy query once, for the node, both thresholds, the cutoff and the clock, before deleting anything',
+      async (_kind, body, ready, node, hours) => {
+        const { service, steps } = serviceWith({
+          responses: ready as Record<string, unknown[]>,
+        });
+
+        await service.run(body as never, ADMIN);
+
+        const sqls = sqlsOf(steps);
+        expect(
+          sqls.filter((sql) => sql === RESOLVED_LOW_ENERGY_ALERTS_SQL),
+        ).toHaveLength(1);
+        const cutoff = new Date(
+          NOW.getTime() - hours * 3_600_000 - 60_000,
+        ).toISOString();
+        expect(
+          steps.find(([sql]) => sql === RESOLVED_LOW_ENERGY_ALERTS_SQL)?.[1],
+        ).toEqual([[node], 30, 30, cutoff, NOW.toISOString()]);
+        expect(sqls.indexOf(RESOLVED_LOW_ENERGY_ALERTS_SQL)).toBeLessThan(
+          sqls.findIndex((sql) => sql.startsWith('DELETE FROM public.')),
+        );
+      },
+    );
+
+    it('uses the configured low-energy thresholds for the resolved low-energy query', async () => {
+      const { service, steps } = serviceWith({
+        settings: {
+          FALCON_LOW_ENERGY_PERCENT: '45',
+          SMAC_LOW_ENERGY_PERCENT: '15',
+        },
+        responses: FALCON_READY,
+      });
+
+      await service.run(fuse('SILENCE_FALCON'), ADMIN);
+
+      expect(
+        steps.find(([sql]) => sql === RESOLVED_LOW_ENERGY_ALERTS_SQL)?.[1],
+      ).toEqual([
+        [FUSE.node_id],
+        45,
+        15,
+        FALCON_CUTOFF,
+        NOW.toISOString(),
+      ]);
+    });
+
+    it('does not count a resolved low-energy episode of another device, nor one that ended at or before the cutoff', async () => {
+      const { service, writes } = serviceWith({
+        responses: {
+          ...FALCON_READY,
+          [RESOLVED_LOW_ENERGY_ALERTS_SQL]: [
+            endedRow('0000100002-A-S', iso(2)),
+            endedRow(FUSE.custom_id, FALCON_CUTOFF),
+            endedRow(FUSE.custom_id, iso(10)),
+          ],
+        },
+      });
+
+      await service.run(fuse('SILENCE_FALCON'), ADMIN);
+
+      expect(writes[writes.length - 1][0]).toBe(RECORD_SILENCE_SQL);
+    });
+
+    it('lists a resolved low-energy episode with the other kinds and retries after the latest end of all of them', async () => {
+      const { service, writes } = serviceWith({
+        responses: {
+          ...FALCON_READY,
+          [RESOLVED_FREE_FALL_ALERTS_SQL]: [endedRow(FUSE.custom_id, iso(3))],
+          [RESOLVED_LOW_ENERGY_ALERTS_SQL]: [
+            endedRow(FUSE.custom_id, iso(6)),
+            endedRow(FUSE.custom_id, iso(1)),
+          ],
+        },
+      });
+      const retryAt = new Date(
+        NOW.getTime() - 3_600_000 + 9 * 3_600_000 + 60_000,
+      ).toISOString();
+
+      const refusal = service.run(fuse('SILENCE_FALCON'), ADMIN);
+
+      await expect(refusal).rejects.toThrow(
+        `a resolved FREE_FALL ended at ${iso(3)}, a resolved LOW_ENERGY ended at ${iso(1)}.`,
       );
       await expect(refusal).rejects.toThrow(`try again after ${retryAt} `);
       expect(writes).toEqual([]);

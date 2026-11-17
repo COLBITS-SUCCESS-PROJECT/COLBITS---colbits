@@ -21,11 +21,18 @@ import { type AlertType, classifyEventCode } from './fault-alert-types';
  *   - SOLAR_PANEL_FAILURE is_solar_panel_alarm has no event code (CL-10): the flag is the alert.
  *   - OVERLOAD_UNBALANCE  load_percent, vuf_percent and cuf_percent have no event code: the values
  *                         compared with the thresholds are the alert (TD-08).
+ *   - LOW_ENERGY          supercaps_per (Falcon, F-44) and battery_per (SMAC, F-45) below the
+ *                         threshold of the device type (NF-08): the level is the alert.
+ *   - DEVICE_INACTIVITY   no record for longer than the device's threshold (F-38, F-39, F-46): the
+ *                         periods are computed by device/inactivity-periods.ts, the same rule as
+ *                         GET /device/inactive.
  */
 export const DEVICE_ALERT_TYPES = [
   'FREE_FALL',
   'SOLAR_PANEL_FAILURE',
   'OVERLOAD_UNBALANCE',
+  'LOW_ENERGY',
+  'DEVICE_INACTIVITY',
 ] as const satisfies readonly AlertType[];
 export type DeviceAlertType = (typeof DEVICE_ALERT_TYPES)[number];
 
@@ -299,4 +306,73 @@ export function evaluateFreeFallEpisode(
     else if (item.flag === false) startedAt = null;
   }
   return { active: startedAt !== null, startedAt };
+}
+
+// ── Low energy (Falcon supercapacitors, SMAC battery) ─────────────────────────────────────────
+
+/** A reading's energy level in percent (supercaps_per or battery_per), null when not filled. */
+export interface EnergyReading {
+  recordedAt: Date;
+  level: number | string | null;
+}
+
+export interface LowEnergyEpisode {
+  /** The first low reading after the last reading that was not low. */
+  startedAt: Date;
+  /** The first later finite reading at or above the threshold (the recharge); null while open. */
+  endedAt: Date | null;
+  /** The last low level of the episode: the one just before the recharge, or the current one. */
+  lowLevel: number;
+}
+
+export interface LowEnergyEvaluation {
+  /** Every episode, oldest first. At most the last one is open. */
+  episodes: LowEnergyEpisode[];
+  /** Whether the device's last finite level is low, i.e. the last episode is open. */
+  active: boolean;
+  /** The last finite level, whatever its time; null when the device never reported one. */
+  lastLevel: number | null;
+}
+
+/**
+ * Low-energy episodes of ONE device from its readings (NF-08, F-44, F-45). This is the reference
+ * of LOW_ENERGY_ALERTS_SQL and RESOLVED_LOW_ENERGY_ALERTS_SQL, which must give the same episodes.
+ * `readings` are the readings of the device that is installed NOW (the fuse's or transformer's
+ * current_hw_id): the readings of a replaced device never count.
+ *   - a level is low when it is finite and STRICTLY below the threshold: a level equal to it is not
+ *     low (F-44 / F-45 "falls below");
+ *   - a missing or non-finite level (NULL, NaN, +-Infinity) is no measurement: it neither starts an
+ *     episode nor ends one, so a NULL never "recharges" a device (the principle of this module);
+ *   - an episode starts at the first low reading after the last reading that was not low, and
+ *     repeated low readings keep that start;
+ *   - it ends at the first later finite reading at or above the threshold, and that reading's time
+ *     is the end (the recharge). A drain after a recharge is a new episode, with its own start.
+ * A device with no finite reading has no episode.
+ */
+export function evaluateLowEnergyEpisodes(
+  readings: readonly EnergyReading[],
+  thresholdPercent: number,
+): LowEnergyEvaluation {
+  const episodes: LowEnergyEpisode[] = [];
+  let open: LowEnergyEpisode | null = null;
+  let lastLevel: number | null = null;
+
+  for (const reading of byTime(readings)) {
+    const level = toMeasurement(reading.level);
+    if (level === null) continue;
+    lastLevel = level;
+
+    if (level < thresholdPercent) {
+      if (open === null) {
+        open = { startedAt: reading.recordedAt, endedAt: null, lowLevel: level };
+        episodes.push(open);
+      } else {
+        open.lowLevel = level;
+      }
+    } else if (open !== null) {
+      open.endedAt = reading.recordedAt;
+      open = null;
+    }
+  }
+  return { episodes, active: open !== null, lastLevel };
 }

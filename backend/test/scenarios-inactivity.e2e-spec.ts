@@ -68,8 +68,10 @@ const STALE_FALL = fuse(STALE_NODE, 'T', '13E2EIN130');
 const OUTLIVED = fuse(RECORD_NODE, 'R', '13E2EIN160');
 /** Silenced, then it reports by itself (a reading written after the silence). */
 const REPORTS_AGAIN = fuse(RECORD_NODE, 'S', '13E2EIN170');
-/** Its baseline has low supercaps, restored by the recent readings (low energy has no resolved list). */
+/** Its baseline has low supercaps, recharged by the recent readings: a resolved LOW_ENERGY episode. */
 const LOW_BELOW = fuse(RECORD_NODE, 'T', '13E2EIN220');
+/** Its baseline has low supercaps and its recent readings have no level (NULL): no recharge. */
+const LOW_NO_LEVEL = fuse(RECORD_NODE, 'I', '13E2EIN240');
 const FALCONS = [
   NORMAL,
   NO_BASELINE,
@@ -86,6 +88,7 @@ const FALCONS = [
   OUTLIVED,
   REPORTS_AGAIN,
   LOW_BELOW,
+  LOW_NO_LEVEL,
 ];
 /** A SMAC with a smac_vc baseline, and one whose smac_vc history is all recent. */
 const TRAFO = trafo(SMAC_NODE, 1, '05E2EIN070');
@@ -146,7 +149,7 @@ async function falconReading(
   device: { hwId: string; customId: string },
   hoursAgo: number,
   solarAlarm = false,
-  supercaps = 85,
+  supercaps: number | null = 85,
 ): Promise<void> {
   await dataSource.query(
     `INSERT INTO falcon_values (hw_id, custom_id, recorded_at, angle_incl, supercaps_per, solar_panel,
@@ -208,7 +211,7 @@ async function create(dataSource: DataSource): Promise<void> {
       {
         node: RECORD_NODE,
         fuseSetId: 990_345,
-        fuses: [OUTLIVED, REPORTS_AGAIN, LOW_BELOW],
+        fuses: [OUTLIVED, REPORTS_AGAIN, LOW_BELOW, LOW_NO_LEVEL],
       },
     ],
     1,
@@ -240,6 +243,10 @@ async function create(dataSource: DataSource): Promise<void> {
   await falconReading(dataSource, LOW_BELOW, 10, false, 10);
   for (const hoursAgo of [2, 0.5]) {
     await falconReading(dataSource, LOW_BELOW, hoursAgo);
+  }
+  await falconReading(dataSource, LOW_NO_LEVEL, 10, false, 10);
+  for (const hoursAgo of [2, 0.5]) {
+    await falconReading(dataSource, LOW_NO_LEVEL, hoursAgo, false, null);
   }
   // Silenced 19 h ago (cutoff 20 h ago); its baseline is 25 h old, and it reported again 15 h ago.
   await falconReading(dataSource, OUTLIVED, 25);
@@ -714,10 +721,9 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
     expect((await inactivity(SOLAR_BELOW.hwId)).inactiveNow).toBe(false);
   });
 
-  it('the deletion, the rebuild and the record are one transaction: a SILENCE refused after them leaves every row as it was', async () => {
-    // Deleting its recent readings would bring back the low supercaps of its baseline, which the
-    // service only sees after the deletion (low energy has no resolved list): it refuses there,
-    // and everything is rolled back.
+  it('a SILENCE that would bring back the low energy its recent readings recharged is refused up front: that recharge is resolved history', async () => {
+    // Its baseline has low supercaps and its recent readings recharged them: deleting them would
+    // erase the resolved LOW_ENERGY episode (and bring the low level back).
     const before = await snapshot(LOW_BELOW.hwId);
     expect(before).toContain('"supercaps_per": 10');
 
@@ -726,7 +732,7 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
     );
 
     expect(response.body.message).toMatch(
-      /would bring back DRAIN_SUPERCAPS .* nothing was changed/,
+      /would erase resolved history of .*: a resolved LOW_ENERGY ended at .* Nothing was changed\.$/,
     );
     expect(await snapshot(LOW_BELOW.hwId)).toBe(before);
     expect(await counts(LOW_BELOW.hwId)).toMatchObject({
@@ -735,6 +741,30 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
       silences: 0,
     });
     expect((await inactivity(LOW_BELOW.hwId)).inactiveNow).toBe(false);
+  });
+
+  it('the deletion, the rebuild and the record are one transaction: a SILENCE refused after them leaves every row as it was', async () => {
+    // Its recent readings have no energy level, so there is no recharge and no resolved history to
+    // protect, and its newest reading shows no low level. Deleting them would bring back the low
+    // supercaps of its baseline, which the service only sees after the deletion: it refuses there,
+    // and everything is rolled back.
+    const before = await snapshot(LOW_NO_LEVEL.hwId);
+    expect(before).toContain('"supercaps_per": 10');
+
+    const response = await run('SILENCE_FALCON', LOW_NO_LEVEL.customId).expect(
+      409,
+    );
+
+    expect(response.body.message).toMatch(
+      /would bring back DRAIN_SUPERCAPS .* nothing was changed/,
+    );
+    expect(await snapshot(LOW_NO_LEVEL.hwId)).toBe(before);
+    expect(await counts(LOW_NO_LEVEL.hwId)).toMatchObject({
+      falcon: 3,
+      last_falcon: 1,
+      silences: 0,
+    });
+    expect((await inactivity(LOW_NO_LEVEL.hwId)).inactiveNow).toBe(false);
   });
 
   it('SILENCE_SMAC clears all three SMAC streams after the cutoff and keeps the smac_vc baseline; RESUME_SMAC reports again', async () => {
@@ -852,8 +882,10 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
       );
       expect(await rowsOf()).toBe(before);
 
-      await run('DRAIN_SUPERCAPS', RACE_A.customId).expect(201);
-      await run('RECHARGE_SUPERCAPS', RACE_A.customId).expect(201);
+      // Another device: a drain and recharge of RACE_A would leave a resolved LOW_ENERGY episode
+      // that SILENCE protects (SCRUM-280), and the concurrent test below needs RACE_A without one.
+      await run('DRAIN_SUPERCAPS', STALE_DRAIN.customId).expect(201);
+      await run('RECHARGE_SUPERCAPS', STALE_DRAIN.customId).expect(201);
     } finally {
       await sql(
         'ALTER TABLE demo_silenced_devices_e2e_off RENAME TO demo_silenced_devices',

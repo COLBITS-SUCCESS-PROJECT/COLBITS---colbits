@@ -1,6 +1,10 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import {
+  INACTIVE_DEVICES_SQL,
+  InactiveDeviceRow,
+} from '../device/inactive-devices.service';
 import { Node } from '../nodes/node.entity';
 import {
   TRANSFORMER_PHASES_SQL,
@@ -21,20 +25,27 @@ import {
   FREE_FALL_ALERT_PARAMETERS,
   FREE_FALL_ALERTS_SQL,
   FalconAlertRow,
+  LOW_ENERGY_ALERTS_SQL,
+  LowEnergyAlertRow,
   OVERLOAD_ALERTS_SQL,
   OverloadAlertRow,
   RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_LOW_ENERGY_ALERTS_SQL,
   RESOLVED_OVERLOAD_ALERTS_SQL,
   RESOLVED_SOLAR_PANEL_ALERTS_SQL,
   ResolvedFalconAlertRow,
+  ResolvedLowEnergyAlertRow,
   ResolvedOverloadAlertRow,
   SOLAR_PANEL_ALERTS_SQL,
   toFalconAlertDto,
+  toLowEnergyAlertDto,
   toOverloadAlertDto,
   toResolvedFalconAlertDto,
+  toResolvedLowEnergyAlertDto,
   toResolvedOverloadAlertDto,
 } from './device-alert-queries';
 import { DeviceAlertThresholds } from './device-alert-thresholds';
+import { toInactivityAlertDtos } from './device-inactivity-alerts';
 import {
   ALERT_TYPE_DEFINITIONS,
   ALERT_TYPES,
@@ -74,6 +85,13 @@ const LIFECYCLE_TYPES = new Map<string, FuseEvent['type']>([
 ]);
 
 const HOUR_MS = 3_600_000;
+
+/**
+ * The window of the open-inactivity statement. It also reads the last record before its window, so a
+ * device that has been silent for days still shows its open period: the window can be small, and a
+ * small one keeps the statement cheap.
+ */
+const OPEN_INACTIVITY_WINDOW_MS = HOUR_MS;
 
 export const ACTIVE_FAULT_EVENTS_SQL = `
   WITH latest AS (
@@ -166,7 +184,11 @@ interface SetInfo {
  * - device alerts (SCRUM-245, US18): free fall and solar-panel failure per Falcon fuse, and overload
  *   or imbalance per SMAC transformer, never grouped (see device-alerts.ts and
  *   device-alert-queries.ts). They come from `alarms` (free fall) and from the telemetry
- *   (solar panel, overload, imbalance), all derived on each request like the rest.
+ *   (solar panel, overload, imbalance), all derived on each request like the rest;
+ * - low energy (F-44, F-45) per Falcon fuse and SMAC transformer, from the supercaps_per and
+ *   battery_per readings, and device inactivity (F-38, F-39) per Falcon fuse and SMAC transformer,
+ *   from the absence of records (the periods of GET /device/inactive). They have the shape of the
+ *   other device alerts and are not counted in the F-58 counters.
  * It filters and groups; it does not detect anything new (F-47).
  *
  * Alarm lifecycles (F-59, F-60) are derived from `alarms` on every request; nothing is stored:
@@ -203,12 +225,25 @@ export class ActiveFaultsService implements OnModuleInit {
     if (nodes.length === 0) return responseOf(now, []);
 
     const thresholds = this.deviceAlertThresholds();
-    const [rows, sourceRows, freeFallRows, solarRows, overloadRows]: [
+    const energy = this.faultsService.getLowEnergyThresholds();
+    const hours = this.faultsService.getInactivityHours();
+    const inactivityFrom = new Date(now.getTime() - OPEN_INACTIVITY_WINDOW_MS);
+    const [
+      rows,
+      sourceRows,
+      freeFallRows,
+      solarRows,
+      overloadRows,
+      lowEnergyRows,
+      inactivityRows,
+    ]: [
       EventRow[],
       SourceAlarmRow[],
       FalconAlertRow[],
       FalconAlertRow[],
       OverloadAlertRow[],
+      LowEnergyAlertRow[],
+      InactiveDeviceRow[],
     ] = await Promise.all([
       this.nodesRepository.query(ACTIVE_FAULT_EVENTS_SQL, [
         nodes,
@@ -230,6 +265,18 @@ export class ActiveFaultsService implements OnModuleInit {
         thresholds.voltageUnbalancePercent,
         thresholds.currentUnbalancePercent,
       ]),
+      this.nodesRepository.query(LOW_ENERGY_ALERTS_SQL, [
+        nodes,
+        energy.falcon,
+        energy.smac,
+      ]),
+      this.nodesRepository.query(INACTIVE_DEVICES_SQL, [
+        nodes,
+        inactivityFrom.toISOString(),
+        now.toISOString(),
+        hours.falcon,
+        hours.smac,
+      ]),
     ]);
 
     const { sets, events } = this.collectEvents(rows);
@@ -248,6 +295,14 @@ export class ActiveFaultsService implements OnModuleInit {
         toFalconAlertDto('SOLAR_PANEL_FAILURE', row, now),
       ),
       ...this.collectOverloadAlerts(overloadRows, thresholds, now),
+      ...lowEnergyRows.map((row) => toLowEnergyAlertDto(row, energy, now)),
+      // Only the periods that have no end: every one of them, whenever it started.
+      ...toInactivityAlertDtos(
+        inactivityRows,
+        hours,
+        inactivityFrom,
+        now,
+      ).filter((alert) => alert.state === 'OPEN'),
     ];
     const weights = this.faultsService.getSeverityWeights?.();
 
@@ -269,18 +324,24 @@ export class ActiveFaultsService implements OnModuleInit {
     const cutoff = new Date(now.getTime() - hours * HOUR_MS);
 
     const thresholds = this.deviceAlertThresholds();
+    const energy = this.faultsService.getLowEnergyThresholds();
+    const inactivityHours = this.faultsService.getInactivityHours();
     const [
       rows,
       sourceRows,
       freeFallRows,
       solarRows,
       overloadRows,
+      lowEnergyRows,
+      inactivityRows,
     ]: [
       EventRow[],
       SourceAlarmRow[],
       ResolvedFalconAlertRow[],
       ResolvedFalconAlertRow[],
       ResolvedOverloadAlertRow[],
+      ResolvedLowEnergyAlertRow[],
+      InactiveDeviceRow[],
     ] = await Promise.all([
       this.nodesRepository.query(RESOLVED_FAULT_EVENTS_SQL, [
         nodes,
@@ -314,6 +375,21 @@ export class ActiveFaultsService implements OnModuleInit {
         cutoff.toISOString(),
         now.toISOString(),
       ]),
+      this.nodesRepository.query(RESOLVED_LOW_ENERGY_ALERTS_SQL, [
+        nodes,
+        energy.falcon,
+        energy.smac,
+        cutoff.toISOString(),
+        now.toISOString(),
+      ]),
+      // The records of the window plus the last one before it: every period that ended inside it.
+      this.nodesRepository.query(INACTIVE_DEVICES_SQL, [
+        nodes,
+        cutoff.toISOString(),
+        now.toISOString(),
+        inactivityHours.falcon,
+        inactivityHours.smac,
+      ]),
     ]);
 
     const { sets, events } = this.collectEvents(rows);
@@ -345,6 +421,21 @@ export class ActiveFaultsService implements OnModuleInit {
         toResolvedFalconAlertDto('SOLAR_PANEL_FAILURE', row),
       ),
       ...overloadRows.map((row) => toResolvedOverloadAlertDto(row)),
+      ...lowEnergyRows.map((row) => toResolvedLowEnergyAlertDto(row, energy)),
+      // One minus a millisecond so that a period that ended exactly at the cutoff is kept: the
+      // window is [cutoff, now], both ends included, like every other resolved list.
+      ...toInactivityAlertDtos(
+        inactivityRows,
+        inactivityHours,
+        new Date(cutoff.getTime() - 1),
+        now,
+      ).filter(
+        (alert) =>
+          alert.state === 'RESOLVED' &&
+          alert.ended_at !== null &&
+          new Date(alert.ended_at).getTime() >= cutoff.getTime() &&
+          new Date(alert.ended_at).getTime() <= now.getTime(),
+      ),
     ];
 
     const allResolved = [...fuseFaults, ...sourceAlarms, ...deviceAlerts].sort(
@@ -595,6 +686,7 @@ export function toDto(
     })),
     conditions: null,
     transformer_load: null,
+    energy: null,
     warnings,
   };
 }

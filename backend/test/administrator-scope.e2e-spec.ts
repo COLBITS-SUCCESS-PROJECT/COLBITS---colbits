@@ -256,6 +256,16 @@ interface FaultsBody {
   faults: FaultBody[];
 }
 
+/**
+ * LOW_ENERGY and DEVICE_INACTIVITY come from the readings, not from the alarms, and the seed (readings
+ * from September) has both: its devices have been silent ever since and one Falcon has low
+ * supercapacitors. T2 is about the alarm-based entries, so it leaves those two types out;
+ * faults-low-energy.e2e-spec.ts and faults-inactivity.e2e-spec.ts cover them, scope included.
+ */
+const DERIVED_TYPES: readonly string[] = ['LOW_ENERGY', 'DEVICE_INACTIVITY'];
+const withoutDerived = (faults: FaultBody[]): FaultBody[] =>
+  faults.filter((fault) => !DERIVED_TYPES.includes(fault.alert_type));
+
 interface NodesBody {
   count: number;
   nodes: Array<{ name: string }>;
@@ -468,19 +478,21 @@ describe('F-04: the administrator sees the entire network (e2e)', () => {
   describe('T2: the fault listing holds every active fault and source alarm', () => {
     it('lists exactly the active entries of the whole network, whatever their circuit', async () => {
       const body = await getFaults(tokens.admin);
+      const faults = withoutDerived(body.faults);
 
-      expect(body.faults.map(identity).sort(byText)).toEqual(
+      expect(faults.map(identity).sort(byText)).toEqual(
         [...IN_SCOPE_ENTRIES, ...OUT_OF_SCOPE_ENTRIES].sort(byText),
       );
-      expect(body.count).toBe(
+      expect(faults).toHaveLength(
         IN_SCOPE_ENTRIES.length + OUT_OF_SCOPE_ENTRIES.length,
       );
+      expect(body.count).toBe(body.faults.length);
     });
 
     it('gives each source alarm the id of its source, channel and first SET', async () => {
       const at = (minutes: number) =>
         new Date(instant(now, minutes)).toISOString();
-      const ids = (await getFaults(tokens.admin)).faults
+      const ids = withoutDerived((await getFaults(tokens.admin)).faults)
         .filter((fault) => fault.alert_type !== 'FUSE_OPENING')
         .map((fault) => fault.id)
         .sort(byString);
@@ -526,10 +538,11 @@ describe('F-04: the administrator sees the entire network (e2e)', () => {
     it('lists to a consultation user of circuit 1 only the entries of circuit 1', async () => {
       const body = await getFaults(tokens.circuit1);
 
-      expect(body.faults.map(identity).sort(byText)).toEqual(
+      expect(withoutDerived(body.faults).map(identity).sort(byText)).toEqual(
         [...IN_SCOPE_ENTRIES].sort(byText),
       );
-      expect(body.count).toBe(IN_SCOPE_ENTRIES.length);
+      expect(withoutDerived(body.faults)).toHaveLength(IN_SCOPE_ENTRIES.length);
+      expect(body.count).toBe(body.faults.length);
       const text = JSON.stringify(body);
       for (const node of OUT_OF_SCOPE_NODES) expect(text).not.toContain(node);
     });

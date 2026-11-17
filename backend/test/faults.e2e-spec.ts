@@ -338,6 +338,7 @@ interface FaultBody {
   phases: string[] | null;
   classification: string | null;
   client_count: number | null;
+  energy?: { level_percent: number; threshold_percent: number } | null;
   started_at: string;
   ended_at: string | null;
   duration_seconds: number;
@@ -349,6 +350,16 @@ interface FaultBody {
   }>;
   warnings: string[];
 }
+
+/**
+ * LOW_ENERGY and DEVICE_INACTIVITY come from the readings, not from the alarms, and the seed (whose
+ * readings are from September) has both: its devices have been silent ever since, and one Falcon has
+ * low supercapacitors. The tests below are about the other types, so they leave those two out;
+ * faults-low-energy.e2e-spec.ts and faults-inactivity.e2e-spec.ts cover them.
+ */
+const DERIVED_TYPES: readonly string[] = ['LOW_ENERGY', 'DEVICE_INACTIVITY'];
+const withoutDerived = (faults: FaultBody[]): FaultBody[] =>
+  faults.filter((fault) => !DERIVED_TYPES.includes(fault.alert_type));
 
 interface ListBody {
   generated_at: string;
@@ -464,7 +475,9 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
         (f) => f.alert_type === 'FUSE_OPENING',
       );
       expect(
-        body.faults.filter((f) => f.alert_type !== 'FUSE_OPENING').map((f) => f.id),
+        withoutDerived(body.faults)
+          .filter((f) => f.alert_type !== 'FUSE_OPENING')
+          .map((f) => f.id),
       ).toEqual([SEEDED_FREE_FALL]);
       expect(body.counters).toEqual({
         fuseAlarmNodes: new Set(fuseFaults.map((f) => f.node)).size,
@@ -663,6 +676,7 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
           'device',
           'duration_seconds',
           'ended_at',
+          'energy',
           'fuses_set_id',
           'id',
           'node',
@@ -674,6 +688,7 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
           'transformer_load',
           'warnings',
         ]);
+        expect(fault.energy).toBeNull();
         expect(fault).toMatchObject({
           alert_type: 'FUSE_OPENING',
           device: 'FALCON',
@@ -789,7 +804,9 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       expect(telemetry[0].fuse_state).toBe('Abierto'); // telemetry still says open
       expect(lastAlarm[0].event_type).toBe('CLEAR'); // but its alarm history closed the opening
       expect(
-        body.faults.filter((fault) => fault.node === SEED_RESOLVED_NODE),
+        withoutDerived(body.faults).filter(
+          (fault) => fault.node === SEED_RESOLVED_NODE,
+        ),
       ).toEqual([]);
       // #CORRECTION CL-01/TD-01 (2026-11-09): was a known limitation (map red, list empty); the map now agrees with the list.
       // CL-01 / TD-01: alarms win on the map too, so the node is no longer red.
@@ -848,10 +865,13 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
       const admin = await getFaults(tokens.admin);
       const user = await getFaults(tokens.circuit1);
 
-      expect(admin.count).toBeGreaterThan(user.count);
+      const adminCount = withoutDerived(admin.faults).length;
+      const userCount = withoutDerived(user.faults).length;
+
+      expect(adminCount).toBeGreaterThan(userCount);
       // The two fuse sets outside circuit 1, plus the seeded free-fall alert (node 0000200001,
       // circuit 3), which the circuit-1 user does not see (SCRUM-245).
-      expect(admin.count - user.count).toBe(3);
+      expect(adminCount - userCount).toBe(3);
     });
 
     it('answers an empty list for a user deactivated after login', async () => {

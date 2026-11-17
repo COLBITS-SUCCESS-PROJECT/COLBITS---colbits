@@ -251,6 +251,7 @@ export interface SourceAlarmFault {
   openings: [];
   conditions: null;
   transformer_load: null;
+  energy: null;
   warnings: FaultWarning[];
 }
 
@@ -394,6 +395,7 @@ export function toSourceAlarmDto(
       openings: [],
       conditions: null,
       transformer_load: null,
+      energy: null,
       warnings,
     },
   };

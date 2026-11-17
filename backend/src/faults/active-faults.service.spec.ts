@@ -1,5 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
+import { INACTIVE_DEVICES_SQL } from '../device/inactive-devices.service';
+import type { InactiveDeviceRow } from '../device/inactive-devices.service';
 import { Node } from '../nodes/node.entity';
 import {
   TRANSFORMER_PHASES_SQL,
@@ -14,12 +16,16 @@ import {
   FREE_FALL_ALERT_PARAMETERS,
   FREE_FALL_ALERTS_SQL,
   FalconAlertRow,
+  LOW_ENERGY_ALERTS_SQL,
+  LowEnergyAlertRow,
   OVERLOAD_ALERTS_SQL,
   OverloadAlertRow,
   RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_LOW_ENERGY_ALERTS_SQL,
   RESOLVED_OVERLOAD_ALERTS_SQL,
   RESOLVED_SOLAR_PANEL_ALERTS_SQL,
   ResolvedFalconAlertRow,
+  ResolvedLowEnergyAlertRow,
   ResolvedOverloadAlertRow,
   SOLAR_PANEL_ALERTS_SQL,
 } from './device-alert-queries';
@@ -128,7 +134,12 @@ function serviceWith(
     resolvedFreeFallRows?: ResolvedFalconAlertRow[];
     resolvedSolarRows?: ResolvedFalconAlertRow[];
     resolvedOverloadRows?: ResolvedOverloadAlertRow[];
+    lowEnergyRows?: LowEnergyAlertRow[];
+    resolvedLowEnergyRows?: ResolvedLowEnergyAlertRow[];
+    inactivityRows?: InactiveDeviceRow[];
     thresholds?: ResolvedDeviceAlertThresholds;
+    lowEnergy?: { falcon: number; smac: number };
+    inactivityHours?: { falcon: number; smac: number };
   } = {},
 ) {
   const nodes = options.nodes ?? ['0000100002'];
@@ -162,7 +173,13 @@ function serviceWith(
                       ? (options.resolvedSolarRows ?? [])
                       : sql === RESOLVED_OVERLOAD_ALERTS_SQL
                         ? (options.resolvedOverloadRows ?? [])
-                        : rows,
+                        : sql === LOW_ENERGY_ALERTS_SQL
+                          ? (options.lowEnergyRows ?? [])
+                          : sql === RESOLVED_LOW_ENERGY_ALERTS_SQL
+                            ? (options.resolvedLowEnergyRows ?? [])
+                            : sql === INACTIVE_DEVICES_SQL
+                              ? (options.inactivityRows ?? [])
+                              : rows,
       ),
     ),
   };
@@ -175,6 +192,12 @@ function serviceWith(
     getDeviceAlertThresholds: jest
       .fn()
       .mockReturnValue(options.thresholds ?? DEFAULT_THRESHOLDS),
+    getLowEnergyThresholds: jest
+      .fn()
+      .mockReturnValue(options.lowEnergy ?? { falcon: 30, smac: 30 }),
+    getInactivityHours: jest
+      .fn()
+      .mockReturnValue(options.inactivityHours ?? { falcon: 9, smac: 3 }),
   };
   const service = new ActiveFaultsService(
     repository as unknown as Repository<Node>,
@@ -337,6 +360,7 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
             ],
             conditions: null,
             transformer_load: null,
+            energy: null,
             warnings: [],
           },
         ],
@@ -843,14 +867,14 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
     const typesOf = (faults: { alert_type: string }[]) =>
       faults.map((fault) => fault.alert_type);
 
-    it('runs the five statements with the same scoped nodes, the source query with the registry patterns', async () => {
+    it('runs the seven statements with the same scoped nodes, the source query with the registry patterns', async () => {
       const { service, repository } = serviceWith([], {
         nodes: ['0000100001', '0000100002'],
       });
 
       await service.activeFaults(UNRESTRICTED, NOW);
 
-      expect(repository.query).toHaveBeenCalledTimes(5);
+      expect(repository.query).toHaveBeenCalledTimes(7);
       expect(repository.query).toHaveBeenCalledWith(ACTIVE_SOURCE_ALARMS_SQL, [
         ['0000100001', '0000100002'],
         ALERT_TYPE_DEFINITIONS.NO_VOLTAGE.eventCodePattern,
@@ -971,6 +995,7 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
             openings: [],
             conditions: null,
             transformer_load: null,
+            energy: null,
             warnings: [],
           },
         ],
@@ -1371,6 +1396,7 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
         openings: [],
         conditions: null,
         transformer_load: null,
+        energy: null,
         warnings: [],
       },
       {
@@ -1394,6 +1420,7 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
         openings: [],
         conditions: null,
         transformer_load: null,
+        energy: null,
         warnings: [],
       },
     ]);
@@ -1443,6 +1470,7 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
           vuf_percent: 2.5,
           cuf_percent: null,
         },
+        energy: null,
         warnings: [],
       },
     ]);
@@ -1677,6 +1705,496 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
       { alert_type: 'OVERLOAD_UNBALANCE', state: 'RESOLVED', duration_seconds: 25 * 60 },
       { alert_type: 'SOLAR_PANEL_FAILURE', state: 'RESOLVED', duration_seconds: 30 * 60 },
       { alert_type: 'FREE_FALL', state: 'RESOLVED', duration_seconds: 30 * 60 },
+    ]);
+  });
+});
+
+/** An active low-energy alert on fuse 0000100002-A-R (Falcon), started 40 minutes before NOW. */
+function lowEnergyRow(
+  overrides: Partial<LowEnergyAlertRow> = {},
+): LowEnergyAlertRow {
+  return {
+    kind: 'FALCON',
+    source_id: '0000100002-A-R',
+    node_id: '0000100002',
+    circuit_id: 1,
+    circuit_name: 'CTO 1',
+    fuses_set_id: 2,
+    branch: 'A',
+    phase: 'R',
+    started_at: minutesAgo(40),
+    level_percent: 12,
+    ...overrides,
+  };
+}
+
+/** A device of GET /device/inactive's statement, with the gaps longer than its threshold. */
+function inactivityRow(
+  overrides: Partial<InactiveDeviceRow> = {},
+): InactiveDeviceRow {
+  return {
+    kind: 'FALCON',
+    hw_id: '1301000004',
+    source_id: '0000100002-A-R',
+    node_id: '0000100002',
+    fuses_set_id: 2,
+    branch: 'A',
+    phase: 'R',
+    zone_id: 1,
+    zone_name: 'North',
+    substation_id: 1,
+    substation_code: 'S1',
+    substation_name: 'Sub 1',
+    circuit_id: 1,
+    circuit_name: 'CTO 1',
+    last_at: null,
+    energy: null,
+    gaps: [],
+    ...overrides,
+  };
+}
+
+const smacInactivityRow = (
+  gaps: { from: string; next: string | null }[],
+): InactiveDeviceRow =>
+  inactivityRow({
+    kind: 'SMAC',
+    source_id: '0000100002-T1-3',
+    fuses_set_id: null,
+    branch: null,
+    phase: null,
+    gaps,
+  });
+
+const hoursAgo = (hours: number): Date =>
+  new Date(NOW.getTime() - hours * 3_600_000);
+const iso = (hours: number): string => hoursAgo(hours).toISOString();
+
+describe('ActiveFaultsService — LOW_ENERGY and DEVICE_INACTIVITY (F-38, F-39, F-44, F-45)', () => {
+  let warn: jest.SpyInstance;
+
+  beforeEach(() => {
+    warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  describe('LOW_ENERGY, active', () => {
+    it('runs the statement with the scoped nodes and the Falcon and SMAC thresholds read from FaultsService', async () => {
+      const { service, repository, faults } = serviceWith([], {
+        nodes: ['0000100001', '0000100002'],
+        lowEnergy: { falcon: 45, smac: 20 },
+      });
+
+      await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(repository.query).toHaveBeenCalledWith(LOW_ENERGY_ALERTS_SQL, [
+        ['0000100001', '0000100002'],
+        45,
+        20,
+      ]);
+      expect(faults.getLowEnergyThresholds).toHaveBeenCalledTimes(1);
+    });
+
+    it('lists a Falcon (fuse-level) and a SMAC (transformer-level) entry with their energy and the threshold of their type', async () => {
+      const { service } = serviceWith([], {
+        lowEnergy: { falcon: 30, smac: 40 },
+        lowEnergyRows: [
+          lowEnergyRow(),
+          lowEnergyRow({
+            kind: 'SMAC',
+            source_id: '0000100002-T1-3',
+            fuses_set_id: null,
+            branch: null,
+            phase: null,
+            started_at: minutesAgo(10),
+            level_percent: 35,
+          }),
+        ],
+      });
+
+      const { faults, count } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(count).toBe(2);
+      expect(
+        faults.map((f) => ({
+          type: f.alert_type,
+          device: f.device,
+          id: f.id,
+          set: f.fuses_set_id,
+          phases: f.phases,
+          state: f.state,
+          ended: f.ended_at,
+          energy: f.energy,
+        })),
+      ).toEqual([
+        {
+          type: 'LOW_ENERGY',
+          device: 'FALCON',
+          id: `LOW_ENERGY:0000100002-A-R:${minutesAgo(40).toISOString()}`,
+          set: 2,
+          phases: ['R'],
+          state: 'OPEN',
+          ended: null,
+          energy: { level_percent: 12, threshold_percent: 30 },
+        },
+        {
+          type: 'LOW_ENERGY',
+          device: 'SMAC',
+          id: `LOW_ENERGY:0000100002-T1-3:${minutesAgo(10).toISOString()}`,
+          set: null,
+          phases: null,
+          state: 'OPEN',
+          ended: null,
+          energy: { level_percent: 35, threshold_percent: 40 },
+        },
+      ]);
+    });
+
+    it('every other alert type has a null energy', async () => {
+      const { service } = serviceWith([row()], {
+        sourceRows: [sourceRow()],
+        freeFallRows: [falconAlertRow()],
+        overloadRows: [overloadRow()],
+        lowEnergyRows: [lowEnergyRow()],
+      });
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(
+        faults.filter((f) => f.alert_type !== 'LOW_ENERGY').map((f) => f.energy),
+      ).toEqual([null, null, null, null]);
+      expect(faults.filter((f) => f.energy !== null)).toHaveLength(1);
+    });
+
+    it('is not counted in the F-58 counters, and neither is DEVICE_INACTIVITY', async () => {
+      const { service } = serviceWith([], {
+        lowEnergyRows: [lowEnergyRow()],
+        inactivityRows: [
+          inactivityRow({ gaps: [{ from: iso(20), next: null }] }),
+        ],
+      });
+
+      const { counters, count } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(count).toBe(2);
+      expect(counters).toEqual({
+        fuseAlarmNodes: 0,
+        voltageAlarmNodes: 0,
+        phaseOutOfRangeNodes: 0,
+        phaseDroppedNodes: 0,
+      });
+    });
+
+    it('goes after fuse faults (with clients), and among the other device alerts by age', async () => {
+      const { service } = serviceWith([row()], {
+        freeFallRows: [falconAlertRow({ started_at: minutesAgo(30) })],
+        lowEnergyRows: [lowEnergyRow({ started_at: minutesAgo(50) })],
+      });
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(faults.map((f) => f.alert_type)).toEqual([
+        'FUSE_OPENING',
+        'LOW_ENERGY',
+        'FREE_FALL',
+      ]);
+    });
+  });
+
+  describe('LOW_ENERGY, resolved', () => {
+    it.each([
+      ['1h', 1],
+      ['24h', 24],
+      ['1d', 24],
+    ] as const)(
+      'window %s: runs the resolved statement from now - %s h to now, with the thresholds',
+      async (window, hours) => {
+        const { service, repository } = serviceWith([], {
+          lowEnergy: { falcon: 30, smac: 25 },
+        });
+
+        await service.resolvedFaults(UNRESTRICTED, window, NOW);
+
+        expect(repository.query).toHaveBeenCalledWith(
+          RESOLVED_LOW_ENERGY_ALERTS_SQL,
+          [['0000100002'], 30, 25, iso(hours), NOW.toISOString()],
+        );
+        expect(repository.query).not.toHaveBeenCalledWith(
+          LOW_ENERGY_ALERTS_SQL,
+          expect.anything(),
+        );
+      },
+    );
+
+    it('lists the episodes RESOLVED, with the recharge as end, the last low level and the same id as while open', async () => {
+      const startedAt = minutesAgo(50);
+      const { service } = serviceWith([], {
+        lowEnergy: { falcon: 30, smac: 30 },
+        resolvedLowEnergyRows: [
+          {
+            ...lowEnergyRow({ started_at: startedAt, level_percent: 7 }),
+            ended_at: minutesAgo(20),
+          },
+        ],
+      });
+
+      const { faults } = await service.resolvedFaults(UNRESTRICTED, '1h', NOW);
+
+      expect(faults).toHaveLength(1);
+      expect(faults[0]).toMatchObject({
+        id: `LOW_ENERGY:0000100002-A-R:${startedAt.toISOString()}`,
+        alert_type: 'LOW_ENERGY',
+        state: 'RESOLVED',
+        started_at: startedAt.toISOString(),
+        ended_at: minutesAgo(20).toISOString(),
+        duration_seconds: 30 * 60,
+        energy: { level_percent: 7, threshold_percent: 30 },
+      });
+    });
+
+    it('two episodes of the same device are two entries with their own ids, newest end first', async () => {
+      const { service } = serviceWith([], {
+        resolvedLowEnergyRows: [
+          {
+            ...lowEnergyRow({ started_at: minutesAgo(55) }),
+            ended_at: minutesAgo(40),
+          },
+          {
+            ...lowEnergyRow({ started_at: minutesAgo(30) }),
+            ended_at: minutesAgo(10),
+          },
+        ],
+      });
+
+      const { faults } = await service.resolvedFaults(UNRESTRICTED, '1h', NOW);
+
+      expect(new Set(faults.map((f) => f.id)).size).toBe(2);
+      expect(faults.map((f) => f.ended_at)).toEqual([
+        minutesAgo(10).toISOString(),
+        minutesAgo(40).toISOString(),
+      ]);
+    });
+  });
+
+  describe('DEVICE_INACTIVITY, active', () => {
+    it('runs the statement of GET /device/inactive with a one-hour window up to now and the thresholds of FaultsService', async () => {
+      const { service, repository, faults } = serviceWith([], {
+        nodes: ['0000100001', '0000100002'],
+        inactivityHours: { falcon: 12, smac: 2 },
+      });
+
+      await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(repository.query).toHaveBeenCalledWith(INACTIVE_DEVICES_SQL, [
+        ['0000100001', '0000100002'],
+        iso(1),
+        NOW.toISOString(),
+        12,
+        2,
+      ]);
+      expect(faults.getInactivityHours).toHaveBeenCalledTimes(1);
+    });
+
+    it('lists the open periods only, however long ago they started, and not the ones already ended', async () => {
+      const { service } = serviceWith([], {
+        inactivityRows: [
+          inactivityRow({
+            gaps: [
+              // Ended inside the window: not active any more.
+              { from: iso(30), next: iso(0.5) },
+              // Open, silent for days.
+              { from: iso(72), next: null },
+            ],
+          }),
+          smacInactivityRow([{ from: iso(4), next: null }]),
+        ],
+      });
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(
+        faults.map((f) => [
+          f.alert_type,
+          f.source_id,
+          f.state,
+          f.started_at,
+          f.ended_at,
+        ]),
+      ).toEqual([
+        // Oldest first.
+        ['DEVICE_INACTIVITY', '0000100002-A-R', 'OPEN', iso(63), null],
+        ['DEVICE_INACTIVITY', '0000100002-T1-3', 'OPEN', iso(1), null],
+      ]);
+    });
+
+    it('uses the configured thresholds for the start of the period', async () => {
+      const { service } = serviceWith([], {
+        inactivityHours: { falcon: 2, smac: 3 },
+        inactivityRows: [inactivityRow({ gaps: [{ from: iso(10), next: null }] })],
+      });
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(faults[0].started_at).toBe(iso(8));
+    });
+
+    it('lists no device without a gap (active, or one that never reported)', async () => {
+      const { service } = serviceWith([], {
+        inactivityRows: [inactivityRow({ gaps: [] }), smacInactivityRow([])],
+      });
+
+      expect((await service.activeFaults(UNRESTRICTED, NOW)).faults).toEqual([]);
+    });
+  });
+
+  describe('DEVICE_INACTIVITY, resolved', () => {
+    it.each([
+      ['1h', 1],
+      ['24h', 24],
+    ] as const)(
+      'window %s: reads the records from now - %s h to now',
+      async (window, hours) => {
+        const { service, repository } = serviceWith([], {
+          inactivityHours: { falcon: 9, smac: 3 },
+        });
+
+        await service.resolvedFaults(UNRESTRICTED, window, NOW);
+
+        expect(repository.query).toHaveBeenCalledWith(INACTIVE_DEVICES_SQL, [
+          ['0000100002'],
+          iso(hours),
+          NOW.toISOString(),
+          9,
+          3,
+        ]);
+      },
+    );
+
+    it('lists the periods that ended inside the window, newest end first, and never an open one', async () => {
+      const { service } = serviceWith([], {
+        inactivityRows: [
+          inactivityRow({
+            gaps: [
+              // Ended 10 h ago: outside a 1 h window.
+              { from: iso(30), next: iso(10) },
+              // Ended 30 minutes ago.
+              { from: iso(15), next: iso(0.5) },
+            ],
+          }),
+          smacInactivityRow([
+            // Open: not resolved.
+            { from: iso(8), next: null },
+            // Ended 5 minutes ago.
+            { from: iso(9), next: iso(5 / 60) },
+          ]),
+        ],
+      });
+
+      const oneHour = await service.resolvedFaults(UNRESTRICTED, '1h', NOW);
+      const oneDay = await service.resolvedFaults(UNRESTRICTED, '24h', NOW);
+
+      expect(
+        oneHour.faults.map((f) => [
+          f.source_id,
+          f.started_at,
+          f.ended_at,
+          f.state,
+        ]),
+      ).toEqual([
+        ['0000100002-T1-3', iso(6), iso(5 / 60), 'RESOLVED'],
+        ['0000100002-A-R', iso(6), iso(0.5), 'RESOLVED'],
+      ]);
+      expect(oneDay.faults).toHaveLength(3);
+      expect(oneDay.faults.every((f) => f.state === 'RESOLVED')).toBe(true);
+    });
+
+    it('keeps a period that ended exactly at the cutoff or at now, and drops one just outside', async () => {
+      const cutoff = hoursAgo(1);
+      const { service } = serviceWith([], {
+        inactivityRows: [
+          inactivityRow({
+            gaps: [
+              { from: iso(20), next: cutoff.toISOString() },
+              {
+                from: iso(40),
+                next: new Date(cutoff.getTime() - 1).toISOString(),
+              },
+              { from: iso(15), next: NOW.toISOString() },
+            ],
+          }),
+        ],
+      });
+
+      const { faults } = await service.resolvedFaults(UNRESTRICTED, '1h', NOW);
+
+      expect(faults.map((f) => f.ended_at).sort((x, y) => String(x).localeCompare(String(y)))).toEqual([
+        cutoff.toISOString(),
+        NOW.toISOString(),
+      ]);
+    });
+
+    it('has the id and start of the same period while open, and the duration up to the record that ended it', async () => {
+      const from = iso(20);
+      const open = serviceWith([], {
+        inactivityRows: [inactivityRow({ gaps: [{ from, next: null }] })],
+      });
+      const resolved = serviceWith([], {
+        inactivityRows: [inactivityRow({ gaps: [{ from, next: iso(0.5) }] })],
+      });
+
+      const [active] = (await open.service.activeFaults(UNRESTRICTED, NOW))
+        .faults;
+      const [ended] = (
+        await resolved.service.resolvedFaults(UNRESTRICTED, '1h', NOW)
+      ).faults;
+
+      expect(ended.id).toBe(active.id);
+      expect(ended.started_at).toBe(active.started_at);
+      expect(ended.duration_seconds).toBe(Math.round(10.5 * 3600));
+    });
+  });
+
+  it('does not run the new statements for a user without nodes', async () => {
+    const { service, repository } = serviceWith([], { nodes: [] });
+
+    await service.activeFaults(UNRESTRICTED, NOW);
+    await service.resolvedFaults(UNRESTRICTED, '1h', NOW);
+
+    expect(repository.query).not.toHaveBeenCalled();
+  });
+
+  it('the resolved list mixes the new types with the others, newest resolution first (F-62)', async () => {
+    const { service } = serviceWith([], {
+      resolvedFreeFallRows: [
+        {
+          ...falconAlertRow({ started_at: minutesAgo(50) }),
+          ended_at: minutesAgo(20),
+        },
+      ],
+      resolvedLowEnergyRows: [
+        {
+          ...lowEnergyRow({ started_at: minutesAgo(45) }),
+          ended_at: minutesAgo(15),
+        },
+      ],
+      inactivityRows: [
+        inactivityRow({
+          gaps: [{ from: iso(10), next: minutesAgo(25).toISOString() }],
+        }),
+      ],
+    });
+
+    const { faults } = await service.resolvedFaults(UNRESTRICTED, '1h', NOW);
+
+    expect(faults.map((f) => f.alert_type)).toEqual([
+      'LOW_ENERGY',
+      'FREE_FALL',
+      'DEVICE_INACTIVITY',
     ]);
   });
 });

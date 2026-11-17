@@ -8,6 +8,7 @@ import {
 } from './device-alerts';
 import { ALERT_TYPE_DEFINITIONS } from './fault-alert-types';
 import { canonicalPhases, classifyFault } from './fault-classification';
+import type { PerDeviceSetting } from './faults.service';
 import { openDurationSeconds } from './source-alarms';
 
 /**
@@ -229,6 +230,13 @@ function requiredPattern(): string {
   return eventCodePattern;
 }
 
+/** The alert types that are one entry per Falcon fuse (the fuse-level shape of toFalconAlertDto). */
+export type FalconAlertType =
+  | 'FREE_FALL'
+  | 'SOLAR_PANEL_FAILURE'
+  | 'LOW_ENERGY'
+  | 'DEVICE_INACTIVITY';
+
 /** One free-fall or solar-panel alert as its query returns it: the fuse and its set. */
 export interface FalconAlertRow {
   source_id: string;
@@ -260,7 +268,7 @@ export interface OverloadAlertRow {
  * source alarm for now) and openings are empty.
  */
 export function toFalconAlertDto(
-  type: 'FREE_FALL' | 'SOLAR_PANEL_FAILURE',
+  type: FalconAlertType,
   row: FalconAlertRow,
   now: Date,
 ): ActiveFaultDto {
@@ -292,6 +300,7 @@ export function toFalconAlertDto(
     openings: [],
     conditions: null,
     transformer_load: null,
+    energy: null,
     warnings,
   };
 }
@@ -342,6 +351,7 @@ export function toOverloadAlertDto(
       vuf_percent: values.voltageUnbalancePercent,
       cuf_percent: values.currentUnbalancePercent,
     },
+    energy: null,
     warnings: [],
   };
 }
@@ -505,7 +515,7 @@ export interface ResolvedOverloadAlertRow {
 }
 
 export function toResolvedFalconAlertDto(
-  type: 'FREE_FALL' | 'SOLAR_PANEL_FAILURE',
+  type: FalconAlertType,
   row: ResolvedFalconAlertRow,
 ): ActiveFaultDto {
   const startedAt = new Date(row.started_at);
@@ -545,6 +555,261 @@ export function toResolvedOverloadAlertDto(
     openings: [],
     conditions: null,
     transformer_load: null,
+    energy: null,
     warnings: [],
   };
+}
+
+// ── Low energy (F-44 Falcon supercaps_per, F-45 SMAC battery_per; NF-08) ──────────────────────
+
+/**
+ * One kind of device for the low-energy queries: where its energy level is stored, which devices
+ * are in scope, and the placeholder of its threshold. The rule is evaluateLowEnergyEpisodes
+ * (device-alerts.ts): a level is low when it is finite and strictly below the threshold, a NULL or
+ * non-finite level is no measurement (it neither starts nor ends an episode), and the readings are
+ * those of the CURRENT device only (current_hw_id), from the history table and never from last_*.
+ */
+interface EnergySource {
+  table: 'falcon_values' | 'smac_vc_values';
+  column: 'supercaps_per' | 'battery_per';
+  /** The in-scope devices: kind, source_id, hw_id, node_id, fuses_set_id, branch and phase. */
+  scoped: string;
+  /** $2 (Falcon) or $3 (SMAC): the threshold in percent. */
+  threshold: string;
+}
+
+const FALCON_ENERGY: EnergySource = {
+  table: 'falcon_values',
+  column: 'supercaps_per',
+  threshold: '$2::float8',
+  scoped: `
+    SELECT 'FALCON'::text AS kind, f.custom_id AS source_id, f.current_hw_id AS hw_id,
+           fs.node_id, fs.id AS fuses_set_id, fs.set_id AS branch, f.phase
+    FROM public.fuses_sets fs
+    JOIN public.fuses f ON f.fuses_set_id = fs.id
+    WHERE fs.node_id = ANY($1::text[]) AND f.current_hw_id IS NOT NULL`,
+};
+
+const SMAC_ENERGY: EnergySource = {
+  table: 'smac_vc_values',
+  column: 'battery_per',
+  threshold: '$3::float8',
+  scoped: `
+    SELECT 'SMAC'::text AS kind, t.custom_id AS source_id, t.current_hw_id AS hw_id,
+           t.node_id, NULL::integer AS fuses_set_id, NULL::text AS branch, NULL::text AS phase
+    FROM public.trafos t
+    WHERE t.node_id = ANY($1::text[]) AND t.current_hw_id IS NOT NULL`,
+};
+
+/** A numeric column that holds a finite number (the filter form of finite()). */
+const hasFinite = (column: string): string =>
+  `${column} IS NOT NULL AND ${column}::text NOT IN ('NaN', 'Infinity', '-Infinity')`;
+
+/**
+ * The devices of one kind whose LAST FINITE level is low, with that level and the start of the
+ * episode (the first low finite reading after the last one at or above the threshold). Only that
+ * last level is read for each device, by primary key, so the devices that are fine (almost all of
+ * them) cost one index lookup; the history is only walked for the low ones.
+ */
+const activeLowEnergy = ({ table, column, scoped, threshold }: EnergySource) => `
+    SELECT x.kind, x.source_id, x.node_id, x.fuses_set_id, x.branch, x.phase, x.level_percent,
+           (SELECT min(v.recorded_at) FROM public.${table} v
+             WHERE v.hw_id = x.hw_id AND ${finite(`v.${column}`)} < ${threshold}
+               AND v.recorded_at > COALESCE(
+                 (SELECT max(o.recorded_at) FROM public.${table} o
+                   WHERE o.hw_id = x.hw_id AND ${finite(`o.${column}`)} >= ${threshold}),
+                 '-infinity'::timestamptz)) AS started_at
+    FROM (
+      SELECT s.*,
+             (SELECT ${finite(`v.${column}`)} FROM public.${table} v
+               WHERE v.hw_id = s.hw_id AND ${hasFinite(`v.${column}`)}
+               ORDER BY v.recorded_at DESC LIMIT 1) AS level_percent
+      FROM (${scoped}
+      ) s
+    ) x
+    WHERE x.level_percent < ${threshold}`;
+
+/**
+ * Low energy of the in-scope Falcon fuses (supercaps_per) and SMAC transformers (battery_per), one
+ * row per device that has it active (evaluateLowEnergyEpisodes): its last finite level is below
+ * the threshold. A NULL level changes nothing, so a device whose newest reading has no level is
+ * judged by the newest one that has. `started_at` is the first low reading after the last reading
+ * at or above the threshold and `level_percent` the last finite level.
+ *
+ * Every device listed by GET /device/low-energy (its newest last_* row is low) is listed here too:
+ * the newest row is the last finite level when it has one.
+ *
+ * $1 node names in scope, $2 the Falcon threshold, $3 the SMAC threshold.
+ */
+export const LOW_ENERGY_ALERTS_SQL = `
+  WITH low AS (${activeLowEnergy(FALCON_ENERGY)}
+    UNION ALL${activeLowEnergy(SMAC_ENERGY)}
+  )
+  SELECT l.kind, l.source_id, l.node_id, c.id AS circuit_id, c.name AS circuit_name,
+         l.fuses_set_id, l.branch, l.phase, l.started_at, l.level_percent
+  FROM low l
+  JOIN public.nodes n ON n.name = l.node_id
+  JOIN public.circuits c ON c.id = n.circuit_id
+  WHERE l.started_at IS NOT NULL
+  ORDER BY l.started_at, l.source_id
+`;
+
+/**
+ * The low-energy episodes of one kind that ended inside [$4, $5]. The finite readings of each
+ * device inside the window plus the last one before it are ordered, and a reading at or above the
+ * threshold whose previous finite reading was low is a recharge: it ends the episode, and the
+ * previous reading is the last low level. Only those few recharges look further back, for the start
+ * (the first low reading after the last non-low one before the recharge). So the cost grows with
+ * the window, not with the history of the devices.
+ */
+const resolvedLowEnergy = ({ table, column, scoped, threshold }: EnergySource) => `
+    SELECT s.kind, s.source_id, s.node_id, s.fuses_set_id, s.branch, s.phase,
+           en.ended_at, en.level_percent,
+           (SELECT min(v.recorded_at) FROM public.${table} v
+             WHERE v.hw_id = s.hw_id AND ${finite(`v.${column}`)} < ${threshold}
+               AND v.recorded_at < en.ended_at
+               AND v.recorded_at > COALESCE(
+                 (SELECT max(o.recorded_at) FROM public.${table} o
+                   WHERE o.hw_id = s.hw_id AND o.recorded_at < en.ended_at
+                     AND ${finite(`o.${column}`)} >= ${threshold}),
+                 '-infinity'::timestamptz)) AS started_at
+    FROM (${scoped}
+    ) s
+    CROSS JOIN LATERAL (
+      SELECT q.recorded_at AS ended_at, q.prev_level AS level_percent
+      FROM (
+        SELECT r.recorded_at, r.level, LAG(r.level) OVER (ORDER BY r.recorded_at) AS prev_level
+        FROM (
+          (SELECT v.recorded_at, ${finite(`v.${column}`)} AS level
+             FROM public.${table} v
+            WHERE v.hw_id = s.hw_id
+              AND v.recorded_at >= $4::timestamptz AND v.recorded_at <= $5::timestamptz
+              AND ${hasFinite(`v.${column}`)})
+          UNION ALL
+          (SELECT v.recorded_at, ${finite(`v.${column}`)} AS level
+             FROM public.${table} v
+            WHERE v.hw_id = s.hw_id AND v.recorded_at < $4::timestamptz
+              AND ${hasFinite(`v.${column}`)}
+            ORDER BY v.recorded_at DESC LIMIT 1)
+        ) r
+      ) q
+      WHERE q.recorded_at >= $4::timestamptz AND q.level >= ${threshold}
+        AND q.prev_level < ${threshold}
+    ) en`;
+
+/**
+ * Resolved low-energy episodes of the in-scope Falcon fuses and SMAC transformers whose end (the
+ * recharge: the first later finite reading at or above the threshold) is inside [$4, $5]
+ * (evaluateLowEnergyEpisodes). `level_percent` is the last low level of the episode, the one just
+ * before the recharge.
+ *
+ * $1 node names in scope, $2 the Falcon threshold, $3 the SMAC threshold, $4 and $5 the window.
+ */
+export const RESOLVED_LOW_ENERGY_ALERTS_SQL = `
+  WITH episodes AS (${resolvedLowEnergy(FALCON_ENERGY)}
+    UNION ALL${resolvedLowEnergy(SMAC_ENERGY)}
+  )
+  SELECT ep.kind, ep.source_id, ep.node_id, c.id AS circuit_id, c.name AS circuit_name,
+         ep.fuses_set_id, ep.branch, ep.phase, ep.started_at, ep.ended_at, ep.level_percent
+  FROM episodes ep
+  JOIN public.nodes n ON n.name = ep.node_id
+  JOIN public.circuits c ON c.id = n.circuit_id
+  WHERE ep.started_at IS NOT NULL
+  ORDER BY ep.ended_at DESC, ep.started_at DESC, ep.source_id
+`;
+
+/** One low-energy alert as its query returns it: the Falcon fuse and its set, or the transformer. */
+export interface LowEnergyAlertRow {
+  kind: 'FALCON' | 'SMAC';
+  source_id: string;
+  node_id: string;
+  circuit_id: number | string;
+  circuit_name: string;
+  /** Falcon only; null for a SMAC transformer. */
+  fuses_set_id: number | string | null;
+  branch: string | null;
+  phase: string | null;
+  started_at: Date | string;
+  /** float8: the last finite level (open) or the last low level of the episode (resolved). */
+  level_percent: number | string;
+}
+
+export interface ResolvedLowEnergyAlertRow extends LowEnergyAlertRow {
+  ended_at: Date | string;
+}
+
+/** The entry of a transformer-level alert (the shape of OVERLOAD_UNBALANCE, without conditions). */
+export function toTransformerAlertDto(
+  type: 'LOW_ENERGY' | 'DEVICE_INACTIVITY',
+  row: Pick<
+    LowEnergyAlertRow,
+    'source_id' | 'node_id' | 'circuit_id' | 'circuit_name'
+  >,
+  startedAt: Date,
+  now: Date,
+): ActiveFaultDto {
+  return {
+    id: deviceAlertId(type, row.source_id, startedAt),
+    node: row.node_id,
+    circuit: { id: Number(row.circuit_id), name: row.circuit_name },
+    fuses_set_id: null,
+    branch: null,
+    alert_type: type,
+    device: 'SMAC',
+    source_id: row.source_id,
+    channel: null,
+    channels: null,
+    state: 'OPEN',
+    phases: null,
+    classification: null,
+    client_count: null,
+    started_at: startedAt.toISOString(),
+    ended_at: null,
+    duration_seconds: openDurationSeconds(startedAt, now),
+    openings: [],
+    conditions: null,
+    transformer_load: null,
+    energy: null,
+    warnings: [],
+  };
+}
+
+/**
+ * The low-energy alert of one device as a fault-list entry: a Falcon is a fuse-level entry (like
+ * FREE_FALL) and a SMAC a transformer-level one (like OVERLOAD_UNBALANCE). `energy` is the level
+ * the query returned and the threshold of the device type at the time of the request.
+ */
+export function toLowEnergyAlertDto(
+  row: LowEnergyAlertRow,
+  thresholds: PerDeviceSetting,
+  now: Date,
+): ActiveFaultDto {
+  const startedAt = new Date(row.started_at);
+  const base =
+    row.kind === 'FALCON'
+      ? toFalconAlertDto(
+          'LOW_ENERGY',
+          { ...row, fuses_set_id: row.fuses_set_id as number | string },
+          now,
+        )
+      : toTransformerAlertDto('LOW_ENERGY', row, startedAt, now);
+  base.energy = {
+    level_percent: Number(row.level_percent),
+    threshold_percent:
+      row.kind === 'FALCON' ? thresholds.falcon : thresholds.smac,
+  };
+  return base;
+}
+
+export function toResolvedLowEnergyAlertDto(
+  row: ResolvedLowEnergyAlertRow,
+  thresholds: PerDeviceSetting,
+): ActiveFaultDto {
+  const startedAt = new Date(row.started_at);
+  const endedAt = new Date(row.ended_at);
+  const dto = toLowEnergyAlertDto(row, thresholds, endedAt);
+  dto.state = 'RESOLVED';
+  dto.ended_at = endedAt.toISOString();
+  dto.duration_seconds = openDurationSeconds(startedAt, endedAt);
+  return dto;
 }

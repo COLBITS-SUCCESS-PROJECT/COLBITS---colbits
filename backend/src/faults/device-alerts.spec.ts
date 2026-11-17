@@ -3,8 +3,10 @@ import {
   DEVICE_ALERT_TYPES,
   deviceAlertId,
   evaluateFreeFallEpisode,
+  evaluateLowEnergyEpisodes,
   evaluateOverloadEpisode,
   evaluateSolarPanelEpisode,
+  type EnergyReading,
   type FlagReading,
   type FreeFallEvent,
   isFreeFallActivation,
@@ -50,6 +52,8 @@ describe('device alert types', () => {
       'FREE_FALL',
       'SOLAR_PANEL_FAILURE',
       'OVERLOAD_UNBALANCE',
+      'LOW_ENERGY',
+      'DEVICE_INACTIVITY',
     ]);
   });
 });
@@ -740,5 +744,147 @@ describe('evaluateSolarPanelEpisode (CL-10)', () => {
         flag(10, true),
       ]),
     ).toEqual({ active: true, startedAt: at(10) });
+  });
+});
+
+describe('evaluateLowEnergyEpisodes (F-44, F-45, NF-08)', () => {
+  const level = (
+    minutes: number,
+    value: number | string | null,
+  ): EnergyReading => ({ recordedAt: at(minutes), level: value });
+  const THRESHOLD = 30;
+
+  it('has no episode with no readings, or with no finite level', () => {
+    expect(evaluateLowEnergyEpisodes([], THRESHOLD)).toEqual({
+      episodes: [],
+      active: false,
+      lastLevel: null,
+    });
+    expect(
+      evaluateLowEnergyEpisodes(
+        [level(0, null), level(5, 'NaN'), level(10, 'Infinity')],
+        THRESHOLD,
+      ),
+    ).toEqual({ episodes: [], active: false, lastLevel: null });
+  });
+
+  it('a level below the threshold starts an episode, open while no recharge comes', () => {
+    expect(
+      evaluateLowEnergyEpisodes([level(0, 80), level(5, 25)], THRESHOLD),
+    ).toEqual({
+      episodes: [{ startedAt: at(5), endedAt: null, lowLevel: 25 }],
+      active: true,
+      lastLevel: 25,
+    });
+  });
+
+  it('is strict: a level equal to the threshold is not low, and it recharges an open episode', () => {
+    expect(
+      evaluateLowEnergyEpisodes([level(0, 30)], THRESHOLD).episodes,
+    ).toEqual([]);
+    expect(
+      evaluateLowEnergyEpisodes([level(0, 29.99)], THRESHOLD).episodes,
+    ).toHaveLength(1);
+    expect(
+      evaluateLowEnergyEpisodes([level(0, 10), level(5, 30)], THRESHOLD),
+    ).toEqual({
+      episodes: [{ startedAt: at(0), endedAt: at(5), lowLevel: 10 }],
+      active: false,
+      lastLevel: 30,
+    });
+  });
+
+  it('repeated low readings keep the start and the last low level is the one before the recharge', () => {
+    const { episodes } = evaluateLowEnergyEpisodes(
+      [level(0, 90), level(5, 25), level(10, 20), level(15, 12), level(20, 95)],
+      THRESHOLD,
+    );
+
+    expect(episodes).toEqual([
+      { startedAt: at(5), endedAt: at(20), lowLevel: 12 },
+    ]);
+  });
+
+  it('a drain after a recharge is a new episode with its own start', () => {
+    const { episodes, active } = evaluateLowEnergyEpisodes(
+      [
+        level(0, 90),
+        level(5, 10),
+        level(10, 60),
+        level(15, 90),
+        level(20, 5),
+        level(25, 70),
+        level(30, 8),
+      ],
+      THRESHOLD,
+    );
+
+    expect(episodes).toEqual([
+      { startedAt: at(5), endedAt: at(10), lowLevel: 10 },
+      { startedAt: at(20), endedAt: at(25), lowLevel: 5 },
+      { startedAt: at(30), endedAt: null, lowLevel: 8 },
+    ]);
+    expect(active).toBe(true);
+  });
+
+  it('NULL, NaN and infinite levels neither start nor end an episode', () => {
+    expect(
+      evaluateLowEnergyEpisodes(
+        [level(0, 80), level(5, null), level(10, 20), level(15, null), level(20, 'NaN'), level(25, 'Infinity'), level(30, '-Infinity')],
+        THRESHOLD,
+      ),
+    ).toEqual({
+      episodes: [{ startedAt: at(10), endedAt: null, lowLevel: 20 }],
+      active: true,
+      lastLevel: 20,
+    });
+  });
+
+  it('a NULL after a low reading never recharges it, and a NULL before the first low does not move its start', () => {
+    const { episodes } = evaluateLowEnergyEpisodes(
+      [level(0, 80), level(2, null), level(5, 10), level(6, null), level(9, 12)],
+      THRESHOLD,
+    );
+
+    expect(episodes).toEqual([{ startedAt: at(5), endedAt: null, lowLevel: 12 }]);
+  });
+
+  it('reads numeric text as a number, as a numeric column comes back from the driver', () => {
+    expect(
+      evaluateLowEnergyEpisodes([level(0, '12'), level(5, '45.5')], THRESHOLD)
+        .episodes,
+    ).toEqual([{ startedAt: at(0), endedAt: at(5), lowLevel: 12 }]);
+  });
+
+  it('sorts the readings by time, and the input is not changed', () => {
+    const readings = [level(10, 90), level(0, 10), level(5, 20)];
+    const { episodes } = evaluateLowEnergyEpisodes(readings, THRESHOLD);
+
+    expect(episodes).toEqual([{ startedAt: at(0), endedAt: at(10), lowLevel: 20 }]);
+    expect(readings.map((r) => r.level)).toEqual([90, 10, 20]);
+  });
+
+  it('judges the readings it is given: only those of the device installed now', () => {
+    // The caller passes the readings of the current device; a replaced device's low readings
+    // are simply not in the list, so they cannot start or keep an episode.
+    const replacedDevice = [level(0, 5), level(5, 6)];
+    const currentDevice = [level(10, 88)];
+    expect(
+      evaluateLowEnergyEpisodes([...replacedDevice, ...currentDevice], THRESHOLD)
+        .episodes,
+    ).toHaveLength(1);
+    expect(evaluateLowEnergyEpisodes(currentDevice, THRESHOLD)).toEqual({
+      episodes: [],
+      active: false,
+      lastLevel: 88,
+    });
+  });
+
+  it('uses the threshold it is given, not a fixed one', () => {
+    const readings = [level(0, 40), level(5, 50)];
+    expect(evaluateLowEnergyEpisodes(readings, 30).episodes).toEqual([]);
+    expect(evaluateLowEnergyEpisodes(readings, 45).episodes).toEqual([
+      { startedAt: at(0), endedAt: at(5), lowLevel: 40 },
+    ]);
   });
 });

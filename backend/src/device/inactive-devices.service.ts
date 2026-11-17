@@ -32,15 +32,19 @@ export const MAX_WINDOW_HOURS = 30 * 24;
  * Records are read inside the window [$2, $3] plus the last one before it, so a silence that began
  * before the window is still seen. A SMAC record is a record in any of its three tables (TD-07).
  * $4 / $5: Falcon / SMAC thresholds in hours. Every time is a stored timestamp (F-46).
+ * `fuses_set_id`, `branch` and `phase` (Falcon only, NULL for a SMAC) are extra columns for the
+ * fault list (GET /faults, DEVICE_INACTIVITY); this endpoint does not read them.
  */
 export const INACTIVE_DEVICES_SQL = `
   WITH dev AS (
-    SELECT 'FALCON'::text AS kind, f.current_hw_id AS hw_id, f.custom_id AS source_id, fs.node_id
+    SELECT 'FALCON'::text AS kind, f.current_hw_id AS hw_id, f.custom_id AS source_id, fs.node_id,
+           fs.id AS fuses_set_id, fs.set_id AS branch, f.phase
     FROM public.fuses f
     JOIN public.fuses_sets fs ON fs.id = f.fuses_set_id
     WHERE fs.node_id = ANY($1) AND f.current_hw_id IS NOT NULL
     UNION ALL
-    SELECT 'SMAC'::text, t.current_hw_id, t.custom_id, t.node_id
+    SELECT 'SMAC'::text, t.current_hw_id, t.custom_id, t.node_id,
+           NULL::integer, NULL::text, NULL::text
     FROM public.trafos t
     WHERE t.node_id = ANY($1) AND t.current_hw_id IS NOT NULL
   ),
@@ -85,6 +89,7 @@ export const INACTIVE_DEVICES_SQL = `
     FROM rec
   )
   SELECT d.kind, d.hw_id, d.source_id, d.node_id,
+         d.fuses_set_id, d.branch, d.phase,
          z.id AS zone_id, z.name AS zone_name,
          s.id AS substation_id, s.code AS substation_code, s.name AS substation_name,
          c.id AS circuit_id, c.name AS circuit_name,
@@ -117,15 +122,20 @@ export const INACTIVE_DEVICES_SQL = `
     ON g.hw_id = d.hw_id
    AND COALESCE(g.next_at, $3::timestamptz) - g.from_at
        > (CASE d.kind WHEN 'FALCON' THEN $4::float8 ELSE $5::float8 END) * interval '1 hour'
-  GROUP BY d.kind, d.hw_id, d.source_id, d.node_id, z.id, z.name, s.id, s.code, s.name,
+  GROUP BY d.kind, d.hw_id, d.source_id, d.node_id, d.fuses_set_id, d.branch, d.phase,
+           z.id, z.name, s.id, s.code, s.name,
            c.id, c.name, l.last_at, l.energy
 `;
 
-interface InactiveDeviceRow {
+export interface InactiveDeviceRow {
   kind: DeviceKind;
   hw_id: string;
   source_id: string;
   node_id: string;
+  /** Falcon only (the fuse's set and phase); null for a SMAC. Not part of this endpoint's answer. */
+  fuses_set_id?: number | string | null;
+  branch?: string | null;
+  phase?: string | null;
   zone_id: number | string;
   zone_name: string;
   substation_id: number | string;

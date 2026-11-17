@@ -60,6 +60,24 @@ export class TransformerLoadDto {
   cuf_percent: number | null;
 }
 
+export class FaultEnergyDto {
+  @ApiProperty({
+    type: Number,
+    example: 18,
+    description:
+      'Energy level in percent: supercaps_per (Falcon, F-44) or battery_per (SMAC, F-45). While the alert is OPEN, the last finite level the device reported; once RESOLVED, the last low level of the episode (the one just before the recharge).',
+  })
+  level_percent: number;
+
+  @ApiProperty({
+    type: Number,
+    example: 30,
+    description:
+      'Threshold of the device type (FALCON_LOW_ENERGY_PERCENT or SMAC_LOW_ENERGY_PERCENT, 30 by default, NF-08) at the time of the request: a level strictly below it is low.',
+  })
+  threshold_percent: number;
+}
+
 export class FaultCircuitDto {
   @ApiProperty({ example: 1, description: 'Circuit identifier (circuits.id).' })
   id: number;
@@ -102,7 +120,7 @@ export class ActiveFaultDto {
   @ApiProperty({
     example: '2:2026-10-29T15:05:00.000Z',
     description:
-      'Stable while the entry is open. FUSE_OPENING: fuse set id and instant of the first opening. NO_VOLTAGE: `NO_VOLTAGE:<fuse>:<started_at>`. SMAC alarms: `<alert_type>:<transformer>:<channel>:<started_at>`. Device alerts: `<alert_type>:<fuse or transformer>:<started_at>`; for OVERLOAD_UNBALANCE it does not change while any of its conditions stays active.',
+      'Stable while the entry is open, and the same once it is resolved. FUSE_OPENING: fuse set id and instant of the first opening. NO_VOLTAGE: `NO_VOLTAGE:<fuse>:<started_at>`. SMAC alarms: `<alert_type>:<transformer>:<channel>:<started_at>`. Device alerts (FREE_FALL, SOLAR_PANEL_FAILURE, OVERLOAD_UNBALANCE, LOW_ENERGY, DEVICE_INACTIVITY): `<alert_type>:<fuse or transformer>:<started_at>`; for OVERLOAD_UNBALANCE it does not change while any of its conditions stays active.',
   })
   id: string;
 
@@ -117,7 +135,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: 2,
     description:
-      'Fuse set (branch) the entry belongs to (fuses_sets.id): faults are never grouped across sets. Null for SMAC alarms and OVERLOAD_UNBALANCE, which belong to a transformer.',
+      'Fuse set (branch) the entry belongs to (fuses_sets.id): faults are never grouped across sets. Null for SMAC alarms and for every SMAC entry (OVERLOAD_UNBALANCE, LOW_ENERGY and DEVICE_INACTIVITY of a SMAC), which belong to a transformer.',
   })
   fuses_set_id: number | null;
 
@@ -126,7 +144,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: 'A',
     description:
-      'Branch letter of the fuse set; null when the node has one set, and for SMAC alarms and OVERLOAD_UNBALANCE.',
+      'Branch letter of the fuse set; null when the node has one set, and for SMAC alarms and every SMAC entry (OVERLOAD_UNBALANCE, LOW_ENERGY, DEVICE_INACTIVITY).',
   })
   branch: string | null;
 
@@ -134,7 +152,7 @@ export class ActiveFaultDto {
     enum: [...ACTIVE_FAULT_ALERT_TYPES],
     example: 'FUSE_OPENING',
     description:
-      'FUSE_OPENING: grouped fuse openings (US10). NO_VOLTAGE: loss of voltage on one Falcon fuse (13xx21). PHASE_LOSS / PHASE_OUT_OF_RANGE: one SMAC transformer channel (05xx21y / 05xx20y). FREE_FALL: possible fall or tampering on one Falcon fuse (13xx01 SET or MSG, ended by a later reading with is_free_fall_alarm false). SOLAR_PANEL_FAILURE: one Falcon fuse whose last is_solar_panel_alarm is true. OVERLOAD_UNBALANCE: one SMAC transformer whose last load, voltage-imbalance or (once configured) current-imbalance value is above its threshold (US18).',
+      'FUSE_OPENING: grouped fuse openings (US10). NO_VOLTAGE: loss of voltage on one Falcon fuse (13xx21). PHASE_LOSS / PHASE_OUT_OF_RANGE: one SMAC transformer channel (05xx21y / 05xx20y). FREE_FALL: possible fall or tampering on one Falcon fuse (13xx01 SET or MSG, ended by a later reading with is_free_fall_alarm false). SOLAR_PANEL_FAILURE: one Falcon fuse whose last is_solar_panel_alarm is true. OVERLOAD_UNBALANCE: one SMAC transformer whose last load, voltage-imbalance or (once configured) current-imbalance value is above its threshold (US18). LOW_ENERGY: one Falcon fuse (supercaps_per, F-44) or one SMAC transformer (battery_per, F-45) whose last finite energy level is below the threshold of its device type (see energy). DEVICE_INACTIVITY: one Falcon fuse or SMAC transformer that has not stored a record for longer than its inactivity threshold (FALCON_INACTIVITY_HOURS, SMAC_INACTIVITY_HOURS; F-38, F-39): open while it is silent, resolved by its next record.',
   })
   alert_type: ActiveFaultAlertType;
 
@@ -150,7 +168,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: null,
     description:
-      'custom_id of the single source of the alert: the fuse (NO_VOLTAGE, FREE_FALL, SOLAR_PANEL_FAILURE) or the transformer (SMAC alarms, OVERLOAD_UNBALANCE). Null for FUSE_OPENING, which can group several fuses: see openings.',
+      'custom_id of the single source of the alert: the fuse (NO_VOLTAGE, FREE_FALL, SOLAR_PANEL_FAILURE, and LOW_ENERGY / DEVICE_INACTIVITY of a Falcon) or the transformer (SMAC alarms, OVERLOAD_UNBALANCE, and LOW_ENERGY / DEVICE_INACTIVITY of a SMAC). Null for FUSE_OPENING, which can group several fuses: see openings.',
   })
   source_id: string | null;
 
@@ -178,7 +196,7 @@ export class ActiveFaultDto {
     enum: ['OPEN', 'RESOLVED'],
     example: 'OPEN',
     description:
-      'A fuse-opening fault is OPEN while any of its phases has not reported a close, and RESOLVED when every involved phase has closed (F-61); a source alarm is OPEN while its last event is a SET, and RESOLVED after a CLEAR. Device alerts (FREE_FALL, SOLAR_PANEL_FAILURE, OVERLOAD_UNBALANCE) are listed while open in GET /faults and after resolution in GET /faults/resolved.',
+      'A fuse-opening fault is OPEN while any of its phases has not reported a close, and RESOLVED when every involved phase has closed (F-61); a source alarm is OPEN while its last event is a SET, and RESOLVED after a CLEAR. Device alerts (FREE_FALL, SOLAR_PANEL_FAILURE, OVERLOAD_UNBALANCE, LOW_ENERGY, DEVICE_INACTIVITY) are listed while open in GET /faults and after resolution in GET /faults/resolved.',
   })
   state: 'OPEN' | 'RESOLVED';
 
@@ -187,7 +205,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: ['R', 'S'],
     description:
-      'Distinct canonical phases (repetition digit removed) in natural order; for NO_VOLTAGE, FREE_FALL and SOLAR_PANEL_FAILURE, the phase of its fuse. Null when they cannot be classified (see the PHASES_UNCLASSIFIED warning), and for SMAC alarms and OVERLOAD_UNBALANCE.',
+      'Distinct canonical phases (repetition digit removed) in natural order; for NO_VOLTAGE, FREE_FALL, SOLAR_PANEL_FAILURE and the LOW_ENERGY / DEVICE_INACTIVITY of a Falcon, the phase of its fuse. Null when they cannot be classified (see the PHASES_UNCLASSIFIED warning), and for SMAC alarms and every SMAC entry.',
   })
   phases: string[] | null;
 
@@ -214,7 +232,7 @@ export class ActiveFaultDto {
     format: 'date-time',
     example: '2026-10-29T15:05:00.000Z',
     description:
-      'Instant of the first opening; for a source alarm, of the first SET after its last CLEAR. FREE_FALL: the first 13xx01 event after the last reading that cleared it. SOLAR_PANEL_FAILURE: the first true flag after the last false one. OVERLOAD_UNBALANCE: the reading at which the transformer went from no condition active to some condition active; it does not move while any condition stays active. All are recorded_at (server receipt) values.',
+      'Instant of the first opening; for a source alarm, of the first SET after its last CLEAR. FREE_FALL: the first 13xx01 event after the last reading that cleared it. SOLAR_PANEL_FAILURE: the first true flag after the last false one. OVERLOAD_UNBALANCE: the reading at which the transformer went from no condition active to some condition active; it does not move while any condition stays active. LOW_ENERGY: the first low finite reading after the last reading that was not low. DEVICE_INACTIVITY: previous record + the device threshold (the moment it is declared inactive, F-38). All are recorded_at (server receipt) based values.',
   })
   started_at: string;
 
@@ -224,7 +242,7 @@ export class ActiveFaultDto {
     nullable: true,
     example: null,
     description:
-      'Null while the fault is open; instant of resolution when every involved phase has closed or the source alarm cleared (F-61).',
+      'Null while the fault is open; instant of resolution when every involved phase has closed or the source alarm cleared (F-61). LOW_ENERGY: the recorded_at of the first later finite reading at or above the threshold (the recharge). DEVICE_INACTIVITY: the recorded_at of the next record of the device (F-39).',
   })
   ended_at: string | null;
 
@@ -259,6 +277,15 @@ export class ActiveFaultDto {
       'OVERLOAD_UNBALANCE only: the last reported load, voltage-imbalance and current-imbalance percentages of the transformer, as stored (TD-08). A measurement the transformer never reported is null. Null on every other alert type.',
   })
   transformer_load: TransformerLoadDto | null;
+
+  @ApiProperty({
+    type: () => FaultEnergyDto,
+    nullable: true,
+    example: null,
+    description:
+      'LOW_ENERGY only: the energy level of the device and the threshold it is compared with (F-44, F-45, NF-08). Null on every other alert type.',
+  })
+  energy: FaultEnergyDto | null;
 
   @ApiProperty({
     type: [String],

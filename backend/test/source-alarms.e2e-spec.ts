@@ -595,6 +595,7 @@ describe('GET /faults — loss-of-voltage and SMAC phase alarms (SCRUM-225, e2e)
         openings: [],
         conditions: null,
         transformer_load: null,
+        energy: null,
         warnings: [],
       });
     });

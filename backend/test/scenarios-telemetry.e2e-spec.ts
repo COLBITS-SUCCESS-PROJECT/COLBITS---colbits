@@ -411,23 +411,30 @@ describe('US31 demo scenarios: low energy, overload, free fall, solar panel (SCR
         )
         .map((f) => f.alert_type)
         .sort((a, b) => a.localeCompare(b));
+    // The drained supercapacitors are a LOW_ENERGY alert of the fuse in GET /faults as well.
     expect(await types()).toEqual([
       'FREE_FALL',
       'FUSE_OPENING',
+      'LOW_ENERGY',
       'SOLAR_PANEL_FAILURE',
     ]);
     expect(await lowEnergyOf(fuse.customId)).toBeDefined();
 
     await run('END_FREE_FALL', fuse.customId).expect(201);
-    expect(await types()).toEqual(['FUSE_OPENING', 'SOLAR_PANEL_FAILURE']);
+    expect(await types()).toEqual([
+      'FUSE_OPENING',
+      'LOW_ENERGY',
+      'SOLAR_PANEL_FAILURE',
+    ]);
     expect(await lowEnergyOf(fuse.customId)).toBeDefined();
 
     await run('CLOSE_FUSE', fuse.customId).expect(201);
     await run('CLEAR_SOLAR_PANEL_ALARM', fuse.customId).expect(201);
-    expect(await types()).toEqual([]);
+    expect(await types()).toEqual(['LOW_ENERGY']);
     expect(await lowEnergyOf(fuse.customId)).toBeDefined();
 
     await run('RECHARGE_SUPERCAPS', fuse.customId).expect(201);
+    expect(await types()).toEqual([]);
     expect(await lowEnergyOf(fuse.customId)).toBeUndefined();
     const [last] = await sql<{
       angle_incl: number;

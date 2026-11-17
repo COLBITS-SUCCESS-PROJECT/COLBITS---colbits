@@ -19,6 +19,7 @@ import {
   OVERLOAD_ALERTS_SQL,
   OverloadAlertRow,
   RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_LOW_ENERGY_ALERTS_SQL,
   RESOLVED_OVERLOAD_ALERTS_SQL,
   RESOLVED_SOLAR_PANEL_ALERTS_SQL,
   toOverloadAlertDto,
@@ -921,8 +922,8 @@ export class ScenariosService {
    * device is already silent, has no reading at or before the cutoff (RESUME would have nothing to
    * copy), has alarm events after the cutoff, has another scenario active, or would erase resolved
    * history: the end of a resolved inactivity period, or of a resolved FREE_FALL,
-   * SOLAR_PANEL_FAILURE or OVERLOAD_UNBALANCE episode of the device, is a reading after the cutoff
-   * (assertNoResolvedHistoryErased; the message says when to try again). After the deletion it
+   * SOLAR_PANEL_FAILURE, OVERLOAD_UNBALANCE or LOW_ENERGY episode of the device, is a reading after
+   * the cutoff (assertNoResolvedHistoryErased; the message says when to try again). After the deletion it
    * checks, still in the transaction, that the device is now inactive and that no scenario
    * condition came back from older readings and, for a SMAC, that its OVERLOAD_UNBALANCE alert
    * (an imbalance can be on) is exactly as before; otherwise everything is rolled back. Last, it
@@ -1093,10 +1094,11 @@ export class ScenariosService {
    * 409 (nothing written) when the deletion of the readings after the cutoff would erase resolved
    * history of the device: the end of a resolved inactivity period (readings after the cutoff that
    * come more than the threshold after the previous record), or of a resolved FREE_FALL,
-   * SOLAR_PANEL_FAILURE (Falcon) or OVERLOAD_UNBALANCE (SMAC) episode of the target, read with the
-   * queries of GET /faults/resolved (unchanged, from the cutoff to the database clock). The deletion
+   * SOLAR_PANEL_FAILURE (Falcon) or OVERLOAD_UNBALANCE (SMAC) episode, or of a resolved LOW_ENERGY
+   * episode (Falcon or SMAC: the recharge is a reading after the cutoff) of the target, read with
+   * the queries of GET /faults/resolved (from the cutoff to the database clock). The deletion
    * would not erase one that ended at or before the cutoff, so retrying after the latest end + the
-   * threshold + 1 minute (SILENCE_MARGIN_MS) is safe. Low energy has no resolved list yet.
+   * threshold + 1 minute (SILENCE_MARGIN_MS) is safe.
    */
   private async assertNoResolvedHistoryErased(
     runner: Queryable,
@@ -1162,6 +1164,15 @@ export class ScenariosService {
       ])) as { source_id: string; ended_at: Date | string }[];
       add('a resolved OVERLOAD_UNBALANCE', ownEnds(overload));
     }
+    // Low energy: one statement for both kinds; only the target's own episodes count.
+    const lowEnergy = (await runner.query(RESOLVED_LOW_ENERGY_ALERTS_SQL, [
+      nodes,
+      this.lowEnergyPercent('FALCON'),
+      this.lowEnergyPercent('SMAC'),
+      cutoff,
+      now,
+    ])) as { source_id: string; ended_at: Date | string }[];
+    add('a resolved LOW_ENERGY', ownEnds(lowEnergy));
     if (erased.length === 0) return;
 
     const latest = Math.max(...erased.map(({ endedAt }) => endedAt.getTime()));

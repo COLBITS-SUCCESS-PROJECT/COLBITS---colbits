@@ -5,9 +5,18 @@ import {
   resolveDeviceAlertThresholds,
 } from './device-alert-thresholds';
 import { DEFAULT_SEVERITY_WEIGHTS, SeverityWeights } from './fault-ordering';
+import { LOW_ENERGY_SETTINGS, lowEnergyThreshold } from '../device/low-energy';
+import { DEFAULT_FALCON_INACTIVITY_HOURS } from '../nodes/fuse-state';
+import { DEFAULT_SMAC_INACTIVITY_HOURS } from '../nodes/smac-state';
 import { resolveSmacPhaseWindowDays } from '../nodes/transformer-state';
 
 export const DEFAULT_FAULT_GROUPING_WINDOW_MINUTES = 5;
+
+/** A setting that differs per device type: the Falcon (fuse) value and the SMAC (transformer) one. */
+export interface PerDeviceSetting {
+  falcon: number;
+  smac: number;
+}
 
 @Injectable()
 export class FaultsService {
@@ -31,6 +40,38 @@ export class FaultsService {
     return resolveDeviceAlertThresholds((setting) =>
       this.configService.get(setting),
     );
+  }
+
+  /**
+   * NF-08: low-energy thresholds in percent, FALCON_LOW_ENERGY_PERCENT and SMAC_LOW_ENERGY_PERCENT,
+   * parsed like GET /device/low-energy does (a number in (0, 100], otherwise the default 30). Read
+   * on every call, like the other settings here.
+   */
+  getLowEnergyThresholds(): PerDeviceSetting {
+    return {
+      falcon: lowEnergyThreshold(
+        this.configService.get(LOW_ENERGY_SETTINGS.FALCON),
+      ),
+      smac: lowEnergyThreshold(this.configService.get(LOW_ENERGY_SETTINGS.SMAC)),
+    };
+  }
+
+  /**
+   * NF-07: inactivity thresholds in hours, FALCON_INACTIVITY_HOURS (9 by default) and
+   * SMAC_INACTIVITY_HOURS (3), parsed exactly as GET /device/inactive does: a positive finite
+   * number, otherwise the default.
+   */
+  getInactivityHours(): PerDeviceSetting {
+    return {
+      falcon: this.positiveFromConfig(
+        'FALCON_INACTIVITY_HOURS',
+        DEFAULT_FALCON_INACTIVITY_HOURS,
+      ),
+      smac: this.positiveFromConfig(
+        'SMAC_INACTIVITY_HOURS',
+        DEFAULT_SMAC_INACTIVITY_HOURS,
+      ),
+    };
   }
 
   /** SMAC_PHASE_WINDOW_DAYS (TD-04): days of readings that decide which channels a transformer has. */
@@ -60,6 +101,13 @@ export class FaultsService {
         DEFAULT_SEVERITY_WEIGHTS.phaseOutOfRange,
       ),
     };
+  }
+
+  private positiveFromConfig(key: string, fallback: number): number {
+    const configured = Number(this.configService.get(key));
+    return Number.isFinite(configured) && configured > 0
+      ? configured
+      : fallback;
   }
 
   private weightFromConfig(key: string, fallback: number): number {

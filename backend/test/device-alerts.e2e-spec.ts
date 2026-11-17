@@ -837,6 +837,7 @@ describe('GET /faults — device alerts (SCRUM-245, e2e)', () => {
         openings: [],
         conditions: null,
         transformer_load: null,
+        energy: null,
         warnings: [],
       });
     });
@@ -922,6 +923,7 @@ describe('GET /faults — device alerts (SCRUM-245, e2e)', () => {
           vuf_percent: 3,
           cuf_percent: null,
         },
+        energy: null,
         warnings: [],
       });
     });
