@@ -1,16 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import * as bcrypt from 'bcrypt';
-import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { createScopedUsers, useFaultsApp } from './support/faults-e2e';
 import {
   ISOLATED_TEST_DB,
-  IsolatedApp,
   createFalconNodes,
   createSmacNodes,
   removeFalconNodes,
   removeSmacNodes,
-  startIsolatedApp,
-  stopIsolatedApp,
 } from './support/isolated-e2e';
 
 // F-38, F-39, F-46, NF-07: GET /faults lists one DEVICE_INACTIVITY entry per OPEN inactivity period of
@@ -183,32 +179,16 @@ async function smacReading(
 }
 
 describe('GET /faults and /faults/resolved: DEVICE_INACTIVITY (F-38, F-39, F-46, NF-07, e2e)', () => {
-  let started: IsolatedApp | undefined;
   let now = 0;
-  const tokens = { admin: '', inScope: '', outOfScope: '' };
   /** `hours` before the fixtures were created. */
   const ago = (hours: number) => new Date(now - hours * HOUR);
 
   async function create(dataSource: DataSource): Promise<void> {
     now = Date.now();
-    const hash = await bcrypt.hash(PASSWORD, 10);
-    for (const [username, role, circuit] of [
-      [USERS.admin, 'Colbits administrator', null],
-      [USERS.inScope, 'consultation user', IN_SCOPE_CIRCUIT],
-      [USERS.outOfScope, 'consultation user', OUT_OF_SCOPE_CIRCUIT],
-    ] as const) {
-      const [user]: { id: number }[] = await dataSource.query(
-        `INSERT INTO users (username, password_hash, role, is_active)
-         VALUES ($1, $2, $3, TRUE) RETURNING id`,
-        [username, hash, role],
-      );
-      if (circuit !== null) {
-        await dataSource.query(
-          `INSERT INTO user_scopes (user_id, entity_type, entity_id) VALUES ($1, 'circuit', $2)`,
-          [user.id, String(circuit)],
-        );
-      }
-    }
+    await createScopedUsers(dataSource, USERS, PASSWORD, {
+      inScope: IN_SCOPE_CIRCUIT,
+      outOfScope: OUT_OF_SCOPE_CIRCUIT,
+    });
     await createFalconNodes(
       dataSource,
       [
@@ -276,45 +256,14 @@ describe('GET /faults and /faults/resolved: DEVICE_INACTIVITY (F-38, F-39, F-46,
     await smacReading(dataSource, 'pw', S_TABLES, ago(0.5));
   }
 
-  beforeAll(async () => {
-    for (const [name, value] of Object.entries(SETTINGS)) {
-      process.env[name] = value;
-    }
-    started = await startIsolatedApp(LABEL, { remove, create });
-    for (const [key, username] of Object.entries(USERS)) {
-      tokens[key as keyof typeof tokens] = (
-        await request(started.app.getHttpServer())
-          .post('/auth/login')
-          .send({ username, password: PASSWORD })
-          .expect(200)
-      ).body.access_token as string;
-    }
+  const { tokens, get, faults, resolved, run, sql } = useFaultsApp<ListBody>({
+    label: LABEL,
+    settings: SETTINGS,
+    users: USERS,
+    password: PASSWORD,
+    remove,
+    create,
   });
-
-  afterAll(async () => {
-    await stopIsolatedApp(started, LABEL, remove);
-    for (const name of Object.keys(SETTINGS)) delete process.env[name];
-  });
-
-  const server = () => started!.app.getHttpServer();
-  const get = async (path: string, token = tokens.admin) =>
-    (
-      await request(server())
-        .get(path)
-        .set('Authorization', `Bearer ${token}`)
-        .expect(200)
-    ).body;
-  const faults = (token = tokens.admin) =>
-    get('/faults', token) as Promise<ListBody>;
-  const resolved = (window = '1h', token = tokens.admin) =>
-    get(`/faults/resolved?window=${window}`, token) as Promise<ListBody>;
-  const run = (action: string, target: string) =>
-    request(server())
-      .post('/scenarios')
-      .set('Authorization', `Bearer ${tokens.admin}`)
-      .send({ action, target });
-  const sql = async <T>(text: string, params: unknown[] = []): Promise<T[]> =>
-    (await started!.dataSource.query(text, params)) as T[];
 
   const inactivityOf = (body: ListBody, sourceId: string) =>
     body.faults.filter(

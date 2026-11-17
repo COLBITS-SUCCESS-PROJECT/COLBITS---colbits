@@ -1,21 +1,17 @@
 import { randomBytes } from 'node:crypto';
-import * as bcrypt from 'bcrypt';
-import request from 'supertest';
 import { DataSource } from 'typeorm';
 import {
   EnergyReading,
   evaluateLowEnergyEpisodes,
 } from '../src/faults/device-alerts';
 import { seededRandom } from './support/device-alert-fixtures';
+import { createScopedUsers, useFaultsApp } from './support/faults-e2e';
 import {
   ISOLATED_TEST_DB,
-  IsolatedApp,
   createFalconNodes,
   createSmacNodes,
   removeFalconNodes,
   removeSmacNodes,
-  startIsolatedApp,
-  stopIsolatedApp,
 } from './support/isolated-e2e';
 
 // F-44, F-45, NF-08: GET /faults lists LOW_ENERGY while a Falcon fuse (supercaps_per) or a SMAC
@@ -222,9 +218,7 @@ function randomSamples(random: () => number): Sample[] {
 }
 
 describe('GET /faults and /faults/resolved: LOW_ENERGY (F-44, F-45, NF-08, e2e)', () => {
-  let started: IsolatedApp | undefined;
   let now = 0;
-  const tokens = { admin: '', inScope: '', outOfScope: '' };
   const randomWorld = {
     falcon: RANDOM_FUSES.map((_, i) => randomSamples(seededRandom(7000 + i))),
     smac: RANDOM_TRAFOS.map((_, i) => randomSamples(seededRandom(9000 + i))),
@@ -233,24 +227,10 @@ describe('GET /faults and /faults/resolved: LOW_ENERGY (F-44, F-45, NF-08, e2e)'
 
   async function create(dataSource: DataSource): Promise<void> {
     now = Date.now();
-    const hash = await bcrypt.hash(PASSWORD, 10);
-    for (const [username, role, circuit] of [
-      [USERS.admin, 'Colbits administrator', null],
-      [USERS.inScope, 'consultation user', IN_SCOPE_CIRCUIT],
-      [USERS.outOfScope, 'consultation user', OUT_OF_SCOPE_CIRCUIT],
-    ] as const) {
-      const [user]: { id: number }[] = await dataSource.query(
-        `INSERT INTO users (username, password_hash, role, is_active)
-         VALUES ($1, $2, $3, TRUE) RETURNING id`,
-        [username, hash, role],
-      );
-      if (circuit !== null) {
-        await dataSource.query(
-          `INSERT INTO user_scopes (user_id, entity_type, entity_id) VALUES ($1, 'circuit', $2)`,
-          [user.id, String(circuit)],
-        );
-      }
-    }
+    await createScopedUsers(dataSource, USERS, PASSWORD, {
+      inScope: IN_SCOPE_CIRCUIT,
+      outOfScope: OUT_OF_SCOPE_CIRCUIT,
+    });
 
     await createFalconNodes(
       dataSource,
@@ -394,45 +374,14 @@ describe('GET /faults and /faults/resolved: LOW_ENERGY (F-44, F-45, NF-08, e2e)'
     }
   }
 
-  beforeAll(async () => {
-    for (const [name, value] of Object.entries(SETTINGS)) {
-      process.env[name] = value;
-    }
-    started = await startIsolatedApp(LABEL, { remove, create });
-    for (const [key, username] of Object.entries(USERS)) {
-      tokens[key as keyof typeof tokens] = (
-        await request(started.app.getHttpServer())
-          .post('/auth/login')
-          .send({ username, password: PASSWORD })
-          .expect(200)
-      ).body.access_token as string;
-    }
+  const { tokens, get, faults, resolved, run, sql } = useFaultsApp<ListBody>({
+    label: LABEL,
+    settings: SETTINGS,
+    users: USERS,
+    password: PASSWORD,
+    remove,
+    create,
   });
-
-  afterAll(async () => {
-    await stopIsolatedApp(started, LABEL, remove);
-    for (const name of Object.keys(SETTINGS)) delete process.env[name];
-  });
-
-  const server = () => started!.app.getHttpServer();
-  const get = async (path: string, token = tokens.admin) =>
-    (
-      await request(server())
-        .get(path)
-        .set('Authorization', `Bearer ${token}`)
-        .expect(200)
-    ).body;
-  const faults = (token = tokens.admin) =>
-    get('/faults', token) as Promise<ListBody>;
-  const resolved = (window = '1h', token = tokens.admin) =>
-    get(`/faults/resolved?window=${window}`, token) as Promise<ListBody>;
-  const run = (action: string, target: string) =>
-    request(server())
-      .post('/scenarios')
-      .set('Authorization', `Bearer ${tokens.admin}`)
-      .send({ action, target });
-  const sql = async <T>(text: string, params: unknown[] = []): Promise<T[]> =>
-    (await started!.dataSource.query(text, params)) as T[];
 
   const lowEnergyOf = (body: ListBody, sourceId: string) =>
     body.faults.filter(
