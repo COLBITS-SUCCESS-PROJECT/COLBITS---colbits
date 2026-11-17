@@ -49,7 +49,7 @@ export class ScenariosController {
   @ApiOperation({
     summary: 'Demo mode and the scenarios it offers (US31 · F-100).',
     description:
-      'enabled is true only where scenarios could write: DEMO_SCENARIOS_ENABLED=true, DEMO_SCENARIOS_DATABASE names the connected database, and that database has its synthetic-dataset marker (never in production, NF-03). The frontend shows the scenario panel only when enabled is true. actions lists the 20 actions in a fixed order, each start right before its stop: the six fuse, voltage and phase actions (SCRUM-252), then low energy, free fall, solar panel, overload and inactivity (SCRUM-253). docs/demo-scenarios.md describes each one.',
+      'enabled is true only where scenarios could write: DEMO_SCENARIOS_ENABLED=true, DEMO_SCENARIOS_DATABASE names the connected database, and that database has its synthetic-dataset marker (never in production, NF-03). The frontend shows the scenario panel only when enabled is true. actions lists the 22 actions in a fixed order, each start right before its stop: the six fuse, voltage and phase actions (SCRUM-252), phase out of range and back in range, then low energy, free fall, solar panel, overload and inactivity (SCRUM-253). docs/demo-scenarios.md describes each one.',
   })
   @ApiOkResponse({ type: ScenariosStatusDto })
   @ApiUnauthorizedResponse({ type: ErrorResponseDto })
