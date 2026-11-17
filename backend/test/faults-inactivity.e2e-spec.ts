@@ -617,10 +617,10 @@ describe('GET /faults and /faults/resolved: DEVICE_INACTIVITY (F-38, F-39, F-46,
             .filter((p) => p.end === null)
             .map((p) => keyOf(d.source_id, p.start)),
         )
-        .sort();
+        .sort((a, b) => a.localeCompare(b));
       const listed = allInactivity(await faults())
         .map((f) => keyOf(f.source_id, f.started_at))
-        .sort();
+        .sort((a, b) => a.localeCompare(b));
 
       expect(listed).toEqual(expected);
       expect(listed.length).toBeGreaterThan(5);
@@ -642,10 +642,10 @@ describe('GET /faults and /faults/resolved: DEVICE_INACTIVITY (F-38, F-39, F-46,
               .filter((p) => p.end !== null && Date.parse(p.end) >= cutoff)
               .map((p) => keyOf(d.source_id, `${p.start}|${p.end}`)),
           )
-          .sort();
+          .sort((a, b) => a.localeCompare(b));
         const listed = allInactivity(await resolved(window))
           .map((f) => keyOf(f.source_id, `${f.started_at}|${f.ended_at}`))
-          .sort();
+          .sort((a, b) => a.localeCompare(b));
 
         expect(listed).toEqual(expected);
         expect(listed.length).toBeGreaterThan(0);

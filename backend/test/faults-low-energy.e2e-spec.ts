@@ -764,16 +764,18 @@ describe('GET /faults and /faults/resolved: LOW_ENERGY (F-44, F-45, NF-08, e2e)'
           .map((f) => f.source_id),
       );
 
-      expect(Object.keys(lowEnergy).sort()).toEqual([
-        'alerts',
-        'count',
-        'falcon_low_energy_percent',
-        'smac_low_energy_percent',
-      ]);
+      expect(Object.keys(lowEnergy).sort((a, b) => a.localeCompare(b))).toEqual(
+        [
+          'alerts',
+          'count',
+          'falcon_low_energy_percent',
+          'smac_low_energy_percent',
+        ],
+      );
       expect(lowEnergy.count).toBe(lowEnergy.alerts.length);
       expect(lowEnergy.alerts.length).toBeGreaterThan(0);
       for (const alert of lowEnergy.alerts) {
-        expect(Object.keys(alert).sort()).toEqual([
+        expect(Object.keys(alert).sort((a, b) => a.localeCompare(b))).toEqual([
           'alert_type',
           'circuit',
           'energy_percent',
