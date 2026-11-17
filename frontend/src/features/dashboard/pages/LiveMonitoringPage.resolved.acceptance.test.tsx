@@ -13,10 +13,15 @@ import { http, HttpResponse } from 'msw'
 import i18n from '@/i18n'
 import { server } from '@/mocks/server'
 import { activeFaultFixtures, resolvedFaultFixtures } from '@/mocks/data/faults.fixtures'
+import {
+  resolvedLowEnergyAlertDtoFixture,
+  resolvedLowEnergyAlertsResponseFixture,
+} from '@/mocks/data/lowEnergyAlerts.fixtures'
 import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
 import { STEP_MS, letTimePass, startSimulatedTime } from '@/mocks/liveRefresh'
 import { useAuthStore, type AuthUser } from '@/stores/auth.store'
 import { FAULTS_ENDPOINT, RESOLVED_FAULTS_ENDPOINT } from '../api/faults.api'
+import { RESOLVED_LOW_ENERGY_ALERTS_ENDPOINT } from '../api/lowEnergyAlerts.api'
 import type { ActiveFaultDto } from '../api/faults.dto'
 import { LiveMonitoringPage } from './LiveMonitoringPage'
 
@@ -189,6 +194,24 @@ describe('SCRUM-114 · US16 — active and resolved alarms', () => {
     // A node search keeps only that node's alarms, as on the map
     await user.type(screen.getByRole('searchbox', { name: 'Buscar nodo o dispositivo' }), 'ND0112')
     expect(cardsOf(panel)).toEqual(['Sin tensión · ND01120A02'])
+  })
+
+  it('a low-energy alarm that recharged leaves Activas and is listed in Resueltas, with its duration (90 min)', async () => {
+    // GET /device/low-energy/resolved: a Falcon episode that began 100 min ago and ended 10 min ago (90 min)
+    server.use(
+      http.get(`*${RESOLVED_LOW_ENERGY_ALERTS_ENDPOINT}`, () =>
+        HttpResponse.json(
+          resolvedLowEnergyAlertsResponseFixture([resolvedLowEnergyAlertDtoFixture(NOW)])
+        )
+      )
+    )
+    const user = userEvent.setup()
+    const panel = openPanel()
+    await user.click(panel.getByRole('tab', { name: 'Resueltas' }))
+
+    const card = within(await panel.findByRole('article', { name: /Baja energía · ND08890C04/ }))
+    expect(card.getByText('1 h 30 min · cerrada 10:50')).toBeInTheDocument()
+    expect(card.getByText('Resuelta')).toBeInTheDocument()
   })
 
   it('AC6 — the resolved list shows an error with a retry, and says when nothing was resolved', async () => {

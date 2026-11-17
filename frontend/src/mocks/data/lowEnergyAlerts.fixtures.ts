@@ -5,6 +5,8 @@
 import type {
   LowEnergyAlertDto,
   LowEnergyAlertsResponseDto,
+  ResolvedLowEnergyAlertDto,
+  ResolvedLowEnergyAlertsResponseDto,
 } from '@/features/dashboard/api/lowEnergyAlerts.dto'
 import { locationOf } from './inactiveDevices.fixtures'
 
@@ -68,5 +70,36 @@ export function lowEnergyAlertsResponseFixture(
     smac_low_energy_percent: THRESHOLD_PERCENT,
     count: alerts.length,
     alerts,
+  }
+}
+
+/**
+ * The answer of GET /device/low-energy/resolved: no episode by default (the tests that list resolved
+ * alarms count the cards), or the ones given, as the backend sends them (newest end first).
+ */
+export function resolvedLowEnergyAlertsResponseFixture(
+  alerts: ResolvedLowEnergyAlertDto[] = []
+): ResolvedLowEnergyAlertsResponseDto {
+  return {
+    falcon_low_energy_percent: THRESHOLD_PERCENT,
+    smac_low_energy_percent: THRESHOLD_PERCENT,
+    count: alerts.length,
+    alerts,
+  }
+}
+
+/** A Falcon episode of the sample node ND08890C04 that began 100 min ago and ended 10 min ago. */
+export function resolvedLowEnergyAlertDtoFixture(now: number): ResolvedLowEnergyAlertDto {
+  return {
+    alert_type: 'LOW_ENERGY',
+    kind: 'FALCON',
+    hw_id: '1308890C04',
+    source_id: 'ND08890C04-A-R',
+    node: 'ND08890C04',
+    ...locationOf('ND08890C04'),
+    lowest_energy_percent: 10,
+    threshold_percent: THRESHOLD_PERCENT,
+    since: minutesAgo(now, 100),
+    ended_at: minutesAgo(now, 10),
   }
 }

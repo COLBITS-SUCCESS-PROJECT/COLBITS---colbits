@@ -77,3 +77,70 @@ export class LowEnergyAlertsResponseDto {
   })
   alerts: LowEnergyAlertDto[];
 }
+
+export class ResolvedLowEnergyAlertDto {
+  @ApiProperty({ enum: ['LOW_ENERGY'], example: 'LOW_ENERGY' })
+  alert_type: 'LOW_ENERGY';
+
+  @ApiProperty({ enum: ['FALCON', 'SMAC'], example: 'SMAC' })
+  kind: 'FALCON' | 'SMAC';
+
+  @ApiProperty({ example: '0501000002', description: 'Device hardware id.' })
+  hw_id: string;
+
+  @ApiProperty({
+    example: '0000100002-T1-3',
+    description: 'Fuse or transformer custom_id the device monitors.',
+  })
+  source_id: string;
+
+  @ApiProperty({ example: '0000100002', description: 'Node identifier.' })
+  node: string;
+
+  @ApiProperty({ type: () => LocationRefDto })
+  zone: LocationRefDto;
+
+  @ApiProperty({ type: () => SubstationRefDto })
+  substation: SubstationRefDto;
+
+  @ApiProperty({ type: () => LocationRefDto })
+  circuit: LocationRefDto;
+
+  @ApiProperty({
+    example: 12,
+    description: 'Lowest level of the episode, %.',
+  })
+  lowest_energy_percent: number;
+
+  @ApiProperty({ example: 30, description: 'Threshold it was below.' })
+  threshold_percent: number;
+
+  @ApiProperty({
+    format: 'date-time',
+    description:
+      'First reading of the low run (the same `since` the active alert had).',
+  })
+  since: string;
+
+  @ApiProperty({
+    format: 'date-time',
+    description:
+      'First reading at or above the threshold after the run: the alert resolved then.',
+  })
+  ended_at: string;
+}
+
+export class ResolvedLowEnergyAlertsResponseDto {
+  @ApiProperty({ example: 30 }) falcon_low_energy_percent: number;
+  @ApiProperty({ example: 30 }) smac_low_energy_percent: number;
+
+  @ApiProperty({ example: 1, description: 'Number of resolved episodes.' })
+  count: number;
+
+  @ApiProperty({
+    type: () => [ResolvedLowEnergyAlertDto],
+    description:
+      'Episodes that ended inside the window, newest resolution first.',
+  })
+  alerts: ResolvedLowEnergyAlertDto[];
+}
