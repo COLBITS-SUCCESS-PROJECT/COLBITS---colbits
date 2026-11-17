@@ -5,6 +5,7 @@ import { ScopeContext } from '../scope/scope.types';
 import {
   NODE_FUSES_SQL,
   NODE_LOCATION_SQL,
+  NODE_PHASE_ALARMS_SQL,
   NODE_TRANSFORMERS_SQL,
   NodeDetailService,
 } from './node-detail.service';
@@ -53,6 +54,7 @@ function serviceWith(options: {
   inScope?: boolean;
   fuses?: unknown[];
   transformers?: unknown[];
+  phaseAlarms?: unknown[];
   falconHours?: string;
   smacHours?: string;
 }) {
@@ -67,6 +69,9 @@ function serviceWith(options: {
     query: jest.fn((sql: string) => {
       if (sql === NODE_LOCATION_SQL) return Promise.resolve([LOCATION]);
       if (sql === NODE_FUSES_SQL) return Promise.resolve(options.fuses ?? []);
+      if (sql === NODE_PHASE_ALARMS_SQL) {
+        return Promise.resolve(options.phaseAlarms ?? []);
+      }
       return Promise.resolve(options.transformers ?? []);
     }),
   };
@@ -132,8 +137,29 @@ describe('NodeDetailService.detailOf (US11 · F-27, F-29)', () => {
         inactive: false,
         battery_per: 92,
         voltages: { va: 127.1, vb: 126.8, vc: null },
+        phase_states: { a: 'NORMAL', b: 'NORMAL', c: 'NORMAL' },
         recorded_at: '2026-10-29T15:38:00.000Z',
       },
+    ]);
+  });
+
+  it('gives each channel its state from the active phase alarms; a drop wins over out of range', async () => {
+    const { service } = serviceWith({
+      transformers: [SMAC_ROW, { ...SMAC_ROW, custom_id: '0000100002-T2-3' }],
+      phaseAlarms: [
+        { custom_id: '0000100002-T1-2', channel: 'A', state: 'OUT_OF_RANGE' },
+        { custom_id: '0000100002-T1-2', channel: 'B', state: 'OUT_OF_RANGE' },
+        { custom_id: '0000100002-T1-2', channel: 'B', state: 'DROPPED' },
+        // another transformer's alarm never leaks into this one
+        { custom_id: '0000100002-T2-3', channel: 'C', state: 'DROPPED' },
+      ],
+    });
+
+    const detail = await service.detailOf('0000100002', UNRESTRICTED);
+
+    expect(detail.transformers.map((trafo) => trafo.phase_states)).toEqual([
+      { a: 'OUT_OF_RANGE', b: 'DROPPED', c: 'NORMAL' },
+      { a: 'NORMAL', b: 'NORMAL', c: 'DROPPED' },
     ]);
   });
 
@@ -166,6 +192,7 @@ describe('NodeDetailService.detailOf (US11 · F-27, F-29)', () => {
         'hw_id',
         'id',
         'inactive',
+        'phase_states',
         'recorded_at',
         'voltages',
       ].sort(),

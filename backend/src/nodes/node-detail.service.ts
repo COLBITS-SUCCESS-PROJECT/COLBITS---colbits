@@ -4,10 +4,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { applyNodeScope } from '../scope/scope-query.helper';
 import { ScopeContext } from '../scope/scope.types';
+import { ALERT_TYPE_DEFINITIONS } from '../faults/fault-alert-types';
 import {
   FuseDetailDto,
   FuseSetDetailDto,
   NodeDetailResponseDto,
+  PhaseState,
   TransformerDetailDto,
 } from './dto/node-detail.dto';
 import { DEFAULT_FALCON_INACTIVITY_HOURS } from './fuse-state';
@@ -59,6 +61,44 @@ export const NODE_TRANSFORMERS_SQL = `
   WHERE t.node_id = $1
   ORDER BY t.custom_id ASC
 `;
+
+/**
+ * Active phase alarms of the transformers of one node ($1), one row per transformer and channel:
+ * the same events and rule as the fault list (alarms joined by custom_id; the channel normalized
+ * 1/A, 2/B, 3/C; an alarm is active while its last event is a SET, a CLEAR wins a tie).
+ * $2 the phase-drop pattern (05xx21y, PHASE_LOSS), $3 the out-of-range pattern (05xx20y).
+ */
+export const NODE_PHASE_ALARMS_SQL = `
+  SELECT e.custom_id, e.channel, e.state
+  FROM (
+    SELECT DISTINCT ON (t.custom_id, ev.state, ev.channel)
+           t.custom_id, ev.state, ev.channel, ev.is_set
+    FROM public.trafos t
+    JOIN LATERAL (
+      SELECT CASE WHEN a.event_code ~ $2::text THEN 'DROPPED' ELSE 'OUT_OF_RANGE' END AS state,
+             CASE upper(right(a.event_code, 1))
+               WHEN '1' THEN 'A' WHEN 'A' THEN 'A'
+               WHEN '2' THEN 'B' WHEN 'B' THEN 'B'
+               WHEN '3' THEN 'C' WHEN 'C' THEN 'C'
+               ELSE right(a.event_code, 1)
+             END AS channel,
+             (upper(a.event_type) = 'SET') AS is_set, a.recorded_at
+      FROM public.alarms a
+      WHERE a.custom_id = t.custom_id
+        AND (a.event_code ~ $2::text OR a.event_code ~ $3::text)
+        AND upper(a.event_type) IN ('SET', 'CLEAR')
+    ) ev ON true
+    WHERE t.node_id = $1
+    ORDER BY t.custom_id, ev.state, ev.channel, ev.recorded_at DESC, ev.is_set ASC
+  ) e
+  WHERE e.is_set
+`;
+
+interface PhaseAlarmRow {
+  custom_id: string;
+  channel: string;
+  state: 'DROPPED' | 'OUT_OF_RANGE';
+}
 
 interface LocationRow {
   circuit_id: number | string;
@@ -140,6 +180,15 @@ export class NodeDetailService {
       ],
     );
 
+    const phaseAlarms: PhaseAlarmRow[] = await this.nodesRepository.query(
+      NODE_PHASE_ALARMS_SQL,
+      [
+        nodeName,
+        ALERT_TYPE_DEFINITIONS.PHASE_LOSS.eventCodePattern,
+        ALERT_TYPE_DEFINITIONS.PHASE_OUT_OF_RANGE.eventCodePattern,
+      ],
+    );
+
     return {
       node: nodeName,
       circuit: {
@@ -152,7 +201,9 @@ export class NodeDetailService {
         name: location.substation_name,
       },
       fuse_sets: groupFuseSets(fuseRows),
-      transformers: transformerRows.map(toTransformer),
+      transformers: transformerRows.map((row) =>
+        toTransformer(row, phaseAlarms),
+      ),
     };
   }
 
@@ -201,7 +252,26 @@ function toFuse(row: FuseRow): FuseDetailDto {
   };
 }
 
-function toTransformer(row: TransformerRow): TransformerDetailDto {
+/** State of one channel: a dropped phase wins over an out-of-range one; none active = NORMAL. */
+function phaseStateOf(
+  alarms: readonly PhaseAlarmRow[],
+  customId: string,
+  channel: 'A' | 'B' | 'C',
+): PhaseState {
+  const active = alarms.filter(
+    (alarm) => alarm.custom_id === customId && alarm.channel === channel,
+  );
+  if (active.some((alarm) => alarm.state === 'DROPPED')) return 'DROPPED';
+  if (active.some((alarm) => alarm.state === 'OUT_OF_RANGE')) {
+    return 'OUT_OF_RANGE';
+  }
+  return 'NORMAL';
+}
+
+function toTransformer(
+  row: TransformerRow,
+  phaseAlarms: readonly PhaseAlarmRow[],
+): TransformerDetailDto {
   return {
     id: row.custom_id,
     hw_id: row.current_hw_id,
@@ -211,6 +281,11 @@ function toTransformer(row: TransformerRow): TransformerDetailDto {
       va: toNumber(row.va),
       vb: toNumber(row.vb),
       vc: toNumber(row.vc),
+    },
+    phase_states: {
+      a: phaseStateOf(phaseAlarms, row.custom_id, 'A'),
+      b: phaseStateOf(phaseAlarms, row.custom_id, 'B'),
+      c: phaseStateOf(phaseAlarms, row.custom_id, 'C'),
     },
     recorded_at: toIso(row.last_seen),
   };

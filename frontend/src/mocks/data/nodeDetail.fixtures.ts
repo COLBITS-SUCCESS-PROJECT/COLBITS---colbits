@@ -40,6 +40,7 @@ function transformer(nodeId: string): TransformerDetailDto {
     inactive: false,
     battery_per: 64,
     voltages: { va: 127.1, vb: 126.8, vc: 127.4 },
+    phase_states: { a: 'NORMAL', b: 'NORMAL', c: 'NORMAL' },
     recorded_at: RECORDED_AT,
   }
 }

@@ -5,7 +5,7 @@ import { DataField } from '@/design-system/molecules'
 import { cn } from '@/utils/cn'
 import { formatDateTime } from '@/utils/formatDateTime'
 import { formatDecimal, formatPercent } from '../../model/nodeDetail.format'
-import type { TransformerDetail } from '../../model/nodeDetail.types'
+import type { PhaseState, TransformerDetail } from '../../model/nodeDetail.types'
 
 export interface TransformerCardProps {
   transformer: TransformerDetail
@@ -23,6 +23,11 @@ export function TransformerCard({ transformer }: TransformerCardProps) {
   const { a, b, c } = transformer.voltages
   const voltages = { A: a, B: b, C: c }
   const hasVoltage = a !== null || b !== null || c !== null
+  const states = {
+    A: transformer.phaseStates.a,
+    B: transformer.phaseStates.b,
+    C: transformer.phaseStates.c,
+  }
 
   return (
     <section
@@ -75,20 +80,12 @@ export function TransformerCard({ transformer }: TransformerCardProps) {
                 hasVoltage ? (
                   <span className="grid grid-cols-3 gap-2">
                     {PHASES.map((phase) => (
-                      <span key={phase} className="flex items-center gap-1.5">
-                        <span
-                          aria-hidden="true"
-                          className="flex size-4.5 items-center justify-center rounded bg-bg-surface-alt text-micro font-semibold text-text-secondary"
-                        >
-                          {phase}
-                        </span>
-                        <span className="sr-only">{phase}</span>
-                        {voltages[phase] === null
-                          ? '—'
-                          : t('nodeDetail.volts', {
-                              value: formatDecimal(voltages[phase], locale),
-                            })}
-                      </span>
+                      <PhaseTile
+                        key={phase}
+                        phase={phase}
+                        volts={voltages[phase]}
+                        state={states[phase]}
+                      />
                     ))}
                   </span>
                 ) : null
@@ -102,6 +99,57 @@ export function TransformerCard({ transformer }: TransformerCardProps) {
         />
       </div>
     </section>
+  )
+}
+
+/** Green when the phase is fine, yellow out of range, red dropped: the same colors as the fuse rows. */
+const PHASE_CHIP_CLASS: Record<PhaseState, string> = {
+  NORMAL: 'bg-status-online text-text-inverse',
+  OUT_OF_RANGE: 'bg-status-warning text-text-primary',
+  DROPPED: 'bg-status-critical text-text-inverse',
+}
+
+const PHASE_LABEL_CLASS: Record<PhaseState, string> = {
+  NORMAL: 'text-status-online',
+  OUT_OF_RANGE: 'text-text-primary',
+  DROPPED: 'text-status-critical',
+}
+
+interface PhaseTileProps {
+  phase: (typeof PHASES)[number]
+  volts: number | null
+  state: PhaseState
+}
+
+/** One SMAC channel: its letter colored by state, its voltage and its state in words. A phase the transformer does not have shows a dash and no state. */
+function PhaseTile({ phase, volts, state }: Readonly<PhaseTileProps>) {
+  const { t, i18n } = useTranslation('dashboard')
+  const exists = volts !== null
+  return (
+    <span
+      className="flex flex-col gap-0.5"
+      data-phase={phase}
+      data-state={exists ? state : undefined}
+    >
+      <span className="flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-4.5 items-center justify-center rounded text-micro font-semibold',
+            exists ? PHASE_CHIP_CLASS[state] : 'bg-bg-surface-alt text-text-secondary'
+          )}
+        >
+          {phase}
+        </span>
+        <span className="sr-only">{phase}</span>
+        {exists ? t('nodeDetail.volts', { value: formatDecimal(volts, i18n.language) }) : '—'}
+      </span>
+      {exists && (
+        <span className={cn('text-micro font-semibold', PHASE_LABEL_CLASS[state])}>
+          {t(`nodeDetail.transformer.phaseState.${state}`)}
+        </span>
+      )}
+    </span>
   )
 }
 

@@ -28,6 +28,9 @@ export interface FuseSetDetail {
   fuses: FuseDetail[]
 }
 
+/** State of one SMAC channel from the active phase alarms: a drop wins over out of range. */
+export type PhaseState = 'NORMAL' | 'DROPPED' | 'OUT_OF_RANGE'
+
 export interface TransformerDetail {
   id: string
   /** SMAC monitoring it. */
@@ -36,6 +39,7 @@ export interface TransformerDetail {
   /** Battery level, %. */
   batteryPercent: number | null
   voltages: { a: number | null; b: number | null; c: number | null }
+  phaseStates: { a: PhaseState; b: PhaseState; c: PhaseState }
   lastRecordAt: Date | null
 }
 

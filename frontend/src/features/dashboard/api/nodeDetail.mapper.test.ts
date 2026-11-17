@@ -27,6 +27,7 @@ const DETAIL: NodeDetailResponseDto = {
       inactive: false,
       battery_per: 92,
       voltages: { va: 127.1, vb: 126.8, vc: null },
+      phase_states: { a: 'NORMAL', b: 'OUT_OF_RANGE', c: 'DROPPED' },
       recorded_at: '2026-10-29T14:20:00.000Z',
     },
   ],
@@ -59,6 +60,7 @@ describe('toNodeDetail', () => {
       isInactive: false,
       batteryPercent: 92,
       voltages: { a: 127.1, b: 126.8, c: null },
+      phaseStates: { a: 'NORMAL', b: 'OUT_OF_RANGE', c: 'DROPPED' },
       lastRecordAt: new Date('2026-10-29T14:20:00.000Z'),
     })
   })

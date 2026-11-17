@@ -232,6 +232,11 @@
       "reporting": "Reporting",
       "inactive": "Inactive > 3 h",
       "voltages": "Voltage A / B / C",
+      "phaseState": {
+        "NORMAL": "Normal",
+        "OUT_OF_RANGE": "Out of range",
+        "DROPPED": "Dropped"
+      },
       "battery": "Battery",
       "lastRecord": "Last record"
     },
