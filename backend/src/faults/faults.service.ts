@@ -5,6 +5,7 @@ import {
   resolveDeviceAlertThresholds,
 } from './device-alert-thresholds';
 import { DEFAULT_SEVERITY_WEIGHTS, SeverityWeights } from './fault-ordering';
+import { resolveSmacPhaseWindowDays } from '../nodes/transformer-state';
 
 export const DEFAULT_FAULT_GROUPING_WINDOW_MINUTES = 5;
 
@@ -29,6 +30,13 @@ export class FaultsService {
   getDeviceAlertThresholds(): ResolvedDeviceAlertThresholds {
     return resolveDeviceAlertThresholds((setting) =>
       this.configService.get(setting),
+    );
+  }
+
+  /** SMAC_PHASE_WINDOW_DAYS (TD-04): days of readings that decide which channels a transformer has. */
+  getSmacPhaseWindowDays(): number {
+    return resolveSmacPhaseWindowDays(
+      this.configService.get('SMAC_PHASE_WINDOW_DAYS'),
     );
   }
 

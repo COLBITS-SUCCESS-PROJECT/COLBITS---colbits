@@ -165,6 +165,16 @@ export class ActiveFaultDto {
   channel: SmacChannel | null;
 
   @ApiProperty({
+    type: [String],
+    enum: [...SMAC_CHANNELS],
+    nullable: true,
+    example: ['A', 'C'],
+    description:
+      'SMAC alarms only: the channels the transformer has (A-B-C, A-B, B-C or A-C), in order, from its voltage readings. Null when the pair of a two-phase transformer is unknown (never guessed), and on every other alert type.',
+  })
+  channels: SmacChannel[] | null;
+
+  @ApiProperty({
     enum: ['OPEN', 'RESOLVED'],
     example: 'OPEN',
     description:

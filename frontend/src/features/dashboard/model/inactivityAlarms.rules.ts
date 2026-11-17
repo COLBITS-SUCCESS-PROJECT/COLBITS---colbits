@@ -30,6 +30,7 @@ function toAlarm(
     branch: null,
     sourceId: null,
     channel: null,
+    channels: null,
     phases: null,
     classification: null,
     startedAt: start,

@@ -21,6 +21,7 @@ const DTO: ActiveFaultDto = {
   device: 'FALCON',
   source_id: null,
   channel: null,
+  channels: null,
   state: 'OPEN',
   phases: ['R', 'S'],
   classification: 'BIPHASIC',
@@ -56,6 +57,7 @@ describe('toFaultAlert', () => {
       branch: 'B',
       sourceId: null,
       channel: null,
+      channels: null,
       phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'OK' },
       classification: 'BIPHASIC',
       startedAt: new Date(STARTED_AT),
@@ -147,6 +149,7 @@ describe('toFaultAlert — source alarms (SCRUM-225)', () => {
     device: 'SMAC',
     source_id: 'T-1',
     channel: 'A',
+    channels: null,
     phases: null,
   }
 

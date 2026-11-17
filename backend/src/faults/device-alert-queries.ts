@@ -11,7 +11,7 @@ import { canonicalPhases, classifyFault } from './fault-classification';
 import { openDurationSeconds } from './source-alarms';
 
 /**
- * The queries and row mappers of the three device alerts of the active fault list (SCRUM-245 · F-47,
+ * The queries and row mappers of the three device alerts of the active fault list (SCRUM-245 Â· F-47,
  * US18). The rules are the ones of device-alerts.ts, which is their reference: each query must
  * return what that module computes from the same rows, and test/device-alerts.e2e-spec.ts checks
  * that on a real database. Nothing here interprets a reading differently.
@@ -281,6 +281,7 @@ export function toFalconAlertDto(
     device: 'FALCON',
     source_id: row.source_id,
     channel: null,
+    channels: null,
     state: 'OPEN',
     phases,
     classification: null,
@@ -326,6 +327,7 @@ export function toOverloadAlertDto(
     device: 'SMAC',
     source_id: row.source_id,
     channel: null,
+    channels: null,
     state: 'OPEN',
     phases: null,
     classification: null,
@@ -532,6 +534,7 @@ export function toResolvedOverloadAlertDto(
     device: 'SMAC',
     source_id: row.source_id,
     channel: null,
+    channels: null,
     state: 'RESOLVED',
     phases: null,
     classification: null,

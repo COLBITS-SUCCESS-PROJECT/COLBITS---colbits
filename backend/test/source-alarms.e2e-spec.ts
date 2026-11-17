@@ -582,6 +582,7 @@ describe('GET /faults — loss-of-voltage and SMAC phase alarms (SCRUM-225, e2e)
         device: 'FALCON',
         source_id: 'SAE2EF0001-R',
         channel: null,
+        channels: null,
         state: 'OPEN',
         phases: ['R'],
         classification: null,

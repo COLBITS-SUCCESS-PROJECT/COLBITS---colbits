@@ -67,6 +67,7 @@ function fuseOpening(
     device: 'FALCON',
     source_id: null,
     channel: null,
+    channels: null,
     state: endedAt === null ? 'OPEN' : 'RESOLVED',
     started_at: startedAt,
     ended_at: endedAt,
@@ -221,6 +222,7 @@ export function resolvedFaultFixtures(now: number): ActiveFaultDto[] {
       device: 'SMAC',
       source_id: 'ND01120A02-T1',
       channel: 'B',
+      channels: null,
       openings: [],
     },
   ]

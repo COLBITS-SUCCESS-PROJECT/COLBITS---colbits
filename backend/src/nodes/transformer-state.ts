@@ -80,6 +80,57 @@ export function phasesOf(summary: TransformerSummary): readonly Phase[] | null {
   return phaseCount === 2 ? [1, 2] : [1, 2, 3];
 }
 
+/** Row of TRANSFORMER_PHASES_SQL: whether va / vb / vc was not NULL in the phase window. */
+export interface TransformerPhasesRow {
+  custom_id: string;
+  has_a?: boolean | null;
+  has_b?: boolean | null;
+  has_c?: boolean | null;
+}
+
+/** Phases stated by the voltage columns; null when no reading in the window states any voltage. */
+export function existingPhasesOf(
+  row: Pick<TransformerPhasesRow, 'has_a' | 'has_b' | 'has_c'>,
+): Phase[] | null {
+  const flags = [row.has_a, row.has_b, row.has_c];
+  const phases = flags.flatMap((flag, index) =>
+    flag === true ? [(index + 1) as Phase] : [],
+  );
+  return phases.length > 0 ? phases : null;
+}
+
+const CHANNEL_LETTERS = ['A', 'B', 'C'] as const;
+
+/**
+ * SMAC channels (A · B · C) a transformer has, for the fault list. The voltage columns decide when
+ * they state any (any pair is possible: A-B, B-C, A-C); otherwise only a three-phase identifier is
+ * certain (A-B-C). null when the pair of a two-phase transformer is unknown: it is never guessed.
+ */
+export function channelsOfTransformer(
+  customId: string,
+  existingPhases: readonly Phase[] | null,
+): ('A' | 'B' | 'C')[] | null {
+  if (existingPhases && existingPhases.length > 0) {
+    return [...existingPhases]
+      .sort((a, b) => a - b)
+      .map((phase) => CHANNEL_LETTERS[phase - 1]);
+  }
+  return phaseCountOf(customId) === 3 ? [...CHANNEL_LETTERS] : null;
+}
+
+/** SMAC_PHASE_WINDOW_DAYS: a number >= 0, or the default (0) when missing or invalid. */
+export function resolveSmacPhaseWindowDays(
+  raw: string | number | undefined | null,
+): number {
+  const configured =
+    raw === undefined || raw === null || raw === ''
+      ? Number.NaN
+      : Number(raw);
+  return Number.isFinite(configured) && configured >= 0
+    ? configured
+    : DEFAULT_SMAC_PHASE_WINDOW_DAYS;
+}
+
 /**
  * #CORRECTION TD-05 (2026-11-09): new, so the caller can log the ignored drops.
  * Down channels on a phase the transformer does not have (TD-05): they never count as down and the
@@ -141,6 +192,27 @@ export function deriveTransformerState(
       'NORMAL',
     );
 }
+
+/**
+ * Which voltage columns (phases) each listed transformer has: the same window rule as
+ * TRANSFORMER_SUMMARY_SQL ($2 days up to the SMAC's latest reading). $1 = trafos.custom_id list.
+ */
+export const TRANSFORMER_PHASES_SQL = `
+  SELECT t.custom_id, p.has_a, p.has_b, p.has_c
+  FROM public.trafos t
+  LEFT JOIN LATERAL (
+    SELECT BOOL_OR(v.va IS NOT NULL) AS has_a,
+           BOOL_OR(v.vb IS NOT NULL) AS has_b,
+           BOOL_OR(v.vc IS NOT NULL) AS has_c
+    FROM public.last_smac_vc_values lv
+    JOIN public.smac_vc_values v
+      ON v.hw_id = lv.hw_id
+     AND v.recorded_at <= lv.recorded_at
+     AND v.recorded_at >= lv.recorded_at - $2 * interval '1 day'
+    WHERE lv.hw_id = t.current_hw_id
+  ) p ON true
+  WHERE t.custom_id = ANY($1)
+`;
 
 /**
  * One row per transformer of the requested nodes: inactivity (same rule as SMAC_INACTIVITY_SQL)

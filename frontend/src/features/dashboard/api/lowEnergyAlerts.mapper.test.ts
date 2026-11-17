@@ -40,6 +40,7 @@ describe('toLowEnergyAlarm', () => {
       branch: null,
       sourceId: '0000100002-A-R',
       channel: null,
+      channels: null,
       phases: null,
       classification: null,
       startedAt: new Date(SINCE),

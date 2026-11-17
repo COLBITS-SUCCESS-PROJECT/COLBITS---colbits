@@ -29,13 +29,13 @@ import {
 } from './smac-state';
 import {
   // #CORRECTION CL-07/TD-04/TD-05 (2026-11-09): phase window, Phase type and ignoredChannels.
-  DEFAULT_SMAC_PHASE_WINDOW_DAYS,
   PHASE_DROP_EVENT_PATTERN,
-  Phase,
   TRANSFORMER_SUMMARY_SQL,
   TransformerSummary,
   deriveTransformerState,
+  existingPhasesOf,
   ignoredChannels,
+  resolveSmacPhaseWindowDays,
 } from './transformer-state';
 
 interface FuseSummaryRow {
@@ -65,16 +65,6 @@ interface TransformerSummaryRow {
 // #CORRECTION TD-05 (2026-11-09): cap on the ignored channels written to the log.
 /** Distinct ignored phase-drop channels logged per process, so bad data cannot flood the log. */
 const MAX_REPORTED_IGNORED = 100;
-
-// #CORRECTION CL-07/TD-04 (2026-11-09): existing phases from has_a / has_b / has_c.
-/** Phases stated by the voltage columns; null when no reading in the window states any voltage. */
-function existingPhasesOf(row: TransformerSummaryRow): Phase[] | null {
-  const flags = [row.has_a, row.has_b, row.has_c];
-  const phases = flags.flatMap((flag, index) =>
-    flag === true ? [(index + 1) as Phase] : [],
-  );
-  return phases.length > 0 ? phases : null;
-}
 
 /**
  * One row per node with fuses: aggregates every fuse installed on it
@@ -389,11 +379,7 @@ export class NodesService {
     const raw = this.configService.get<string | number>(
       'SMAC_PHASE_WINDOW_DAYS',
     );
-    const configured =
-      raw === undefined || raw === null || raw === '' ? NaN : Number(raw);
-    return Number.isFinite(configured) && configured >= 0
-      ? configured
-      : DEFAULT_SMAC_PHASE_WINDOW_DAYS;
+    return resolveSmacPhaseWindowDays(raw);
   }
 
   /** US14 · F-33, F-34: location and installed devices of each node. */

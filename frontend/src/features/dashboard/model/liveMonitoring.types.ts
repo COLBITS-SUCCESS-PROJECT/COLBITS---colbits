@@ -105,6 +105,8 @@ export interface FaultAlert {
   sourceId: string | null
   /** SMAC channel (A · B · C) of a transformer alarm; null on the others. It is not a phase: never mapped to R · S · T. */
   channel: 'A' | 'B' | 'C' | null
+  /** Channels the transformer of a SMAC alarm has; null when unknown (a two-phase pair is never guessed). */
+  channels: ('A' | 'B' | 'C')[] | null
   /** R · S · T states; null when they do not apply or cannot be drawn as R · S · T. */
   phases: PhaseStates | null
   /** As computed by the backend (F-49); null when the phases could not be classified. */
