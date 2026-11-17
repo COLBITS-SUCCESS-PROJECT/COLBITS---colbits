@@ -655,6 +655,7 @@ describe('GET /faults — active fuse-opening faults (e2e)', () => {
           'alert_type',
           'branch',
           'channel',
+          'channels',
           'circuit',
           'classification',
           'client_count',
