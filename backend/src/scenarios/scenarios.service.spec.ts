@@ -6,7 +6,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
-import { OVERLOAD_ALERTS_SQL } from '../faults/device-alert-queries';
+import {
+  FREE_FALL_ALERT_PARAMETERS,
+  OVERLOAD_ALERTS_SQL,
+  RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_OVERLOAD_ALERTS_SQL,
+  RESOLVED_SOLAR_PANEL_ALERTS_SQL,
+} from '../faults/device-alert-queries';
 import { Node } from '../nodes/node.entity';
 import {
   ALARMS_AFTER_CUTOFF_SQL,
@@ -18,6 +24,7 @@ import {
   DEVICE_LAST_RECORD_SQL,
   FALCON_BASELINE_SQL,
   FALCON_HAS_READING_SQL,
+  FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
   FREE_FALL_ACTIVE_SQL,
   INSERT_FALCON_TELEMETRY_SQL,
   INSERT_SMAC_TELEMETRY_SQL,
@@ -40,6 +47,7 @@ import {
   SILENCE_TABLE_SQL,
   SMAC_BASELINE_SQL,
   SMAC_HAS_READING_SQL,
+  SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
   SYNTHETIC_MARKER_SQL,
   ScenariosService,
   TRANSFORMER_TARGET_SQL,
@@ -1340,6 +1348,9 @@ describe('ScenariosService inactivity: SILENCE / RESUME (SCRUM-253)', () => {
         SUPERCAPS_LEVEL_SQL,
         FREE_FALL_ACTIVE_SQL,
         SOLAR_PANEL_FLAG_SQL,
+        FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
+        RESOLVED_FREE_FALL_ALERTS_SQL,
+        RESOLVED_SOLAR_PANEL_ALERTS_SQL,
       ]);
       expect(sqls.slice(firstWrite + 3, firstWrite + 5)).toEqual([
         DEVICE_LAST_RECORD_SQL,
@@ -1631,6 +1642,293 @@ describe('ScenariosService inactivity: SILENCE / RESUME (SCRUM-253)', () => {
       await service.run(trafo('SILENCE_SMAC'), ADMIN);
 
       expect(writes[writes.length - 1][0]).toBe(RECORD_SILENCE_SQL);
+    });
+  });
+
+  describe('SILENCE never erases resolved history', () => {
+    const iso = (hoursAgo: number) =>
+      new Date(NOW.getTime() - hoursAgo * 3_600_000).toISOString();
+    const endedRow = (sourceId: string, endedAt: string) => ({
+      source_id: sourceId,
+      node_id: FUSE.node_id,
+      started_at: iso(20),
+      ended_at: endedAt,
+    });
+    const inactivityEnd = (endedAt: string | null) => [{ ended_at: endedAt }];
+
+    it('Falcon: asks the inactivity and the two resolved Falcon queries before deleting anything, with the cutoff and the node', async () => {
+      const { service, steps, writes } = serviceWith({
+        responses: FALCON_READY,
+      });
+
+      await service.run(fuse('SILENCE_FALCON'), ADMIN);
+
+      const sqls = sqlsOf(steps);
+      const firstDelete = sqls.indexOf(
+        SILENCE_STATEMENTS.FALCON[0].deleteRecent,
+      );
+      for (const sql of [
+        FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
+        RESOLVED_FREE_FALL_ALERTS_SQL,
+        RESOLVED_SOLAR_PANEL_ALERTS_SQL,
+      ]) {
+        expect(sqls.indexOf(sql)).toBeGreaterThan(
+          sqls.indexOf(ALARMS_AFTER_CUTOFF_SQL),
+        );
+        expect(sqls.indexOf(sql)).toBeLessThan(firstDelete);
+      }
+      expect(sqls).not.toContain(SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL);
+      expect(sqls).not.toContain(RESOLVED_OVERLOAD_ALERTS_SQL);
+      const paramsOf = (sql: string) =>
+        steps.find(([step]) => step === sql)?.[1];
+      expect(paramsOf(FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL)).toEqual([
+        FUSE.hw_id,
+        FALCON_CUTOFF,
+        9,
+      ]);
+      expect(paramsOf(RESOLVED_FREE_FALL_ALERTS_SQL)).toEqual([
+        [FUSE.node_id],
+        ...FREE_FALL_ALERT_PARAMETERS,
+        FALCON_CUTOFF,
+        NOW.toISOString(),
+      ]);
+      expect(paramsOf(RESOLVED_SOLAR_PANEL_ALERTS_SQL)).toEqual([
+        [FUSE.node_id],
+        FALCON_CUTOFF,
+        NOW.toISOString(),
+      ]);
+      expect(writes.length).toBeGreaterThan(0);
+    });
+
+    it('SMAC: asks the SMAC inactivity query (its three tables) and the resolved overload query, with the thresholds', async () => {
+      const { service, steps } = serviceWith({ responses: SMAC_READY });
+
+      await service.run(trafo('SILENCE_SMAC'), ADMIN);
+
+      const sqls = sqlsOf(steps);
+      expect(sqls).toContain(SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL);
+      expect(sqls).toContain(RESOLVED_OVERLOAD_ALERTS_SQL);
+      expect(sqls).not.toContain(FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL);
+      expect(sqls).not.toContain(RESOLVED_FREE_FALL_ALERTS_SQL);
+      expect(sqls).not.toContain(RESOLVED_SOLAR_PANEL_ALERTS_SQL);
+      expect(sqls.indexOf(RESOLVED_OVERLOAD_ALERTS_SQL)).toBeLessThan(
+        sqls.indexOf(SILENCE_STATEMENTS.SMAC[0].deleteRecent),
+      );
+      const paramsOf = (sql: string) =>
+        steps.find(([step]) => step === sql)?.[1];
+      expect(paramsOf(SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL)).toEqual([
+        TRAFO.hw_id,
+        SMAC_CUTOFF,
+        3,
+      ]);
+      expect(paramsOf(RESOLVED_OVERLOAD_ALERTS_SQL)).toEqual([
+        [TRAFO.node_id],
+        90,
+        2,
+        null,
+        SMAC_CUTOFF,
+        NOW.toISOString(),
+      ]);
+      // Tables the inactivity rule reads for a SMAC (TD-07), and only its own device.
+      for (const table of [
+        'smac_vc_values',
+        'smac_pw_values',
+        'smac_pf_values',
+      ]) {
+        expect(SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL).toContain(
+          `public.${table} WHERE hw_id = $1`,
+        );
+      }
+      expect(FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL).toContain(
+        'public.falcon_values WHERE hw_id = $1',
+      );
+      // Strictly longer than the threshold, like inactivityPeriods; a first record starts no period.
+      for (const sql of [
+        FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
+        SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
+      ]) {
+        expect(sql).toContain("> $3::float8 * interval '1 hour'");
+        expect(sql).toContain('previous_at IS NOT NULL');
+      }
+    });
+
+    it.each([
+      [
+        'a resolved inactivity period (Falcon)',
+        fuse('SILENCE_FALCON'),
+        FALCON_READY,
+        {
+          [FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL]: inactivityEnd(iso(2)),
+        },
+        'a resolved inactivity period ended at ' + iso(2),
+        9,
+        iso(2),
+      ],
+      [
+        'a resolved inactivity period (SMAC)',
+        trafo('SILENCE_SMAC'),
+        SMAC_READY,
+        {
+          [SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL]: inactivityEnd(iso(1)),
+        },
+        'a resolved inactivity period ended at ' + iso(1),
+        3,
+        iso(1),
+      ],
+      [
+        'a resolved FREE_FALL',
+        fuse('SILENCE_FALCON'),
+        FALCON_READY,
+        {
+          [RESOLVED_FREE_FALL_ALERTS_SQL]: [endedRow(FUSE.custom_id, iso(3))],
+        },
+        'a resolved FREE_FALL ended at ' + iso(3),
+        9,
+        iso(3),
+      ],
+      [
+        'a resolved SOLAR_PANEL_FAILURE',
+        fuse('SILENCE_FALCON'),
+        FALCON_READY,
+        {
+          [RESOLVED_SOLAR_PANEL_ALERTS_SQL]: [endedRow(FUSE.custom_id, iso(4))],
+        },
+        'a resolved SOLAR_PANEL_FAILURE ended at ' + iso(4),
+        9,
+        iso(4),
+      ],
+      [
+        'a resolved OVERLOAD_UNBALANCE',
+        trafo('SILENCE_SMAC'),
+        SMAC_READY,
+        {
+          [RESOLVED_OVERLOAD_ALERTS_SQL]: [endedRow(TRAFO.custom_id, iso(2))],
+        },
+        'a resolved OVERLOAD_UNBALANCE ended at ' + iso(2),
+        3,
+        iso(2),
+      ],
+    ] as [
+      string,
+      unknown,
+      Record<string, unknown[]>,
+      Record<string, unknown[]>,
+      string,
+      number,
+      string,
+    ][])(
+      '409, nothing deleted or recorded: %s',
+      async (_label, body, ready, found, what, hours, endedAt) => {
+        const { service, writes } = serviceWith({
+          responses: { ...ready, ...found },
+        });
+        const cutoff = new Date(
+          NOW.getTime() - hours * 3_600_000 - 60_000,
+        ).toISOString();
+        const retryAt = new Date(
+          new Date(endedAt).getTime() + hours * 3_600_000 + 60_000,
+        ).toISOString();
+
+        const refusal = service.run(body as never, ADMIN);
+
+        await expect(refusal).rejects.toThrow(ConflictException);
+        await expect(refusal).rejects.toThrow(
+          `would erase resolved history of ${(body as { target: string }).target}: ${what}. ` +
+            `SILENCE removes the readings after ${cutoff}; try again after ${retryAt} ` +
+            `(latest of those end times + ${hours} h + 1 min) or pick another device. Nothing was changed.`,
+        );
+        expect(writes).toEqual([]);
+      },
+    );
+
+    it('keeps only rows of the target itself and ends after the cutoff: the others do not count and SILENCE goes ahead', async () => {
+      const { service, writes } = serviceWith({
+        responses: {
+          ...FALCON_READY,
+          [FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL]: inactivityEnd(null),
+          [RESOLVED_FREE_FALL_ALERTS_SQL]: [
+            endedRow('0000100002-A-S', iso(2)),
+            endedRow(FUSE.custom_id, FALCON_CUTOFF),
+            endedRow(FUSE.custom_id, iso(10)),
+          ],
+          [RESOLVED_SOLAR_PANEL_ALERTS_SQL]: [
+            endedRow('0000100002-A-T', iso(2)),
+          ],
+        },
+      });
+
+      await service.run(fuse('SILENCE_FALCON'), ADMIN);
+
+      expect(writes[writes.length - 1][0]).toBe(RECORD_SILENCE_SQL);
+    });
+
+    it('with several kinds found, lists each and retries after the latest end of all of them', async () => {
+      const { service, writes } = serviceWith({
+        responses: {
+          ...FALCON_READY,
+          [FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL]: inactivityEnd(iso(5)),
+          [RESOLVED_FREE_FALL_ALERTS_SQL]: [
+            endedRow(FUSE.custom_id, iso(3)),
+            endedRow(FUSE.custom_id, iso(1)),
+          ],
+          [RESOLVED_SOLAR_PANEL_ALERTS_SQL]: [endedRow(FUSE.custom_id, iso(2))],
+        },
+      });
+      const retryAt = new Date(
+        NOW.getTime() - 3_600_000 + 9 * 3_600_000 + 60_000,
+      ).toISOString();
+
+      const refusal = service.run(fuse('SILENCE_FALCON'), ADMIN);
+
+      await expect(refusal).rejects.toThrow(
+        `a resolved inactivity period ended at ${iso(5)}, a resolved FREE_FALL ended at ${iso(1)}, a resolved SOLAR_PANEL_FAILURE ended at ${iso(2)}.`,
+      );
+      await expect(refusal).rejects.toThrow(`try again after ${retryAt} `);
+      expect(writes).toEqual([]);
+    });
+
+    it('runs after every other check: alarm events and active scenarios are refused first', async () => {
+      const found = {
+        [FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL]: inactivityEnd(iso(2)),
+      };
+      const alarms = serviceWith({
+        responses: {
+          ...FALCON_READY,
+          ...found,
+          [ALARMS_AFTER_CUTOFF_SQL]: [{ value: 1 }],
+        },
+      });
+      await expect(
+        alarms.service.run(fuse('SILENCE_FALCON'), ADMIN),
+      ).rejects.toThrow(/would hide 1 alarm event/);
+
+      const active = serviceWith({
+        responses: {
+          ...FALCON_READY,
+          ...found,
+          [SUPERCAPS_LEVEL_SQL]: [{ value: 10 }],
+        },
+      });
+      await expect(
+        active.service.run(fuse('SILENCE_FALCON'), ADMIN),
+      ).rejects.toThrow(/would erase active scenario\(s\)/);
+    });
+
+    it('does not touch RESUME: a RESUME never asks for resolved history', async () => {
+      const { service, steps } = serviceWith({
+        silenced: true,
+        lastRecordAt: TEN_HOURS_AGO,
+        responses: {
+          [FALCON_HAS_READING_SQL]: on,
+          [FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL]: inactivityEnd(iso(2)),
+        },
+      });
+
+      await service.run(fuse('RESUME_FALCON'), ADMIN);
+
+      expect(sqlsOf(steps)).not.toContain(
+        FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
+      );
     });
   });
 

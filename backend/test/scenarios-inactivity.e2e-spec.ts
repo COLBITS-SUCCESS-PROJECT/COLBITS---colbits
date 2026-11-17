@@ -58,6 +58,8 @@ const SOLAR_BELOW = fuse(NODE_2, 'T', '13E2EIN060');
 /** For the concurrent requests. */
 const RACE_A = fuse(NODE_4, 'R', '13E2EIN090');
 const RACE_B = fuse(NODE_4, 'S', '13E2EIN100');
+/** For the concurrent SILENCE and RESUME. */
+const RACE_C = fuse(NODE_4, 'T', '13E2EIN230');
 /** Merely stale (only a 10 h old reading, no silence record): the other actions work on them. */
 const STALE_OPEN = fuse(STALE_NODE, 'R', '13E2EIN110');
 const STALE_DRAIN = fuse(STALE_NODE, 'S', '13E2EIN120');
@@ -66,6 +68,8 @@ const STALE_FALL = fuse(STALE_NODE, 'T', '13E2EIN130');
 const OUTLIVED = fuse(RECORD_NODE, 'R', '13E2EIN160');
 /** Silenced, then it reports by itself (a reading written after the silence). */
 const REPORTS_AGAIN = fuse(RECORD_NODE, 'S', '13E2EIN170');
+/** Its baseline has low supercaps, restored by the recent readings (low energy has no resolved list). */
+const LOW_BELOW = fuse(RECORD_NODE, 'T', '13E2EIN220');
 const FALCONS = [
   NORMAL,
   NO_BASELINE,
@@ -75,11 +79,13 @@ const FALCONS = [
   SOLAR_BELOW,
   RACE_A,
   RACE_B,
+  RACE_C,
   STALE_OPEN,
   STALE_DRAIN,
   STALE_FALL,
   OUTLIVED,
   REPORTS_AGAIN,
+  LOW_BELOW,
 ];
 /** A SMAC with a smac_vc baseline, and one whose smac_vc history is all recent. */
 const TRAFO = trafo(SMAC_NODE, 1, '05E2EIN070');
@@ -87,7 +93,7 @@ const NO_VC_BASELINE = trafo(SMAC_NODE, 2, '05E2EIN080');
 /** Merely stale SMACs (only a 5 h old smac_vc reading). */
 const STALE_PHASE = trafo(STALE_SMAC_NODE, 1, '05E2EIN140');
 const STALE_LOAD = trafo(STALE_SMAC_NODE, 2, '05E2EIN150');
-/** vuf_percent of the readings 4 h, 1 h and 20 min ago (threshold 2). */
+/** vuf_percent of the readings 4 h, 2 h and 20 min ago (threshold 2). */
 const IMBALANCES = {
   recentOnly: { ...trafo(IMBALANCE_NODE, 1, '05E2EIN180'), vuf: [0.5, 3, 3] },
   steady: { ...trafo(IMBALANCE_NODE, 2, '05E2EIN190'), vuf: [3, 3, 3] },
@@ -140,13 +146,14 @@ async function falconReading(
   device: { hwId: string; customId: string },
   hoursAgo: number,
   solarAlarm = false,
+  supercaps = 85,
 ): Promise<void> {
   await dataSource.query(
     `INSERT INTO falcon_values (hw_id, custom_id, recorded_at, angle_incl, supercaps_per, solar_panel,
                                 fuse_state, is_voltage_present, is_fuse_alarm, is_free_fall_alarm,
                                 is_solar_panel_alarm)
-     VALUES ($1, $2, now() - $3 * interval '1 hour', 2, 85, 3.25, 'Cerrado', true, false, false, $4)`,
-    [device.hwId, device.customId, hoursAgo, solarAlarm],
+     VALUES ($1, $2, now() - $3 * interval '1 hour', 2, $5, 3.25, 'Cerrado', true, false, false, $4)`,
+    [device.hwId, device.customId, hoursAgo, solarAlarm, supercaps],
   );
 }
 
@@ -192,7 +199,7 @@ async function create(dataSource: DataSource): Promise<void> {
         fuseSetId: 990_341,
         fuses: [BYSTANDER, ALREADY_SILENT, SOLAR_BELOW],
       },
-      { node: NODE_4, fuseSetId: 990_343, fuses: [RACE_A, RACE_B] },
+      { node: NODE_4, fuseSetId: 990_343, fuses: [RACE_A, RACE_B, RACE_C] },
       {
         node: STALE_NODE,
         fuseSetId: 990_344,
@@ -201,7 +208,7 @@ async function create(dataSource: DataSource): Promise<void> {
       {
         node: RECORD_NODE,
         fuseSetId: 990_345,
-        fuses: [OUTLIVED, REPORTS_AGAIN],
+        fuses: [OUTLIVED, REPORTS_AGAIN, LOW_BELOW],
       },
     ],
     1,
@@ -213,6 +220,7 @@ async function create(dataSource: DataSource): Promise<void> {
     BYSTANDER,
     RACE_A,
     RACE_B,
+    RACE_C,
     REPORTS_AGAIN,
   ]) {
     for (const hoursAgo of [10, 2, 0.5]) {
@@ -228,6 +236,10 @@ async function create(dataSource: DataSource): Promise<void> {
   await falconReading(dataSource, SOLAR_BELOW, 10, true);
   for (const hoursAgo of [2, 0.5]) {
     await falconReading(dataSource, SOLAR_BELOW, hoursAgo, false);
+  }
+  await falconReading(dataSource, LOW_BELOW, 10, false, 10);
+  for (const hoursAgo of [2, 0.5]) {
+    await falconReading(dataSource, LOW_BELOW, hoursAgo);
   }
   // Silenced 19 h ago (cutoff 20 h ago); its baseline is 25 h old, and it reported again 15 h ago.
   await falconReading(dataSource, OUTLIVED, 25);
@@ -260,9 +272,10 @@ async function create(dataSource: DataSource): Promise<void> {
     })),
     1,
   );
-  // smac_vc: a baseline 4 h ago (before the 3 h 1 min cutoff), then 1 h and 20 min ago.
+  // smac_vc: a baseline 4 h ago (before the 3 h 1 min cutoff), then 2 h and 20 min ago (no gap
+  // longer than the 3 h threshold: that would be a resolved inactivity period SILENCE refuses to erase).
   // smac_pw: one 5 h ago and one 30 min ago. smac_pf: only 30 min ago (nothing left after SILENCE).
-  for (const hoursAgo of [4, 1, 1 / 3]) {
+  for (const hoursAgo of [4, 2, 1 / 3]) {
     await smacReading(dataSource, 'vc', TRAFO, hoursAgo);
   }
   await smacReading(dataSource, 'pw', TRAFO, 5);
@@ -276,7 +289,7 @@ async function create(dataSource: DataSource): Promise<void> {
     await smacReading(dataSource, 'vc', device, 5);
   }
   for (const device of Object.values(IMBALANCES)) {
-    for (const [i, hoursAgo] of [4, 1, 1 / 3].entries()) {
+    for (const [i, hoursAgo] of [4, 2, 1 / 3].entries()) {
       await smacReading(dataSource, 'vc', device, hoursAgo, device.vuf[i]);
     }
   }
@@ -684,9 +697,9 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
     expect(await silenceOf(ALREADY_SILENT.hwId)).toBeNull();
   });
 
-  it('the deletion, the rebuild and the record are one transaction: a SILENCE refused after them leaves every row as it was', async () => {
-    // Deleting its recent readings would bring back the solar-panel alarm of its baseline, which
-    // the service only sees after the deletion: it refuses there, and everything is rolled back.
+  it('a SILENCE that would bring back an alarm its recent readings cleared is refused up front: that clearing is resolved history', async () => {
+    // Its baseline has the solar-panel alarm on and its recent readings cleared it: deleting them
+    // would erase the resolved SOLAR_PANEL_FAILURE (and bring the alarm back).
     const before = await snapshot(SOLAR_BELOW.hwId);
     expect(before).toContain('"is_solar_panel_alarm": true');
 
@@ -695,15 +708,33 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
     );
 
     expect(response.body.message).toMatch(
-      /would bring back SOLAR_PANEL_ALARM .* nothing was changed/,
+      /would erase resolved history of .*: a resolved SOLAR_PANEL_FAILURE ended at .* Nothing was changed\.$/,
     );
     expect(await snapshot(SOLAR_BELOW.hwId)).toBe(before);
-    expect(await counts(SOLAR_BELOW.hwId)).toMatchObject({
+    expect((await inactivity(SOLAR_BELOW.hwId)).inactiveNow).toBe(false);
+  });
+
+  it('the deletion, the rebuild and the record are one transaction: a SILENCE refused after them leaves every row as it was', async () => {
+    // Deleting its recent readings would bring back the low supercaps of its baseline, which the
+    // service only sees after the deletion (low energy has no resolved list): it refuses there,
+    // and everything is rolled back.
+    const before = await snapshot(LOW_BELOW.hwId);
+    expect(before).toContain('"supercaps_per": 10');
+
+    const response = await run('SILENCE_FALCON', LOW_BELOW.customId).expect(
+      409,
+    );
+
+    expect(response.body.message).toMatch(
+      /would bring back DRAIN_SUPERCAPS .* nothing was changed/,
+    );
+    expect(await snapshot(LOW_BELOW.hwId)).toBe(before);
+    expect(await counts(LOW_BELOW.hwId)).toMatchObject({
       falcon: 3,
       last_falcon: 1,
       silences: 0,
     });
-    expect((await inactivity(SOLAR_BELOW.hwId)).inactiveNow).toBe(false);
+    expect((await inactivity(LOW_BELOW.hwId)).inactiveNow).toBe(false);
   });
 
   it('SILENCE_SMAC clears all three SMAC streams after the cutoff and keeps the smac_vc baseline; RESUME_SMAC reports again', async () => {
@@ -766,14 +797,20 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
     const restartedBefore = await overloadAlertOf(restarted.customId);
     expect(restartedBefore).toHaveLength(1);
 
-    // It would disappear, reappear, or move to an older start (another id): refused, rolled back.
-    for (const device of [recentOnly, baselineOnly, restarted]) {
+    // It would disappear (recentOnly), reappear (baselineOnly) or move to an older start, another
+    // id (restarted): refused, rolled back. The last two have an imbalance that its recent readings
+    // ended, a resolved episode the deletion would erase: the history guard refuses them first.
+    const changed =
+      /would change the OVERLOAD_UNBALANCE alert of .*; nothing was changed/;
+    const erased =
+      /would erase resolved history of .*: a resolved OVERLOAD_UNBALANCE ended at/;
+    for (const [device, message] of [
+      [recentOnly, changed],
+      [baselineOnly, erased],
+      [restarted, erased],
+    ] as const) {
       const alertBefore = await overloadAlertOf(device.customId);
-      await refused(
-        'SILENCE_SMAC',
-        device,
-        /would change the OVERLOAD_UNBALANCE alert of .*; nothing was changed/,
-      );
+      await refused('SILENCE_SMAC', device, message);
       expect(await overloadAlertOf(device.customId)).toEqual(alertBefore);
     }
 
@@ -858,49 +895,57 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
     });
   });
 
-  /** The state after SILENCE ran first (refused) and RESUME second, or RESUME first and SILENCE second. */
-  const expectOrder = async (silenceWon: boolean) => {
-    expect((await inactivity(RACE_B.hwId)).inactiveNow).toBe(silenceWon);
-    expect(await silenceOf(RACE_B.hwId)).toEqual(
-      silenceWon ? expect.any(String) : null,
-    );
-    // SILENCE first: the baseline and RESUME's reading. RESUME first: SILENCE removed RESUME's
-    // reading again, so only the baseline is left. The baseline itself is never touched.
-    expect(await counts(RACE_B.hwId)).toMatchObject({
-      falcon: silenceWon ? 1 : 2,
+  /**
+   * The state after RESUME reported the device again: it reports, has no silence record, and has
+   * its baseline and RESUME's reading. A later SILENCE would delete that reading (the end of the
+   * inactivity period it closed), so it is refused and never changes this state.
+   */
+  const expectReporting = async (device: { hwId: string }) => {
+    expect((await inactivity(device.hwId)).inactiveNow).toBe(false);
+    expect(await silenceOf(device.hwId)).toBeNull();
+    expect(await counts(device.hwId)).toMatchObject({
+      falcon: 2,
       last_falcon: 1,
     });
-    expect(await oldestFalconReading(RACE_B.hwId)).toBe(
-      initialBaseline.get(RACE_B.hwId),
+    expect(await oldestFalconReading(device.hwId)).toBe(
+      initialBaseline.get(device.hwId),
     );
   };
 
-  it('SILENCE then RESUME, and RESUME then SILENCE, on a silenced device: the two serialized outcomes', async () => {
+  it('SILENCE then RESUME, and RESUME then SILENCE, on a silenced device: the second SILENCE would erase the period RESUME closed and is refused', async () => {
     // SILENCE first: refused (already silent), nothing written; RESUME then reports again.
     await refused('SILENCE_FALCON', RACE_B, /is already silent/);
     await run('RESUME_FALCON', RACE_B.customId).expect(201);
-    await expectOrder(false);
+    await expectReporting(RACE_B);
+    const periods = (await inactivity(RACE_B.hwId)).periods;
+    expect(periods).toHaveLength(1);
 
-    // Silenced again, then RESUME first (reports again) and SILENCE second (silent again).
-    await run('SILENCE_FALCON', RACE_B.customId).expect(201);
-    await run('RESUME_FALCON', RACE_B.customId).expect(201);
-    await run('SILENCE_FALCON', RACE_B.customId).expect(201);
-    await expectOrder(true);
+    // RESUME first (reports again) and SILENCE second: it would delete RESUME's reading, the end of
+    // the inactivity period the first silence opened, so it is refused with every row as it was.
+    await refused(
+      'SILENCE_FALCON',
+      RACE_B,
+      /would erase resolved history of .*: a resolved inactivity period ended at .* try again after /,
+    );
+    await expectReporting(RACE_B);
+    expect((await inactivity(RACE_B.hwId)).periods).toEqual(periods);
   });
 
-  it('concurrent SILENCE and RESUME on a silenced device: the answers and the final state are those of one serialized order', async () => {
-    // The device lock serializes them; whichever reaches it first decides the order.
+  it('concurrent SILENCE and RESUME on a silenced device: RESUME always wins; SILENCE is refused, as already silent or as erasing the period RESUME closed', async () => {
+    await run('SILENCE_FALCON', RACE_C.customId).expect(201);
+
+    // The device lock serializes them; whichever reaches it first decides which refusal SILENCE gets.
     const [silence, resume] = await Promise.all([
-      run('SILENCE_FALCON', RACE_B.customId),
-      run('RESUME_FALCON', RACE_B.customId),
+      run('SILENCE_FALCON', RACE_C.customId),
+      run('RESUME_FALCON', RACE_C.customId),
     ]);
 
     expect(resume.status).toBe(201);
-    expect([201, 409]).toContain(silence.status);
-    if (silence.status === 409) {
-      expect(silence.body.message).toMatch(/is already silent/);
-    }
-    await expectOrder(silence.status === 201);
+    expect(silence.status).toBe(409);
+    expect(silence.body.message).toMatch(
+      /is already silent|would erase resolved history/,
+    );
+    await expectReporting(RACE_C);
   });
 
   it('demo mode off, another designated database or a missing marker: 403 and every row unchanged', async () => {

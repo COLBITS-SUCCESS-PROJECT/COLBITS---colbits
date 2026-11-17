@@ -464,11 +464,11 @@ export function expectedEffectOf(action: ScenarioAction): string {
     case 'END_OVERLOAD':
       return 'The load is back at or below the threshold: the OVERLOAD condition ends; the alert stays while a voltage or current imbalance remains.';
     case 'SILENCE_FALCON':
-      return 'The Falcon stops reporting: its readings of the last FALCON_INACTIVITY_HOURS (plus one minute) are removed, so it is inactive in GET /device/inactive and its node turns gray. Refused while another scenario is active on it.';
+      return 'The Falcon stops reporting: its readings of the last FALCON_INACTIVITY_HOURS (plus one minute) are removed, so it is inactive in GET /device/inactive and its node turns gray. Refused while another scenario is active on it or when it would erase resolved history (an inactivity period, a resolved free fall, solar-panel or overload episode).';
     case 'RESUME_FALCON':
       return 'The Falcon reports again (one reading, copied from its last one): it is active again, and the silence stays in its inactivity history.';
     case 'SILENCE_SMAC':
-      return 'The SMAC stops reporting: its readings of the last SMAC_INACTIVITY_HOURS (plus one minute) are removed from its three tables, so it is inactive in GET /device/inactive and its transformer turns gray. Refused while another scenario is active on it.';
+      return 'The SMAC stops reporting: its readings of the last SMAC_INACTIVITY_HOURS (plus one minute) are removed from its three tables, so it is inactive in GET /device/inactive and its transformer turns gray. Refused while another scenario is active on it or when it would erase resolved history (an inactivity period, a resolved free fall, solar-panel or overload episode).';
     case 'RESUME_SMAC':
       return 'The SMAC reports again (one reading, copied from its last one): it is active again, and the silence stays in its inactivity history.';
   }

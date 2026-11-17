@@ -15,8 +15,12 @@ import {
   lowEnergyThreshold,
 } from '../device/low-energy';
 import {
+  FREE_FALL_ALERT_PARAMETERS,
   OVERLOAD_ALERTS_SQL,
   OverloadAlertRow,
+  RESOLVED_FREE_FALL_ALERTS_SQL,
+  RESOLVED_OVERLOAD_ALERTS_SQL,
+  RESOLVED_SOLAR_PANEL_ALERTS_SQL,
   toOverloadAlertDto,
 } from '../faults/device-alert-queries';
 import { resolveDeviceAlertThresholds } from '../faults/device-alert-thresholds';
@@ -45,6 +49,7 @@ import {
   OPEN_FUSE_ANGLE,
   SCENARIO_ACTIONS,
   SCENARIO_ACTION_NAMES,
+  SILENCE_MARGIN_MS,
   SOLAR_PANEL_FAILED,
   ScenarioAction,
   ScenarioChannel,
@@ -365,6 +370,35 @@ export const ALARMS_AFTER_CUTOFF_SQL = `
   SELECT count(*)::int AS value FROM public.alarms
   WHERE (hw_id = $1 OR custom_id = $2) AND recorded_at > $3::timestamptz
 `;
+
+/**
+ * SILENCE must not erase resolved inactivity periods. A device's records are its reading times
+ * (INACTIVE_DEVICES_SQL, TD-07: falcon_values, or the union of the three smac_* tables); a record
+ * more than the threshold after the previous one ends a resolved inactivity period
+ * (inactivityPeriods: strictly greater, a first record starts no period). Returns the latest such
+ * end after the cutoff, which the deletion of the readings after the cutoff would erase; null when
+ * there is none. $1 hw_id, $2 cutoff, $3 threshold in hours.
+ */
+const resolvedInactivityAfterCutoff = (records: string): string => `
+  WITH records AS (
+    SELECT r.recorded_at, LAG(r.recorded_at) OVER (ORDER BY r.recorded_at) AS previous_at
+    FROM (${records}) r
+  )
+  SELECT max(recorded_at) AS ended_at FROM records
+  WHERE previous_at IS NOT NULL
+    AND recorded_at > $2::timestamptz
+    AND recorded_at - previous_at > $3::float8 * interval '1 hour'
+`;
+export const FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL =
+  resolvedInactivityAfterCutoff(`
+    SELECT DISTINCT recorded_at FROM public.falcon_values WHERE hw_id = $1`);
+export const SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL =
+  resolvedInactivityAfterCutoff(`
+    SELECT recorded_at FROM public.smac_vc_values WHERE hw_id = $1
+    UNION
+    SELECT recorded_at FROM public.smac_pw_values WHERE hw_id = $1
+    UNION
+    SELECT recorded_at FROM public.smac_pf_values WHERE hw_id = $1`);
 
 /** SCRUM-253: RESUME copies the device's latest reading; it needs one. */
 export const FALCON_HAS_READING_SQL = `
@@ -885,7 +919,10 @@ export class ScenariosService {
    * cutoff = database clock - inactivity threshold - 1 minute, in its own telemetry tables, and
    * rebuilds its latest-value rows from what is left. It is refused (409, nothing written) when the
    * device is already silent, has no reading at or before the cutoff (RESUME would have nothing to
-   * copy), has alarm events after the cutoff, or has another scenario active. After the deletion it
+   * copy), has alarm events after the cutoff, has another scenario active, or would erase resolved
+   * history: the end of a resolved inactivity period, or of a resolved FREE_FALL,
+   * SOLAR_PANEL_FAILURE or OVERLOAD_UNBALANCE episode of the device, is a reading after the cutoff
+   * (assertNoResolvedHistoryErased; the message says when to try again). After the deletion it
    * checks, still in the transaction, that the device is now inactive and that no scenario
    * condition came back from older readings and, for a SMAC, that its OVERLOAD_UNBALANCE alert
    * (an imbalance can be on) is exactly as before; otherwise everything is rolled back. Last, it
@@ -996,6 +1033,14 @@ export class ScenariosService {
         `${action} would erase active scenario(s) on ${target}: ${active.join(', ')}; stop them first`,
       );
     }
+    await this.assertNoResolvedHistoryErased(
+      manager,
+      action,
+      device,
+      resolved,
+      target,
+      { hours, cutoff, databaseNow: before.databaseNow },
+    );
     // An imbalance is no scenario and may be on, but a silence must leave its alert as it is.
     const alertBefore =
       device === 'SMAC'
@@ -1042,6 +1087,91 @@ export class ScenariosService {
       before.databaseNow.toISOString(),
     ]);
     return result(before.databaseNow.toISOString());
+  }
+
+  /**
+   * 409 (nothing written) when the deletion of the readings after the cutoff would erase resolved
+   * history of the device: the end of a resolved inactivity period (readings after the cutoff that
+   * come more than the threshold after the previous record), or of a resolved FREE_FALL,
+   * SOLAR_PANEL_FAILURE (Falcon) or OVERLOAD_UNBALANCE (SMAC) episode of the target, read with the
+   * queries of GET /faults/resolved (unchanged, from the cutoff to the database clock). The deletion
+   * would not erase one that ended at or before the cutoff, so retrying after the latest end + the
+   * threshold + 1 minute (SILENCE_MARGIN_MS) is safe. Low energy has no resolved list yet.
+   */
+  private async assertNoResolvedHistoryErased(
+    runner: Queryable,
+    action: ScenarioAction,
+    device: ScenarioDevice,
+    resolved: ResolvedTarget,
+    target: string,
+    window: { hours: number; cutoff: string; databaseNow: Date },
+  ): Promise<void> {
+    const { hours, cutoff, databaseNow } = window;
+    const cutoffAt = new Date(cutoff).getTime();
+    const now = databaseNow.toISOString();
+    const nodes = [resolved.nodeId];
+    /** Latest end of each kind of resolved history the deletion would erase. */
+    const erased: { what: string; endedAt: Date }[] = [];
+    const add = (what: string, ends: (Date | string | null | undefined)[]) => {
+      const times: number[] = [];
+      for (const end of ends) {
+        if (end === null || end === undefined) continue;
+        const time = new Date(end).getTime();
+        if (time > cutoffAt) times.push(time);
+      }
+      if (times.length > 0) {
+        erased.push({ what, endedAt: new Date(Math.max(...times)) });
+      }
+    };
+    const ownEnds = (rows: { source_id: string; ended_at: Date | string }[]) =>
+      rows
+        .filter((row) => row.source_id === resolved.targetId)
+        .map((row) => row.ended_at);
+
+    const inactivity = (await runner.query(
+      device === 'FALCON'
+        ? FALCON_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL
+        : SMAC_RESOLVED_INACTIVITY_AFTER_CUTOFF_SQL,
+      [resolved.hwId, cutoff, hours],
+    )) as { ended_at: Date | string | null }[];
+    add('a resolved inactivity period', [inactivity[0]?.ended_at]);
+
+    if (device === 'FALCON') {
+      const freeFall = (await runner.query(RESOLVED_FREE_FALL_ALERTS_SQL, [
+        nodes,
+        ...FREE_FALL_ALERT_PARAMETERS,
+        cutoff,
+        now,
+      ])) as { source_id: string; ended_at: Date | string }[];
+      add('a resolved FREE_FALL', ownEnds(freeFall));
+      const solar = (await runner.query(RESOLVED_SOLAR_PANEL_ALERTS_SQL, [
+        nodes,
+        cutoff,
+        now,
+      ])) as { source_id: string; ended_at: Date | string }[];
+      add('a resolved SOLAR_PANEL_FAILURE', ownEnds(solar));
+    } else {
+      const thresholds = this.overloadThresholds();
+      const overload = (await runner.query(RESOLVED_OVERLOAD_ALERTS_SQL, [
+        nodes,
+        thresholds.overloadPercent,
+        thresholds.voltageUnbalancePercent,
+        thresholds.currentUnbalancePercent,
+        cutoff,
+        now,
+      ])) as { source_id: string; ended_at: Date | string }[];
+      add('a resolved OVERLOAD_UNBALANCE', ownEnds(overload));
+    }
+    if (erased.length === 0) return;
+
+    const latest = Math.max(...erased.map(({ endedAt }) => endedAt.getTime()));
+    const retryAt = new Date(latest + hours * 3_600_000 + SILENCE_MARGIN_MS);
+    throw new ConflictException(
+      `${action} would erase resolved history of ${target}: ` +
+        `${erased.map(({ what, endedAt }) => `${what} ended at ${endedAt.toISOString()}`).join(', ')}. ` +
+        `SILENCE removes the readings after ${cutoff}; try again after ${retryAt.toISOString()} ` +
+        `(latest of those end times + ${hours} h + 1 min) or pick another device. Nothing was changed.`,
+    );
   }
 
   /** 409 while the device of the target is deliberately silenced (its silence still holds). */
