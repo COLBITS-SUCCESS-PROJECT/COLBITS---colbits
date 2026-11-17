@@ -48,6 +48,10 @@ services:
       SMAC_LOW_ENERGY_PERCENT: 30
       SMAC_OVERLOAD_PERCENT: 90
       SMAC_VOLTAGE_UNBALANCE_PERCENT: 2
+      # Demo scenarios panel (US31, docs/demo-scenarios.md). Both must be set, and DEMO_SCENARIOS_DATABASE
+      # must equal POSTGRES_DB of the db service above; the backend also needs the synthetic-data marker.
+      DEMO_SCENARIOS_ENABLED: 'true'
+      DEMO_SCENARIOS_DATABASE: colbits
       # SMAC_CURRENT_UNBALANCE_PERCENT is left unset on purpose: TD-10 has no approved value, so the
       # current-imbalance condition is disabled. Add it here once the team agrees one.
     depends_on:
