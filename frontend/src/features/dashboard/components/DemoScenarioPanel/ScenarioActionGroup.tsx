@@ -61,6 +61,8 @@ export function ScenarioActionGroup({
             label={action.label}
             title={action.hint}
             variant="outline"
+            // Two columns are narrow: a long label wraps inside its button instead of spilling over the next one.
+            className="min-w-0 px-3 text-center leading-tight whitespace-normal!"
             isLoading={runningAction === action.code}
             disabled={isBusy || action.isDisabled}
             onClick={action.onRun}
