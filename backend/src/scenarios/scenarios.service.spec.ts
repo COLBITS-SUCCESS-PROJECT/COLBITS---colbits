@@ -1314,8 +1314,9 @@ describe('ScenariosService inactivity: SILENCE / RESUME (SCRUM-253)', () => {
         ],
         [
           trafo('SILENCE_SMAC'),
+          // The mock answers SET to every alarm query: every channel is dropped and out of range.
           { latest: 'SET', responses: SMAC_READY },
-          /: DROP_PHASE A, DROP_PHASE B, DROP_PHASE C;/,
+          /: DROP_PHASE A, PHASE_OUT_OF_RANGE A, DROP_PHASE B, PHASE_OUT_OF_RANGE B, DROP_PHASE C, PHASE_OUT_OF_RANGE C;/,
         ],
       ];
       for (const [body, options, message] of cases) {
