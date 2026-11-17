@@ -2,6 +2,12 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Node } from '../nodes/node.entity';
+import {
+  TRANSFORMER_PHASES_SQL,
+  TransformerPhasesRow,
+  channelsOfTransformer,
+  existingPhasesOf,
+} from '../nodes/transformer-state';
 import { applyNodeScope } from '../scope/scope-query.helper';
 import { ScopeContext } from '../scope/scope.types';
 import {
@@ -235,7 +241,7 @@ export class ActiveFaultsService implements OnModuleInit {
       .filter((fault) => fault.state === 'OPEN')
       .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
 
-    const sourceAlarms = this.collectSourceAlarms(sourceRows, now);
+    const sourceAlarms = await this.collectSourceAlarms(sourceRows, now);
     const deviceAlerts = [
       ...freeFallRows.map((row) => toFalconAlertDto('FREE_FALL', row, now)),
       ...solarRows.map((row) =>
@@ -325,7 +331,7 @@ export class ActiveFaultsService implements OnModuleInit {
       )
       .map((fault) => toDto(fault, sets.get(fault.fusesSetId) as SetInfo, now));
 
-    const sourceAlarms = this.collectSourceAlarms(sourceRows, now).filter(
+    const sourceAlarms = (await this.collectSourceAlarms(sourceRows, now)).filter(
       (alarm) =>
         alarm.state === 'RESOLVED' &&
         alarm.ended_at !== null &&
@@ -412,17 +418,41 @@ export class ActiveFaultsService implements OnModuleInit {
     return { sets, events };
   }
 
-  private collectSourceAlarms(
+  private async collectSourceAlarms(
     sourceRows: SourceAlarmRow[],
     now: Date,
-  ): ActiveFaultDto[] {
+  ): Promise<ActiveFaultDto[]> {
     const sourceAlarms: ActiveFaultDto[] = [];
     for (const row of sourceRows) {
       const mapped = toSourceAlarmDto(row, now);
       if ('fault' in mapped) sourceAlarms.push(mapped.fault);
       else this.reportSkippedSourceAlarm(row, mapped.skipped, 'Active');
     }
+    await this.addTransformerChannels(sourceAlarms);
     return sourceAlarms;
+  }
+
+  /** Sets `channels` of every SMAC alarm: the channels its transformer has (one query for all of them). */
+  private async addTransformerChannels(alarms: ActiveFaultDto[]): Promise<void> {
+    const smac = alarms.filter(
+      (alarm) => alarm.device === 'SMAC' && alarm.source_id !== null,
+    );
+    if (smac.length === 0) return;
+
+    const customIds = [...new Set(smac.map((alarm) => alarm.source_id))];
+    const rows: TransformerPhasesRow[] = await this.nodesRepository.query(
+      TRANSFORMER_PHASES_SQL,
+      [customIds, this.faultsService.getSmacPhaseWindowDays()],
+    );
+    const existing = new Map(
+      rows.map((row) => [row.custom_id, existingPhasesOf(row)]),
+    );
+    for (const alarm of smac) {
+      alarm.channels = channelsOfTransformer(
+        alarm.source_id as string,
+        existing.get(alarm.source_id as string) ?? null,
+      );
+    }
   }
 
   private collectOverloadAlerts(
@@ -546,6 +576,7 @@ export function toDto(
     device: 'FALCON',
     source_id: null,
     channel: null,
+    channels: null,
     state: fault.state,
     phases: classification === null ? null : canonicalPhases(rawPhases),
     classification,

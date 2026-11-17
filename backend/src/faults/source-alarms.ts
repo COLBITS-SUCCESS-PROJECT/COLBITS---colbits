@@ -239,6 +239,8 @@ export interface SourceAlarmFault {
   device: SourceAlarmDevice;
   source_id: string;
   channel: SmacChannel | null;
+  /** Filled by the service for SMAC alarms (transformer-state channelsOfTransformer). */
+  channels: SmacChannel[] | null;
   state: 'OPEN' | 'RESOLVED';
   phases: string[] | null;
   classification: null;
@@ -381,6 +383,7 @@ export function toSourceAlarmDto(
       device,
       source_id: row.source_id,
       channel,
+      channels: null,
       state: endedAt === null ? 'OPEN' : 'RESOLVED',
       phases,
       classification: null,

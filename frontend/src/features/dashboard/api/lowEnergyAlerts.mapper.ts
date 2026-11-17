@@ -39,6 +39,7 @@ export function toLowEnergyAlarm(dto: LowEnergyAlertDto): FaultAlert {
     branch: null,
     sourceId: dto.source_id,
     channel: null,
+    channels: null,
     phases: null,
     classification: null,
     startedAt,

@@ -67,6 +67,7 @@ export function toFaultAlert(dto: ActiveFaultDto): FaultAlert {
     branch: dto.branch,
     sourceId: dto.source_id,
     channel: dto.channel,
+    channels: dto.channels,
     phases: toPhaseStates(dto.phases),
     classification: dto.classification,
     startedAt: new Date(dto.started_at),

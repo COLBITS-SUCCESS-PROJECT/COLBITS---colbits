@@ -67,9 +67,78 @@ describe('FaultListItem', () => {
     expect(within(card).getByText('Transformador')).toBeInTheDocument()
     expect(within(card).getByText('TR-0007')).toBeInTheDocument()
     expect(within(card).getByText('Canal')).toBeInTheDocument()
-    expect(within(card).getByText('B')).toBeInTheDocument()
+    expect(within(card).getByRole('img', { name: 'Canal B: caída' })).toHaveAttribute(
+      'data-state',
+      'CRITICAL'
+    )
     expect(within(card).queryByText('Ramal')).not.toBeInTheDocument()
     expect(within(card).queryByText('Fases')).not.toBeInTheDocument()
+  })
+
+  it('draws the channels the service sends with the dropped one red, and says triphasic for a -3 transformer', () => {
+    const smacAlarm: FaultAlert = {
+      ...fault('f-4'),
+      sourceId: '0000300008-T1-3',
+      channel: 'B',
+      channels: ['A', 'B', 'C'],
+      phases: null,
+      classification: null,
+    }
+
+    render(<FaultListItem fault={smacAlarm} />)
+
+    expect(screen.getByRole('img', { name: 'Canal A: normal' })).toHaveAttribute('data-state', 'OK')
+    expect(screen.getByRole('img', { name: 'Canal B: caída' })).toHaveAttribute(
+      'data-state',
+      'CRITICAL'
+    )
+    expect(screen.getByRole('img', { name: 'Canal C: normal' })).toHaveAttribute('data-state', 'OK')
+    expect(screen.getByText('Trifásica')).toBeInTheDocument()
+  })
+
+  it.each([
+    [['A', 'C'], 'C', 'Canal A: normal'],
+    [['B', 'C'], 'B', 'Canal C: normal'],
+    [['A', 'B'], 'A', 'Canal B: normal'],
+  ] as const)(
+    'draws the exact pair %j of a biphasic transformer, the dropped %s in red',
+    (channels, down, other) => {
+      const smacAlarm: FaultAlert = {
+        ...fault('f-4'),
+        sourceId: '0000300008-T1-2',
+        channel: down,
+        channels: [...channels],
+        phases: null,
+        classification: null,
+      }
+
+      render(<FaultListItem fault={smacAlarm} />)
+
+      expect(screen.getAllByRole('img')).toHaveLength(2)
+      expect(screen.getByRole('img', { name: other })).toHaveAttribute('data-state', 'OK')
+      expect(screen.getByRole('img', { name: `Canal ${down}: caída` })).toHaveAttribute(
+        'data-state',
+        'CRITICAL'
+      )
+      expect(screen.getByText('Bifásica')).toBeInTheDocument()
+    }
+  )
+
+  it('draws only the dropped channel when the service does not know the pair, and still says biphasic', () => {
+    const smacAlarm: FaultAlert = {
+      ...fault('f-4'),
+      sourceId: '0000300008-T1-2',
+      channel: 'A',
+      channels: null,
+      phases: null,
+      classification: null,
+    }
+
+    render(<FaultListItem fault={smacAlarm} />)
+
+    expect(screen.getAllByRole('img')).toHaveLength(1)
+    expect(screen.getByRole('img', { name: 'Canal A: caída' })).toBeInTheDocument()
+    expect(screen.getByText('Bifásica')).toBeInTheDocument()
   })
 
   describe('low energy (F-44, F-45)', () => {

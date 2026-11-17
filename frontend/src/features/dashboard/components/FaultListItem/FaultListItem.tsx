@@ -7,6 +7,7 @@ import { cn } from '@/utils/cn'
 import { formatClockTime, formatDateTime, formatDuration } from '@/utils/formatDateTime'
 import type { FaultAlert } from '../../model/liveMonitoring.types'
 import { RESOLVED_BG_CLASS, SEVERITY_BG_CLASS } from '../networkStateStyles'
+import { ChannelChips } from '../ChannelChips/ChannelChips'
 import { PhaseChips } from '../PhaseChips/PhaseChips'
 import { SELECTABLE_CARD_CLASS, SelectCardButton } from '../SelectCardButton'
 
@@ -85,7 +86,16 @@ function TransformerFields({ fault }: { fault: FaultAlert }) {
     <>
       <DataField label={t('fault.transformer')} value={fault.sourceId} />
       {fault.channel ? (
-        <DataField label={t('fault.channel')} value={fault.channel} />
+        <DataField
+          label={t('fault.channel')}
+          value={
+            <ChannelChips
+              channel={fault.channel}
+              channels={fault.channels}
+              sourceId={fault.sourceId}
+            />
+          }
+        />
       ) : (
         <DataField label={t('fault.conditions')} value={conditions} />
       )}

@@ -66,6 +66,8 @@ export interface ActiveFaultDto {
   source_id: string | null
   /** SMAC channel; null except on SMAC alarms. */
   channel: SmacChannelDto | null
+  /** SMAC alarms: the channels the transformer has (A-B-C, A-B, B-C or A-C); null when the pair of a two-phase transformer is unknown. */
+  channels: SmacChannelDto[] | null
   /** OPEN in GET /faults, RESOLVED in GET /faults/resolved (US16). */
   state: 'OPEN' | 'RESOLVED'
   /** Distinct canonical phases in natural order (R, S, T or the legacy I, C, D); null when unclassified. */

@@ -1,6 +1,10 @@
 import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Node } from '../nodes/node.entity';
+import {
+  TRANSFORMER_PHASES_SQL,
+  TransformerPhasesRow,
+} from '../nodes/transformer-state';
 import { ScopeContext } from '../scope/scope.types';
 import {
   ACTIVE_FAULT_EVENTS_SQL,
@@ -120,6 +124,7 @@ function serviceWith(
     freeFallRows?: FalconAlertRow[];
     solarRows?: FalconAlertRow[];
     overloadRows?: OverloadAlertRow[];
+    transformerPhaseRows?: TransformerPhasesRow[];
     resolvedFreeFallRows?: ResolvedFalconAlertRow[];
     resolvedSolarRows?: ResolvedFalconAlertRow[];
     resolvedOverloadRows?: ResolvedOverloadAlertRow[];
@@ -137,11 +142,13 @@ function serviceWith(
     createQueryBuilder: jest.fn().mockReturnValue(builder),
     // Each statement gets its own rows: fuse-opening events, active source alarms, resolved
     // source-alarm episodes or one of the three device alerts.
-    query: jest.fn((sql: string) =>
+    query: jest.fn((sql: string, ..._params: unknown[]) =>
       Promise.resolve(
         sql === ACTIVE_SOURCE_ALARMS_SQL
           ? (options.sourceRows ?? [])
-          : sql === RESOLVED_SOURCE_ALARMS_SQL
+          : sql === TRANSFORMER_PHASES_SQL
+            ? (options.transformerPhaseRows ?? [])
+            : sql === RESOLVED_SOURCE_ALARMS_SQL
             ? (options.resolvedRows ?? [])
             : sql === FREE_FALL_ALERTS_SQL
               ? (options.freeFallRows ?? [])
@@ -161,6 +168,7 @@ function serviceWith(
   };
   const faults = {
     getGroupingWindowMinutes: jest.fn().mockReturnValue(options.window ?? 5),
+    getSmacPhaseWindowDays: jest.fn().mockReturnValue(0),
     getSeverityWeights: jest
       .fn()
       .mockReturnValue(options.weights ?? DEFAULT_SEVERITY_WEIGHTS),
@@ -305,6 +313,7 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
             device: 'FALCON',
             source_id: null,
             channel: null,
+            channels: null,
             state: 'OPEN',
             phases: ['R', 'S'],
             classification: 'BIPHASIC',
@@ -776,6 +785,60 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
     });
   });
 
+  describe('channels of the transformer of a SMAC alarm', () => {
+    it('sends the pair the voltage readings state, and queries once for all the alarms', async () => {
+      const { service, repository } = serviceWith([], {
+        sourceRows: [
+          smacRow({ source_id: '0000100002-T1-2', event_code: '0514211' }),
+          smacRow({ source_id: '0000100002-T1-2', event_code: '051421c' }),
+        ],
+        transformerPhaseRows: [
+          { custom_id: '0000100002-T1-2', has_a: true, has_b: false, has_c: true },
+        ],
+      });
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(faults.map((fault) => fault.channels)).toEqual([
+        ['A', 'C'],
+        ['A', 'C'],
+      ]);
+      const phaseQueries = repository.query.mock.calls.filter(
+        (call) => call[0] === TRANSFORMER_PHASES_SQL,
+      );
+      expect(phaseQueries).toHaveLength(1);
+      expect(phaseQueries[0][1]).toEqual([['0000100002-T1-2'], 0]);
+    });
+
+    it('is A-B-C for a three-phase transformer without readings and null for a two-phase one', async () => {
+      const { service } = serviceWith([], {
+        sourceRows: [
+          smacRow({ source_id: '0000100002-T1-3', event_code: '0514211' }),
+          smacRow({ source_id: '0000100002-T1-2', event_code: '0514211' }),
+        ],
+      });
+
+      const { faults } = await service.activeFaults(UNRESTRICTED, NOW);
+
+      const bySource = new Map(faults.map((f) => [f.source_id, f.channels]));
+      expect(bySource.get('0000100002-T1-3')).toEqual(['A', 'B', 'C']);
+      expect(bySource.get('0000100002-T1-2')).toBeNull();
+    });
+
+    it('does not query when there is no SMAC alarm', async () => {
+      const { service, repository } = serviceWith([], {
+        sourceRows: [],
+      });
+
+      await service.activeFaults(UNRESTRICTED, NOW);
+
+      expect(repository.query).not.toHaveBeenCalledWith(
+        TRANSFORMER_PHASES_SQL,
+        expect.anything(),
+      );
+    });
+  });
+
   describe('source alarms (SCRUM-225: NO_VOLTAGE, PHASE_LOSS, PHASE_OUT_OF_RANGE)', () => {
     const typesOf = (faults: { alert_type: string }[]) =>
       faults.map((fault) => fault.alert_type);
@@ -897,6 +960,7 @@ describe('ActiveFaultsService (US10 · F-47, F-48, F-49)', () => {
             device: 'FALCON',
             source_id: '0000100002-A-R',
             channel: null,
+            channels: null,
             state: 'OPEN',
             phases: ['R'],
             classification: null,
@@ -1296,6 +1360,7 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
         device: 'FALCON',
         source_id: '0000100002-A-R',
         channel: null,
+        channels: null,
         state: 'OPEN',
         phases: ['R'],
         classification: null,
@@ -1318,6 +1383,7 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
         device: 'FALCON',
         source_id: '0000100002-A-S',
         channel: null,
+        channels: null,
         state: 'OPEN',
         phases: ['S'],
         classification: null,
@@ -1362,6 +1428,7 @@ describe('ActiveFaultsService — device alerts (SCRUM-245 · F-47, US18)', () =
         device: 'SMAC',
         source_id: '0000100002-T1-3',
         channel: null,
+        channels: null,
         state: 'OPEN',
         phases: null,
         classification: null,

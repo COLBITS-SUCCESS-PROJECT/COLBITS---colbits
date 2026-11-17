@@ -1,12 +1,15 @@
 import {
   PHASE_DROP_EVENT_PATTERN,
   TransformerSummary,
+  channelsOfTransformer,
   deriveTransformerState,
+  existingPhasesOf,
   ignoredChannels,
   phaseCountOf,
   phaseOfChannel,
   phasesDown,
   phasesOf,
+  resolveSmacPhaseWindowDays,
 } from './transformer-state';
 
 const three = (
@@ -149,5 +152,43 @@ describe('existing phases from the voltage columns (CL-07 / TD-04 / TD-05)', () 
   it('never lists an unknown channel as ignored', () => {
     expect(ignoredChannels(pair([2, 3], ['X']))).toEqual([]);
     expect(phasesDown(pair([2, 3], ['X']))).toBe(1);
+  });
+});
+
+describe('channels of a transformer for the fault list', () => {
+  it('lists the channels the voltage columns state, in order, for any pair', () => {
+    expect(
+      channelsOfTransformer(
+        'T-2',
+        existingPhasesOf({ has_a: true, has_b: false, has_c: true }),
+      ),
+    ).toEqual(['A', 'C']);
+    expect(
+      channelsOfTransformer(
+        'T-2',
+        existingPhasesOf({ has_a: false, has_b: true, has_c: true }),
+      ),
+    ).toEqual(['B', 'C']);
+    expect(channelsOfTransformer('T-3', [1, 2, 3])).toEqual(['A', 'B', 'C']);
+  });
+
+  it('falls back to A-B-C for a three-phase identifier without readings', () => {
+    expect(channelsOfTransformer('0000100004-T1-3', null)).toEqual([
+      'A',
+      'B',
+      'C',
+    ]);
+  });
+
+  it('never guesses the pair of a two-phase transformer without readings', () => {
+    expect(channelsOfTransformer('0000100004-T1-2', null)).toBeNull();
+    expect(channelsOfTransformer('LEGACY-T1', null)).toBeNull();
+  });
+
+  it('reads SMAC_PHASE_WINDOW_DAYS, with 0 for a missing or invalid value', () => {
+    expect(resolveSmacPhaseWindowDays('7')).toBe(7);
+    expect(resolveSmacPhaseWindowDays(undefined)).toBe(0);
+    expect(resolveSmacPhaseWindowDays('-1')).toBe(0);
+    expect(resolveSmacPhaseWindowDays('abc')).toBe(0);
   });
 });
