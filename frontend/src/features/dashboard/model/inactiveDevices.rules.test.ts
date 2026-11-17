@@ -137,6 +137,37 @@ describe('selectInactiveDevices', () => {
     expect(selectInactiveDevices(lastDay, northCto1)).toEqual([])
   })
 
+  it('follows the layers of the map: only Falcon on the fuses layer, only SMAC on the transformers layer', () => {
+    const fuses = selectInactiveDevices(lastDay, EVERYWHERE, ['FUSES'])
+    const transformers = selectInactiveDevices(lastDay, EVERYWHERE, ['TRANSFORMERS'])
+    const both = selectInactiveDevices(lastDay, EVERYWHERE, ['FUSES', 'TRANSFORMERS'])
+
+    expect(fuses.length).toBeGreaterThan(0)
+    expect(transformers.length).toBeGreaterThan(0)
+    expect(fuses.every((view) => view.device.kind === 'FALCON')).toBe(true)
+    expect(transformers.every((view) => view.device.kind === 'SMAC')).toBe(true)
+    expect(fuses.length + transformers.length).toBe(both.length)
+    // Every layer off hides everything; the default (no layers given) shows everything
+    expect(selectInactiveDevices(lastDay, EVERYWHERE, [])).toEqual([])
+    expect(idsOf(selectInactiveDevices(lastDay, EVERYWHERE))).toEqual(idsOf(both))
+  })
+
+  it('follows the map search, by node or device id and whatever the case', () => {
+    const [first] = selectInactiveDevices(lastDay, EVERYWHERE)
+
+    expect(idsOf(selectInactiveDevices(lastDay, EVERYWHERE, undefined, first.device.id))).toEqual([
+      first.device.id,
+    ])
+    const byNode = selectInactiveDevices(
+      lastDay,
+      EVERYWHERE,
+      undefined,
+      first.device.nodeId.toLowerCase()
+    )
+    expect(byNode.map((view) => view.device.id)).toContain(first.device.id)
+    expect(selectInactiveDevices(lastDay, EVERYWHERE, undefined, 'no-such-thing')).toEqual([])
+  })
+
   it('returns an empty list when there are no devices', () => {
     expect(selectInactiveDevices(answer([]), EVERYWHERE)).toEqual([])
   })
