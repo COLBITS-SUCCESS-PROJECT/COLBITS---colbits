@@ -1,6 +1,6 @@
 /** TransformerCard — the F-27 transformer fields, an inactive SMAC and missing values. */
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import '@/i18n'
 import type { TransformerDetail } from '../../model/nodeDetail.types'
 import { TransformerCard } from './TransformerCard'
@@ -20,8 +20,25 @@ describe('TransformerCard', () => {
 
     expect(screen.getByText('SMA-00218')).toBeInTheDocument()
     expect(screen.getByText('Reportando')).toBeInTheDocument()
-    expect(screen.getByText('127,1 / 126,8 / — V')).toBeInTheDocument()
+    // One tile per phase; a phase without a reading shows a dash
+    expect(screen.getByText('127,1 V')).toBeInTheDocument()
+    expect(screen.getByText('126,8 V')).toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
+    // The device carries its last record, as the fuse rows do
+    expect(screen.getByText(/Último registro:/)).toBeInTheDocument()
     expect(screen.getByText(/^64\s?%$/)).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Batería' })).toHaveAttribute(
+      'aria-valuenow',
+      '64'
+    )
+  })
+
+  it('turns the battery bar red below the low-energy threshold', () => {
+    render(<TransformerCard transformer={{ ...TRANSFORMER, batteryPercent: 22 }} />)
+
+    const bar = screen.getByRole('progressbar', { name: 'Batería' })
+    expect(bar.firstElementChild).toHaveClass('bg-status-critical')
+    expect(bar.firstElementChild).toHaveStyle({ width: '22%' })
   })
 
   it('says when the SMAC is inactive, and shows an empty value for what was never reported', () => {
@@ -38,7 +55,10 @@ describe('TransformerCard', () => {
     )
 
     expect(screen.getByText('Inactivo > 3 h')).toBeInTheDocument()
-    const term = screen.getByText('Batería')
-    expect(term.nextElementSibling).toHaveAttribute('data-empty', 'true')
+    // No reading: an empty bar with no value
+    const bar = screen.getByRole('progressbar', { name: 'Batería' })
+    expect(bar).not.toHaveAttribute('aria-valuenow')
+    expect(bar.firstElementChild).toBeNull()
+    expect(within(bar.parentElement as HTMLElement).getByText('Sin dato')).toBeInTheDocument()
   })
 })
