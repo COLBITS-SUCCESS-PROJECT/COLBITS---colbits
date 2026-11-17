@@ -112,6 +112,20 @@ export const SCENARIO_ACTIONS = {
     eventType: 'CLEAR',
     channel: true,
   },
+  PHASE_OUT_OF_RANGE: {
+    kind: 'event',
+    device: 'SMAC',
+    event: '20',
+    eventType: 'SET',
+    channel: true,
+  },
+  PHASE_IN_RANGE: {
+    kind: 'event',
+    device: 'SMAC',
+    event: '20',
+    eventType: 'CLEAR',
+    channel: true,
+  },
   DRAIN_SUPERCAPS: {
     kind: 'telemetry',
     device: 'FALCON',
@@ -241,6 +255,8 @@ export const OPEN_FUSE_ANGLE = 125;
 export const CLOSED_FUSE_ANGLE = 1;
 export const DROPPED_PHASE_VOLTS = 0;
 export const NOMINAL_PHASE_VOLTS = 220;
+/** A phase voltage out of its range (above nominal): the phase is still present, unlike a drop. */
+export const OUT_OF_RANGE_PHASE_VOLTS = 250;
 
 /**
  * SCRUM-253: values of the telemetry actions, always derived from the configured thresholds
@@ -315,6 +331,10 @@ export function alarmTextOf(
       return `Caída de la fase ${channel}`;
     case 'RESTORE_PHASE':
       return `Recuperación de la fase ${channel}`;
+    case 'PHASE_OUT_OF_RANGE':
+      return `Fase ${channel} fuera de rango`;
+    case 'PHASE_IN_RANGE':
+      return `Fase ${channel} dentro de rango`;
     case 'FREE_FALL':
       return 'Movimiento anormal detectado';
     default:
@@ -332,7 +352,10 @@ export function alarmValueOf(action: ScenarioAction): string | null {
     case 'DROP_PHASE':
       return String(DROPPED_PHASE_VOLTS);
     case 'RESTORE_PHASE':
+    case 'PHASE_IN_RANGE':
       return String(NOMINAL_PHASE_VOLTS);
+    case 'PHASE_OUT_OF_RANGE':
+      return String(OUT_OF_RANGE_PHASE_VOLTS);
     default:
       return null;
   }
@@ -399,6 +422,10 @@ export function expectedEffectOf(action: ScenarioAction): string {
       return 'Transformer layer: WARNING with one phase down, CRITICAL with two or more; an open PHASE_LOSS alarm.';
     case 'RESTORE_PHASE':
       return 'The PHASE_LOSS alarm resolves; the transformer state is recomputed.';
+    case 'PHASE_OUT_OF_RANGE':
+      return 'Transformer layer: the phase stays present (the transformer state does not change); an open PHASE_OUT_OF_RANGE alarm and the "phase out of range" counter.';
+    case 'PHASE_IN_RANGE':
+      return 'The PHASE_OUT_OF_RANGE alarm resolves.';
     case 'DRAIN_SUPERCAPS':
       return 'The Falcon supercapacitors drop below FALCON_LOW_ENERGY_PERCENT: a low-energy alert in GET /device/low-energy. Telemetry only, no alarm event.';
     case 'RECHARGE_SUPERCAPS':

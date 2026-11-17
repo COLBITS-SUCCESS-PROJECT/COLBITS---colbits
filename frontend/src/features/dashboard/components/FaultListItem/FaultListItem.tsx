@@ -127,9 +127,29 @@ function FuseSetFields({ fault }: { fault: FaultAlert }) {
   )
 }
 
+/** Free fall and solar panel are conditions of the Falcon itself: its fuse, not the phase the fuse is installed on. */
+const FALCON_DEVICE_TYPES: ReadonlySet<FaultAlert['type']> = new Set([
+  'FREE_FALL',
+  'SOLAR_PANEL_FAILURE',
+])
+
+function FalconDeviceFields({ fault }: { fault: FaultAlert }) {
+  const { t } = useTranslation('dashboard')
+  const branchValue = fault.branch
+    ? t('fault.branchValue', { branch: fault.branch })
+    : t('fault.singleSet')
+  return (
+    <>
+      <DataField label={t('fault.branch')} value={branchValue} />
+      <DataField label={t('fault.fuse')} value={fault.sourceId} />
+    </>
+  )
+}
+
 /** The first two fields of the card, which depend on what the alarm is about. */
 function SourceFields({ fault }: { fault: FaultAlert }) {
   if (fault.type === 'LOW_ENERGY') return <EnergyFields fault={fault} />
+  if (FALCON_DEVICE_TYPES.has(fault.type)) return <FalconDeviceFields fault={fault} />
   if (fault.device === 'SMAC' && fault.type !== 'DEVICE_INACTIVITY') {
     return <TransformerFields fault={fault} />
   }
