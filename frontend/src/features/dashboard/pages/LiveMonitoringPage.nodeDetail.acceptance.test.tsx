@@ -132,17 +132,18 @@ describe('SCRUM-179 · F-27 — node detail panel', () => {
     const fields = within(transformer)
       .getAllByRole('term')
       .map((term) => term.textContent)
-    expect(fields).toEqual([
-      'Dispositivo',
-      'Estado',
-      'Voltaje A / B / C',
-      'Batería',
-      'Último registro',
-    ])
-    expect(within(transformer).getByText('SMA-00218')).toBeInTheDocument()
+    // The last record sits under the device, and the battery is a bar with its own label
+    expect(fields).toEqual(['Dispositivo', 'Estado', 'Voltaje A / B / C'])
+    expect(within(transformer).getByText(/SMA-00218/)).toBeInTheDocument()
     expect(within(transformer).getByText('Reportando')).toBeInTheDocument()
-    expect(within(transformer).getByText('127,1 / 126,8 / 127,4 V')).toBeInTheDocument()
+    expect(within(transformer).getByText('127,1 V')).toBeInTheDocument()
+    expect(within(transformer).getByText('126,8 V')).toBeInTheDocument()
+    expect(within(transformer).getByText('127,4 V')).toBeInTheDocument()
     expect(within(transformer).getByText(/^64\s?%$/)).toBeInTheDocument()
+    expect(within(transformer).getByRole('progressbar', { name: 'Batería' })).toHaveAttribute(
+      'aria-valuenow',
+      '64'
+    )
     // No other telemetry: no load, no charts, no history tabs (F-27, F-28)
     expect(within(panel).queryByText(/carga|load/i)).not.toBeInTheDocument()
     expect(within(panel).queryByRole('tab')).not.toBeInTheDocument()

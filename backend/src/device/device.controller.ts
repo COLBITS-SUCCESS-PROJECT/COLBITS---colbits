@@ -23,7 +23,14 @@ import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { ScopeService } from '../scope/scope.service';
 import { InactiveDevicesResponseDto } from './dto/inactive-devices.dto';
 import { InactivityResultDto } from './dto/inactivity-result.dto';
-import { LowEnergyAlertsResponseDto } from './dto/low-energy-alerts.dto';
+import {
+  RESOLVED_WINDOWS,
+  type ResolvedWindow,
+} from '../faults/dto/faults.dto';
+import {
+  LowEnergyAlertsResponseDto,
+  ResolvedLowEnergyAlertsResponseDto,
+} from './dto/low-energy-alerts.dto';
 import { DeviceService } from './device.service';
 import {
   DEFAULT_WINDOW_HOURS,
@@ -60,6 +67,39 @@ export class DeviceController {
     const scope = await this.scopeService.resolve(userIdOf(request));
 
     return this.lowEnergyAlertsService.activeAlerts(scope);
+  }
+
+  @Get('low-energy/resolved')
+  @ApiOperation({
+    summary:
+      'Low-energy alerts of the user scope that resolved inside a window (F-44, F-45; the Resolved tab).',
+    description:
+      'An episode is a run of stored readings below the threshold (supercaps_per for a Falcon, battery_per for a SMAC) that ended with a reading at or above it. Listed when that ending reading falls inside the window, newest first. Derived from the readings, with the same rule as the active alert.',
+  })
+  @ApiQuery({
+    name: 'window',
+    required: false,
+    enum: [...RESOLVED_WINDOWS],
+    example: '24h',
+    description: 'Resolution window, as GET /faults/resolved (default 24h).',
+  })
+  @ApiOkResponse({ type: ResolvedLowEnergyAlertsResponseDto })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDto,
+    description: `window must be one of: ${RESOLVED_WINDOWS.join(', ')}`,
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, or expired.',
+  })
+  async getResolvedLowEnergyAlerts(
+    @Query('window') window: string | undefined,
+    @Req() request: Request,
+  ) {
+    const parsedWindow = parseResolvedWindow(window);
+    const scope = await this.scopeService.resolve(userIdOf(request));
+
+    return this.lowEnergyAlertsService.resolvedAlerts(scope, parsedWindow);
   }
 
   @Get('inactive')
@@ -160,6 +200,17 @@ export class DeviceController {
 
     return this.deviceService.checkInactivity(deviceId.trim(), type, scope);
   }
+}
+
+/** Window of GET /device/low-energy/resolved: the default (24h) when absent, otherwise one of RESOLVED_WINDOWS. */
+function parseResolvedWindow(window: string | undefined): ResolvedWindow {
+  if (window === undefined || window.trim() === '') return '24h';
+  if ((RESOLVED_WINDOWS as readonly string[]).includes(window)) {
+    return window as ResolvedWindow;
+  }
+  throw new BadRequestException(
+    `window must be one of: ${RESOLVED_WINDOWS.join(', ')}`,
+  );
 }
 
 /** Window of GET /device/inactive: the default when absent, otherwise a number in (0, MAX_WINDOW_HOURS]. */

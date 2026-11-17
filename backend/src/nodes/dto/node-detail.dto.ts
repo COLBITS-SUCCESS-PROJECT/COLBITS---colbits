@@ -138,6 +138,20 @@ export class VoltagesDto {
   vc: number | null;
 }
 
+export const PHASE_STATES = ['NORMAL', 'DROPPED', 'OUT_OF_RANGE'] as const;
+export type PhaseState = (typeof PHASE_STATES)[number];
+
+export class PhaseStatesDto {
+  @ApiProperty({ enum: PHASE_STATES, example: 'NORMAL' })
+  a: PhaseState;
+
+  @ApiProperty({ enum: PHASE_STATES, example: 'OUT_OF_RANGE' })
+  b: PhaseState;
+
+  @ApiProperty({ enum: PHASE_STATES, example: 'DROPPED' })
+  c: PhaseState;
+}
+
 export class TransformerDetailDto {
   @ApiProperty({
     example: '0000100002-T1-2',
@@ -170,6 +184,13 @@ export class TransformerDetailDto {
 
   @ApiProperty({ type: () => VoltagesDto })
   voltages: VoltagesDto;
+
+  @ApiProperty({
+    type: () => PhaseStatesDto,
+    description:
+      'Per channel, from the active phase alarms (the fault list rule): DROPPED (05xx21y), OUT_OF_RANGE (05xx20y) or NORMAL. A dropped phase wins over an out-of-range one.',
+  })
+  phase_states: PhaseStatesDto;
 
   @ApiProperty({
     type: String,

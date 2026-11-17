@@ -25,18 +25,19 @@ The database checks run inside the transaction that writes. The marker shows tha
 
 ## API
 
-- `GET /scenarios` → `{ enabled, actions: [{ action, target, channel_required, effect }] }`. The 20 actions come in a fixed order, each start right before its stop.
-- `POST /scenarios` with `{ action, target, channel? }`: `target` is the fuse or transformer `custom_id` (`target: FUSE` or `TRANSFORMER` in the list); `channel` (A, B, C) only for `DROP_PHASE` / `RESTORE_PHASE`. Answers 201 with `{ action, node, target, channel, hw_id, event_code, event_type, recorded_at, effect }`.
+- `GET /scenarios` → `{ enabled, actions: [{ action, target, channel_required, effect }] }`. The 22 actions come in a fixed order, each start right before its stop.
+- `POST /scenarios` with `{ action, target, channel? }`: `target` is the fuse or transformer `custom_id` (`target: FUSE` or `TRANSFORMER` in the list); `channel` (A, B, C) only for the four phase actions. Answers 201 with `{ action, node, target, channel, hw_id, event_code, event_type, recorded_at, effect }`.
 - `event_code` / `event_type` are null for the actions that write no event; `FREE_FALL` gives `13xx01` / `MSG`. `recorded_at` is the database time of the write (for `SILENCE_*`, of the silence).
 - 400 invalid body or target; 401 no token; 403 not an administrator or not a demo database; 404 unknown target or outside the scope; 409 nothing would change or another scenario would be broken (the message says which). Nothing is written on any error.
 
-## The 20 actions
+## The 22 actions
 
 | Start / stop | Target | Writes | Shown in |
 |---|---|---|---|
 | `OPEN_FUSE` / `CLOSE_FUSE` | FUSE | Reading + `13xx20` SET / CLEAR | Map, `GET /faults` (FUSE_OPENING) |
 | `CUT_VOLTAGE` / `RESTORE_VOLTAGE` | FUSE | Reading + `13xx21` SET / CLEAR | Map, `GET /faults` (NO_VOLTAGE) |
 | `DROP_PHASE` / `RESTORE_PHASE` (channel) | TRANSFORMER | Reading + `05xx21y` SET / CLEAR | Map, `GET /faults` (PHASE_LOSS) |
+| `PHASE_OUT_OF_RANGE` / `PHASE_IN_RANGE` (channel) | TRANSFORMER | Reading (250 V / 220 V on that channel) + `05xx20y` SET / CLEAR; the transformer state does not change | `GET /faults` (PHASE_OUT_OF_RANGE), counter *phase out of range* |
 | `DRAIN_SUPERCAPS` / `RECHARGE_SUPERCAPS` | FUSE | `supercaps_per` below / back at or above `FALCON_LOW_ENERGY_PERCENT` | `GET /device/low-energy` |
 | `FREE_FALL` / `END_FREE_FALL` | FUSE | `is_free_fall_alarm` true + `13xx01` MSG / a later reading with it false | `GET /faults` (FREE_FALL) |
 | `SOLAR_PANEL_ALARM` / `CLEAR_SOLAR_PANEL_ALARM` | FUSE | `is_solar_panel_alarm` true, `solar_panel` 0 / false, earlier value | `GET /faults` (SOLAR_PANEL_FAILURE) |
@@ -71,7 +72,7 @@ Values come from the configured thresholds, never fixed ones; a stop writes back
 
 ## Notes for the frontend (SCRUM-254)
 
-- The panel needs no change: every action has `target` FUSE or TRANSFORMER and only the phase actions need a channel. Without a label (`dashboard:scenarios.action.<CODE>` / `scenarios.result.<CODE>`) a button shows its code and `effect`.
+- The panel needs no change: every action has `target` FUSE or TRANSFORMER and only the phase actions (`DROP_PHASE`, `RESTORE_PHASE`, `PHASE_OUT_OF_RANGE`, `PHASE_IN_RANGE`) need a channel. Without a label (`dashboard:scenarios.action.<CODE>` / `scenarios.result.<CODE>`) a button shows its code and `effect`.
 - `event_code` / `event_type` can be null, and `event_type` can be `MSG`: the provisional `ScenarioResultDto` types should allow it (the mapper does not read them).
 - Every 409 is shown as "already in that state"; the backend message is more specific (for example "run RESUME_FALCON first").
 - After a 403 the panel asks `GET /scenarios` again and hides itself, which matches `enabled`. After an action it refreshes the map, the live monitoring and the inactive devices; low-energy alerts (`GET /device/low-energy`) and resolved alarms follow their own refresh.

@@ -214,6 +214,32 @@ describe('US31 demo scenarios (e2e)', () => {
     expect(await activeTypes(SMAC_NODE)).toEqual([]);
   });
 
+  it('PHASE_OUT_OF_RANGE opens a PHASE_OUT_OF_RANGE alarm without changing the transformer state; PHASE_IN_RANGE clears it', async () => {
+    const response = await run({
+      action: 'PHASE_OUT_OF_RANGE',
+      target: TRAFO.customId,
+      channel: 'A',
+    }).expect(201);
+    expect(response.body).toMatchObject({
+      event_code: expect.stringMatching(/^05\d{2}20A$/) as string,
+      event_type: 'SET',
+    });
+    expect((await node(SMAC_NODE))?.transformer_state).toBe('NORMAL');
+    expect(await activeTypes(SMAC_NODE)).toEqual(['PHASE_OUT_OF_RANGE']);
+    await run({
+      action: 'PHASE_OUT_OF_RANGE',
+      target: TRAFO.customId,
+      channel: 'A',
+    }).expect(409);
+
+    await run({
+      action: 'PHASE_IN_RANGE',
+      target: TRAFO.customId,
+      channel: 'A',
+    }).expect(201);
+    expect(await activeTypes(SMAC_NODE)).toEqual([]);
+  });
+
   it('refuses a consultation user, an unknown target and a bad body', async () => {
     await run(
       { action: 'OPEN_FUSE', target: FUSES[2].customId },

@@ -19,7 +19,8 @@ export interface FaultFilters {
   timeWindow: TimeWindow
 }
 
-const LAYER_DEVICE = { FUSES: 'FALCON', TRANSFORMERS: 'SMAC' } as const
+/** The device each map layer draws: a layer that is off hides that device's alarms and inactive devices. */
+export const LAYER_DEVICE = { FUSES: 'FALCON', TRANSFORMERS: 'SMAC' } as const
 
 /** When a resolved fault ended (its start if the service did not say). */
 function resolvedAtOf(fault: FaultAlert): number {

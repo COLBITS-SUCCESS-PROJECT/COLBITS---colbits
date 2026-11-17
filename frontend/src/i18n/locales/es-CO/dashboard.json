@@ -198,6 +198,7 @@
     "location": "Circuito {{circuit}} · Subestación {{substation}}",
     "close": "Cerrar detalle del nodo",
     "liveStatus": "Estado actual",
+    "moveHint": "Arrastra para mover el panel; doble clic para volver a su lugar",
     "fuseSets": "Conjuntos de fusibles · Falcon",
     "fuseSetsSummary": "{{sets}} conj. · {{fuses}} fusibles",
     "fuseSetBranch": "Conjunto · Rama {{branch}}",
@@ -232,6 +233,11 @@
       "reporting": "Reportando",
       "inactive": "Inactivo > 3 h",
       "voltages": "Voltaje A / B / C",
+      "phaseState": {
+        "NORMAL": "Normal",
+        "OUT_OF_RANGE": "Fuera de rango",
+        "DROPPED": "Caída"
+      },
       "battery": "Batería",
       "lastRecord": "Último registro"
     },
@@ -265,6 +271,8 @@
       "RESTORE_VOLTAGE": "Restaurar tensión",
       "DROP_PHASE": "Quitar fase",
       "RESTORE_PHASE": "Restaurar fase",
+      "PHASE_OUT_OF_RANGE": "Fase fuera de rango",
+      "PHASE_IN_RANGE": "Fase dentro de rango",
       "DRAIN_SUPERCAPS": "Descargar supercondensadores",
       "RECHARGE_SUPERCAPS": "Recargar supercondensadores",
       "FREE_FALL": "Caída libre",
@@ -287,6 +295,8 @@
       "RESTORE_VOLTAGE": "Tensión restaurada",
       "DROP_PHASE": "Fase {{channel}} quitada",
       "RESTORE_PHASE": "Fase {{channel}} restaurada",
+      "PHASE_OUT_OF_RANGE": "Fase {{channel}} fuera de rango",
+      "PHASE_IN_RANGE": "Fase {{channel}} dentro de rango",
       "DRAIN_SUPERCAPS": "Supercondensadores descargados",
       "RECHARGE_SUPERCAPS": "Supercondensadores recargados",
       "FREE_FALL": "Caída libre iniciada",

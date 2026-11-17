@@ -27,7 +27,13 @@ function renderGroup(overrides: Partial<ScenarioActionGroupProps> = {}) {
       onChange: vi.fn(),
     },
     actions: [
-      { code: 'DROP_PHASE', label: 'Drop phase', isDisabled: false, onRun: vi.fn() },
+      {
+        code: 'DROP_PHASE',
+        label: 'Drop phase',
+        isDisabled: false,
+        needsChannel: true,
+        onRun: vi.fn(),
+      },
       {
         code: 'NEW_ACTION',
         label: 'NEW_ACTION',
@@ -49,10 +55,20 @@ describe('ScenarioActionGroup', () => {
 
     expect(group.getByRole('combobox', { name: 'Transformer' })).toHaveValue('N1-T1-3')
     expect(group.getByRole('combobox', { name: 'Phase' })).toHaveValue('A')
+    // Whole-device actions come first; the phase picker goes only with the phase actions.
     expect(group.getAllByRole('button').map((button) => button.textContent)).toEqual([
-      'Drop phase',
       'NEW_ACTION',
+      'Drop phase',
     ])
+  })
+
+  it('puts the phase picker only with the actions that act on a phase', () => {
+    const { group } = renderGroup()
+
+    const picker = group.getByRole('combobox', { name: 'Phase' })
+    const phaseBlock = picker.closest('div.border-t') as HTMLElement
+    expect(within(phaseBlock).getByRole('button', { name: 'Drop phase' })).toBeInTheDocument()
+    expect(within(phaseBlock).queryByRole('button', { name: 'NEW_ACTION' })).toBeNull()
   })
 
   it('runs an action when its button is pressed and reports each new choice', async () => {

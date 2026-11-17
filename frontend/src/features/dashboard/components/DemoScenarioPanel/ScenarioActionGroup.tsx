@@ -16,6 +16,8 @@ export interface ScenarioButton {
   hint?: string
   /** The action needs a phase and the transformer has none to offer. */
   isDisabled: boolean
+  /** The action acts on one phase: it goes with the phase picker. */
+  needsChannel?: boolean
   onRun: () => void
 }
 
@@ -39,6 +41,8 @@ export function ScenarioActionGroup({
   runningAction,
 }: ScenarioActionGroupProps) {
   const isBusy = runningAction !== null
+  const phaseActions = channel ? actions.filter((action) => action.needsChannel) : []
+  const wholeDevice = actions.filter((action) => !phaseActions.includes(action))
 
   return (
     <section
@@ -50,26 +54,44 @@ export function ScenarioActionGroup({
         {title}
       </h4>
       {/* One picker takes the whole width, so a long fuse label is not cut. */}
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <PickerSelect picker={target} isDisabled={isBusy} />
-        {channel && <PickerSelect picker={channel} isDisabled={isBusy} />}
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {actions.map((action) => (
-          <Button
-            key={action.code}
-            label={action.label}
-            title={action.hint}
-            variant="outline"
-            // Two columns are narrow: a long label wraps inside its button instead of spilling over the next one.
-            className="min-w-0 px-3 text-center leading-tight whitespace-normal!"
-            isLoading={runningAction === action.code}
-            disabled={isBusy || action.isDisabled}
-            onClick={action.onRun}
-          />
-        ))}
-      </div>
+      <PickerSelect picker={target} isDisabled={isBusy} />
+      {/* Actions on the whole device (inactivity, energy, load...) take no phase. */}
+      <ActionButtons actions={wholeDevice} runningAction={runningAction} />
+      {/* The phase picker sits only with the actions that act on one phase. */}
+      {channel && phaseActions.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-border-default pt-3">
+          <PickerSelect picker={channel} isDisabled={isBusy} />
+          <ActionButtons actions={phaseActions} runningAction={runningAction} />
+        </div>
+      )}
     </section>
+  )
+}
+
+interface ActionButtonsProps {
+  actions: ScenarioButton[]
+  runningAction: string | null
+}
+
+function ActionButtons({ actions, runningAction }: ActionButtonsProps) {
+  const isBusy = runningAction !== null
+  if (actions.length === 0) return null
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {actions.map((action) => (
+        <Button
+          key={action.code}
+          label={action.label}
+          title={action.hint}
+          variant="outline"
+          // Two columns are narrow: a long label wraps inside its button instead of spilling over the next one.
+          className="min-w-0 px-3 text-center leading-tight whitespace-normal!"
+          isLoading={runningAction === action.code}
+          disabled={isBusy || action.isDisabled}
+          onClick={action.onRun}
+        />
+      ))}
+    </div>
   )
 }
 

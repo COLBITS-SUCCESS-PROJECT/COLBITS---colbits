@@ -17,6 +17,7 @@ import { useLiveMonitoringQuery } from '../hooks/useLiveMonitoringQuery'
 import { useLowEnergyAlarms } from '../hooks/useLowEnergyAlarms'
 import { useNodesQuery } from '../hooks/useNodesQuery'
 import { useResolvedFaultsPanel } from '../hooks/useResolvedFaultsPanel'
+import { useResolvedLowEnergyAlarms } from '../hooks/useResolvedLowEnergyAlarms'
 import { selectFaults, type FaultFilters } from '../model/faultRules'
 import { ALL } from '../model/liveMonitoring.constants'
 import {
@@ -48,8 +49,8 @@ export function LiveMonitoringPage() {
   const allNodes = useMemo(() => nodesQuery.data ?? [], [nodesQuery.data])
   const { zone, substation, circuit } = filters
   const location = useMemo(() => ({ zone, substation, circuit }), [zone, substation, circuit])
-  // F-41: the inactive-device list follows the same map filter; it has no location filter of its own.
-  const inactive = useInactiveDevicesPanel(location)
+  // F-41: the inactive-device list follows the same map filter (location, layers and search); it has none of its own.
+  const inactive = useInactiveDevicesPanel(location, filters.layers, filters.search)
   // F-33: the map shows only the nodes of the selected zone / substation / circuit.
   const visibleNodes = useMemo(
     () => filterNodesByLocation(allNodes, location),
@@ -64,7 +65,8 @@ export function LiveMonitoringPage() {
   // TEMPORARY (temporaryAlarms.rules.ts): GET /faults does not list DEVICE_INACTIVITY or LOW_ENERGY
   // yet. Inactivity alarms come from the periods of GET /device/inactive (US17 · F-38 opens, F-39
   // resolves): open ones join Active, closed ones Resolved. Low-energy alarms come from
-  // GET /device/low-energy (US18 · F-44, F-45), open only. When GET /faults lists both types, remove
+  // GET /device/low-energy (US18 · F-44, F-45): open ones join Active, the episodes that ended join Resolved
+  // (GET /device/low-energy/resolved). When GET /faults lists both types, remove
   // these two hooks and pass `faults` to selectFaults as it is.
   const inactivity = useInactivityAlarms(filters.timeWindow)
   const lowEnergy = useLowEnergyAlarms()
@@ -80,12 +82,14 @@ export function LiveMonitoringPage() {
     [faults, lowEnergy.alarms, inactivity.alarms, filters, now, nodesInLocation]
   )
   // US16: asked only while the Resolved tab is open; it follows the same map filter.
+  const resolvedLowEnergy = useResolvedLowEnergyAlarms(filters.timeWindow, tab === 'RESOLVED')
   const resolved = useResolvedFaultsPanel(
     filters,
     now,
     nodesInLocation,
     tab === 'RESOLVED',
-    inactivity
+    inactivity,
+    resolvedLowEnergy
   )
 
   // F-58: the summary shows the counters GET /faults computes (US15); the frontend does not recount.

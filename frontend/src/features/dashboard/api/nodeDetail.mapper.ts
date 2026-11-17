@@ -40,6 +40,7 @@ function toTransformer(dto: TransformerDetailDto): TransformerDetail {
     isInactive: dto.inactive,
     batteryPercent: dto.battery_per,
     voltages: { a: dto.voltages.va, b: dto.voltages.vb, c: dto.voltages.vc },
+    phaseStates: { a: dto.phase_states.a, b: dto.phase_states.b, c: dto.phase_states.c },
     lastRecordAt: toDate(dto.recorded_at),
   }
 }

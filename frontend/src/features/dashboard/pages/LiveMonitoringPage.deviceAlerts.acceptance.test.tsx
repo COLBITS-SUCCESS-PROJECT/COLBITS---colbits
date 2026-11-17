@@ -102,7 +102,7 @@ describe('SCRUM-246 · US18 — device alerts in the alarm panel', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('F-47 — a Falcon free fall is listed as an active alarm on its fuse, with branch and phase', async () => {
+  it('F-47 — a Falcon free fall is listed as an active alarm on its fuse, with branch and no phase', async () => {
     // Given a free fall reported by the Falcon of ND06420A08 (faults.fixtures.ts), in the south scope
     const panel = openMapAs(MOCK_TOKENS.SOUTH)
 
@@ -114,7 +114,10 @@ describe('SCRUM-246 · US18 — device alerts in the alarm panel', () => {
     // Then it shows the device, the branch of its fuse and the open state
     expect(card.getByText('FALCON')).toBeInTheDocument()
     expect(card.getByText('Ramal A')).toBeInTheDocument()
-    expect(card.getByRole('img', { name: 'Fase S: caída' })).toBeInTheDocument()
+    // A device condition belongs to the Falcon, not to the phase its fuse sits on
+    expect(card.queryByText('Fases')).not.toBeInTheDocument()
+    expect(card.queryByRole('img', { name: /^Fase / })).not.toBeInTheDocument()
+    expect(card.getByText('Fusible')).toBeInTheDocument()
     expect(card.getByText('Abierta')).toHaveAttribute('data-tone', 'warning')
   })
 

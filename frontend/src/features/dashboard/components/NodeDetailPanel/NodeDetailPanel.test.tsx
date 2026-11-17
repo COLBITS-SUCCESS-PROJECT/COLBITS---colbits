@@ -1,6 +1,6 @@
 /** NodeDetailPanel — loading / populated / not available / error states and closing (SCRUM-109 AC9, AC10). */
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -22,6 +22,11 @@ function renderPanel(nodeId: string, onClose = vi.fn()) {
     </QueryClientProvider>
   )
   return onClose
+}
+
+/** jsdom has no PointerEvent: a mouse event of the pointer type carries the coordinates React reads. */
+function pointer(type: string, target: HTMLElement, clientX: number, clientY: number) {
+  fireEvent(target, new MouseEvent(type, { bubbles: true, clientX, clientY }))
 }
 
 describe('NodeDetailPanel', () => {
@@ -74,6 +79,33 @@ describe('NodeDetailPanel', () => {
     await user.keyboard('{Escape}')
 
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('moves when its header is dragged, goes back on double click, and a drag on the close button does not move it', () => {
+    renderPanel('ND04821A07')
+    const panel = screen.getByRole('complementary', { name: 'Detalle del nodo ND04821A07' })
+    // jsdom has no layout: place the panel in the middle of the window
+    panel.getBoundingClientRect = () =>
+      ({ left: 400, right: 800, top: 100, bottom: 700, width: 400, height: 600 }) as DOMRect
+    const header = panel.querySelector('header') as HTMLElement
+    const close = within(header).getByRole('button', { name: 'Cerrar detalle del nodo' })
+
+    pointer('pointerdown', close, 500, 150)
+    pointer('pointermove', header, 400, 150)
+    expect(panel.style.getPropertyValue('--panel-drag-x')).toBe('')
+
+    pointer('pointerdown', header, 500, 150)
+    pointer('pointermove', header, 380, 170)
+    pointer('pointerup', header, 380, 170)
+    expect(panel.style.getPropertyValue('--panel-drag-x')).toBe('-120px')
+    expect(panel.style.getPropertyValue('--panel-drag-y')).toBe('20px')
+
+    // Further moves after the drag ended change nothing
+    pointer('pointermove', header, 100, 100)
+    expect(panel.style.getPropertyValue('--panel-drag-x')).toBe('-120px')
+
+    fireEvent.doubleClick(header)
+    expect(panel.style.getPropertyValue('--panel-drag-x')).toBe('')
   })
 
   it('shows no fuse section for a node without fuses, and no transformer for a node without one', async () => {

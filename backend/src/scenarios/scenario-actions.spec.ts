@@ -121,6 +121,29 @@ describe('scenario actions (US31 · F-100)', () => {
     );
   });
 
+  it('PHASE_OUT_OF_RANGE / PHASE_IN_RANGE write 05xx20y events that the fault list classifies as PHASE_OUT_OF_RANGE', () => {
+    expect(scenarioActionDefinition('PHASE_OUT_OF_RANGE')).toEqual({
+      kind: 'event',
+      device: 'SMAC',
+      event: '20',
+      eventType: 'SET',
+      channel: true,
+    });
+    expect(scenarioActionDefinition('PHASE_IN_RANGE')).toMatchObject({
+      eventType: 'CLEAR',
+      channel: true,
+    });
+    expect(eventCodeOf('PHASE_OUT_OF_RANGE', '14', 'B')).toBe('051420B');
+    expect(classifyEventCode(eventCodeOf('PHASE_IN_RANGE', '14', 'A'))).toBe(
+      'PHASE_OUT_OF_RANGE',
+    );
+    expect(alarmTextOf('PHASE_OUT_OF_RANGE', 'C')).toBe('Fase C fuera de rango');
+    expect(alarmValueOf('PHASE_OUT_OF_RANGE')).toBe('250');
+    expect(alarmValueOf('PHASE_IN_RANGE')).toBe('220');
+    expect(repeatsCurrentState('PHASE_OUT_OF_RANGE', true)).toBe(true);
+    expect(repeatsCurrentState('PHASE_IN_RANGE', false)).toBe(true);
+  });
+
   it('uses the alarm texts and values of Colbits devices', () => {
     expect(alarmTextOf('OPEN_FUSE', null)).toBe('Fusible abierto');
     expect(alarmTextOf('RESTORE_VOLTAGE', null)).toBe('Tensión normalizada');
@@ -147,8 +170,8 @@ describe('scenario actions (US31 · F-100)', () => {
 });
 
 describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
-  it('lists every start right before its stop, after the six SCRUM-252 actions', () => {
-    expect(SCENARIO_ACTION_NAMES.slice(6, 16)).toEqual([
+  it('lists every start right before its stop, after the SCRUM-252 and phase-range actions', () => {
+    expect(SCENARIO_ACTION_NAMES.slice(8, 18)).toEqual([
       'DRAIN_SUPERCAPS',
       'RECHARGE_SUPERCAPS',
       'FREE_FALL',
@@ -160,7 +183,7 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
       'START_OVERLOAD',
       'END_OVERLOAD',
     ]);
-    const telemetry = SCENARIO_ACTION_NAMES.slice(6, 16);
+    const telemetry = SCENARIO_ACTION_NAMES.slice(8, 18);
     for (let i = 0; i < telemetry.length; i += 2) {
       const start = scenarioActionDefinition(telemetry[i]);
       const stop = scenarioActionDefinition(telemetry[i + 1]);
@@ -175,7 +198,7 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
 
   it('targets the device that owns the condition, never with a channel', () => {
     const targets = Object.fromEntries(
-      SCENARIO_ACTION_NAMES.slice(6, 16).map((action) => {
+      SCENARIO_ACTION_NAMES.slice(8, 18).map((action) => {
         const { device, channel } = scenarioActionDefinition(action);
         expect(channel).toBe(false);
         return [action, device];
@@ -206,7 +229,7 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
     );
     expect(alarmTextOf('FREE_FALL', null)).toBe('Movimiento anormal detectado');
     expect(alarmValueOf('FREE_FALL')).toBeNull();
-    for (const action of SCENARIO_ACTION_NAMES.slice(6)) {
+    for (const action of SCENARIO_ACTION_NAMES.slice(8)) {
       if (action === 'FREE_FALL') continue;
       expect(() => eventCodeOf(action, '14', null)).toThrow(/no alarm event/);
       expect(() => alarmTextOf(action, null)).toThrow(/no alarm event/);
@@ -222,7 +245,7 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
   });
 
   it('describes each new action and names each condition for its 409', () => {
-    for (const action of SCENARIO_ACTION_NAMES.slice(6)) {
+    for (const action of SCENARIO_ACTION_NAMES.slice(8)) {
       expect(expectedEffectOf(action).length).toBeGreaterThan(30);
     }
     expect(
@@ -261,14 +284,14 @@ describe('scenario actions: telemetry conditions (SCRUM-253)', () => {
 
 describe('scenario actions: inactivity (SCRUM-253)', () => {
   it('ends the list with SILENCE / RESUME pairs, Falcon then SMAC, without a channel', () => {
-    expect(SCENARIO_ACTION_NAMES.slice(16)).toEqual([
+    expect(SCENARIO_ACTION_NAMES.slice(18)).toEqual([
       'SILENCE_FALCON',
       'RESUME_FALCON',
       'SILENCE_SMAC',
       'RESUME_SMAC',
     ]);
     expect(
-      SCENARIO_ACTION_NAMES.slice(16).map(scenarioActionDefinition),
+      SCENARIO_ACTION_NAMES.slice(18).map(scenarioActionDefinition),
     ).toEqual([
       { kind: 'silence', device: 'FALCON', channel: false, starts: true },
       { kind: 'silence', device: 'FALCON', channel: false, starts: false },
@@ -278,7 +301,7 @@ describe('scenario actions: inactivity (SCRUM-253)', () => {
   });
 
   it('sends no event, describes the effect and refuses a repeat', () => {
-    for (const action of SCENARIO_ACTION_NAMES.slice(16)) {
+    for (const action of SCENARIO_ACTION_NAMES.slice(18)) {
       expect(() => eventCodeOf(action, '14', null)).toThrow(/no alarm event/);
       expect(expectedEffectOf(action)).toMatch(/inactiv/);
     }

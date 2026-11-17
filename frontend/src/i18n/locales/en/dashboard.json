@@ -198,6 +198,7 @@
     "location": "Circuit {{circuit}} · Substation {{substation}}",
     "close": "Close node detail",
     "liveStatus": "Live status",
+    "moveHint": "Drag to move the panel; double click to put it back",
     "fuseSets": "Fuse groups · Falcon",
     "fuseSetsSummary": "{{sets}} groups · {{fuses}} fuses",
     "fuseSetBranch": "Fuse group · Branch {{branch}}",
@@ -232,6 +233,11 @@
       "reporting": "Reporting",
       "inactive": "Inactive > 3 h",
       "voltages": "Voltage A / B / C",
+      "phaseState": {
+        "NORMAL": "Normal",
+        "OUT_OF_RANGE": "Out of range",
+        "DROPPED": "Dropped"
+      },
       "battery": "Battery",
       "lastRecord": "Last record"
     },
@@ -265,6 +271,8 @@
       "RESTORE_VOLTAGE": "Restore voltage",
       "DROP_PHASE": "Drop phase",
       "RESTORE_PHASE": "Restore phase",
+      "PHASE_OUT_OF_RANGE": "Phase out of range",
+      "PHASE_IN_RANGE": "Phase back in range",
       "DRAIN_SUPERCAPS": "Drain supercapacitors",
       "RECHARGE_SUPERCAPS": "Recharge supercapacitors",
       "FREE_FALL": "Free fall",
@@ -287,6 +295,8 @@
       "RESTORE_VOLTAGE": "Voltage restored",
       "DROP_PHASE": "Phase {{channel}} dropped",
       "RESTORE_PHASE": "Phase {{channel}} restored",
+      "PHASE_OUT_OF_RANGE": "Phase {{channel}} out of range",
+      "PHASE_IN_RANGE": "Phase {{channel}} back in range",
       "DRAIN_SUPERCAPS": "Supercapacitors drained",
       "RECHARGE_SUPERCAPS": "Supercapacitors recharged",
       "FREE_FALL": "Free fall started",

@@ -80,6 +80,7 @@ function ScenarioControls({ detail, actions }: ScenarioControlsProps) {
       label,
       hint: label === action.code ? action.effect : undefined,
       isDisabled: action.needsChannel && channel === null,
+      needsChannel: action.needsChannel,
       onRun: () =>
         mutation.mutate({
           action: action.code,

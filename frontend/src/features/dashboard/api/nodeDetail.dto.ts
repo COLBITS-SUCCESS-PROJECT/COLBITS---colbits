@@ -22,12 +22,15 @@ export interface FuseSetDetailDto {
   fuses: FuseDetailDto[]
 }
 
+export type PhaseStateDto = 'NORMAL' | 'DROPPED' | 'OUT_OF_RANGE'
+
 export interface TransformerDetailDto {
   id: string
   hw_id: string | null
   inactive: boolean
   battery_per: number | null
   voltages: { va: number | null; vb: number | null; vc: number | null }
+  phase_states: { a: PhaseStateDto; b: PhaseStateDto; c: PhaseStateDto }
   recorded_at: string | null
 }
 

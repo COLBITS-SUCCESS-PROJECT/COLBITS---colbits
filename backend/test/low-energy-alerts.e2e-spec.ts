@@ -129,4 +129,24 @@ describe('F-44 / F-45 low-energy alerts (e2e)', () => {
     expect(hoursAgo).toBeLessThan(2.1);
     expect(alert).toMatchObject({ kind: 'FALCON', threshold_percent: 30 });
   });
+
+  it('a low run that ended with a recharge is listed as resolved, with its start, end and lowest level', async () => {
+    if (!started) throw new Error('app did not start');
+    const service = started.app.get(LowEnergyAlertsService);
+
+    const resolved = (
+      await service.resolvedAlerts({ kind: 'unrestricted' }, '24h')
+    ).alerts.filter((a) => OURS.has(a.hw_id));
+
+    // LOWE2E0002: 10 % two hours ago, back at 45 % an hour ago. The others are still low or never were.
+    expect(resolved.map((a) => [a.node, a.lowest_energy_percent])).toEqual([
+      ['LOWE2E0002', 10],
+    ]);
+    const hoursAgo = (iso: string) =>
+      (Date.now() - new Date(iso).getTime()) / 3_600_000;
+    expect(hoursAgo(resolved[0].since)).toBeGreaterThan(1.9);
+    expect(hoursAgo(resolved[0].since)).toBeLessThan(2.1);
+    expect(hoursAgo(resolved[0].ended_at)).toBeGreaterThan(0.9);
+    expect(hoursAgo(resolved[0].ended_at)).toBeLessThan(1.1);
+  });
 });

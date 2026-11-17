@@ -20,7 +20,15 @@ function transformer(
   voltages: TransformerDetail['voltages'],
   lastRecordAt: Date | null = LAST_READING
 ): TransformerDetail {
-  return { id, deviceId: 'SMAC-1', isInactive: false, batteryPercent: 80, voltages, lastRecordAt }
+  return {
+    id,
+    deviceId: 'SMAC-1',
+    isInactive: false,
+    batteryPercent: 80,
+    voltages,
+    phaseStates: { a: 'NORMAL', b: 'NORMAL', c: 'NORMAL' },
+    lastRecordAt,
+  }
 }
 
 function fuse(id: string, deviceId: string | null): FuseDetail {

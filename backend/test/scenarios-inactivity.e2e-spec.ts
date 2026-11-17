@@ -458,7 +458,7 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
     expect(await snapshot(target.hwId)).toBe(before);
   };
 
-  it('GET /scenarios ends with the SILENCE / RESUME pairs; the 16 earlier actions are unchanged', async () => {
+  it('GET /scenarios ends with the SILENCE / RESUME pairs; the 18 earlier actions are unchanged', async () => {
     const body = (await get('/scenarios')) as {
       enabled: boolean;
       actions: {
@@ -476,6 +476,8 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
       'RESTORE_VOLTAGE',
       'DROP_PHASE',
       'RESTORE_PHASE',
+      'PHASE_OUT_OF_RANGE',
+      'PHASE_IN_RANGE',
       'DRAIN_SUPERCAPS',
       'RECHARGE_SUPERCAPS',
       'FREE_FALL',
@@ -492,7 +494,7 @@ describe('US31 demo scenarios: device inactivity (SCRUM-253, e2e)', () => {
       'RESUME_SMAC',
     ]);
     expect(
-      body.actions.slice(16).map(({ action, target, channel_required }) => ({
+      body.actions.slice(18).map(({ action, target, channel_required }) => ({
         action,
         target,
         channel_required,

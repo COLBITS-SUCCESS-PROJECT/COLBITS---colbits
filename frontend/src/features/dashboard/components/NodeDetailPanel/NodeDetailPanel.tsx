@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, Icon, IconButton, Skeleton } from '@/design-system/atoms'
 import { ApiError } from '@/services/http/httpClient'
 import { cn } from '@/utils/cn'
+import { useDraggablePanel } from '../../hooks/useDraggablePanel'
 import { useNodeDetailQuery } from '../../hooks/useNodeDetailQuery'
 import type { NodeDetail } from '../../model/nodeDetail.types'
 import { DemoScenarioPanel } from '../DemoScenarioPanel/DemoScenarioPanel'
@@ -20,12 +21,13 @@ const SKELETON_ROWS = 4
 
 /** Over the map: bottom sheet on phones, a side panel from md, left of the fault panel on xl (360 px). */
 const PLACEMENT =
-  'absolute inset-x-0 bottom-0 z-30 max-h-[85%] rounded-t-xl md:inset-x-auto md:top-3 md:right-3 md:bottom-3 md:max-h-none md:w-105 md:rounded-xl xl:right-[calc(22.5rem+0.75rem)]'
+  'absolute inset-x-0 bottom-0 z-30 max-h-[85%] rounded-t-xl md:inset-x-auto md:top-3 md:right-3 md:bottom-3 md:max-h-none md:w-105 md:translate-x-(--panel-drag-x,0px) md:translate-y-(--panel-drag-y,0px) md:rounded-xl xl:right-[calc(22.5rem+0.75rem)]'
 
 export function NodeDetailPanel({ nodeId, onClose, className }: NodeDetailPanelProps) {
   const { t } = useTranslation('dashboard')
   const query = useNodeDetailQuery(nodeId)
   const panelRef = useRef<HTMLElement>(null)
+  const drag = useDraggablePanel(panelRef)
 
   // Focus moves to the panel itself (not to a button, so the Enter that opened it cannot press it),
   // when it opens or shows another node; screen readers then announce the node.
@@ -46,6 +48,7 @@ export function NodeDetailPanel({ nodeId, onClose, className }: NodeDetailPanelP
     <aside
       ref={panelRef}
       tabIndex={-1}
+      style={drag.style}
       aria-label={t('nodeDetail.label', { id: nodeId })}
       className={cn(
         'flex flex-col gap-3 overflow-y-auto border border-border-default bg-bg-surface p-4 shadow-card focus-visible:outline-2 focus-visible:outline-border-focus',
@@ -53,7 +56,12 @@ export function NodeDetailPanel({ nodeId, onClose, className }: NodeDetailPanelP
         className
       )}
     >
-      <header className="flex items-start justify-between gap-3">
+      {/* The header is the handle: drag it to move the panel off the alarm panel, double click to put it back. */}
+      <header
+        title={t('nodeDetail.moveHint')}
+        {...drag.handleProps}
+        className="sticky -top-4 z-10 -mx-4 -mt-4 flex items-start justify-between gap-3 bg-bg-surface px-4 pt-4 pb-2 md:cursor-grab md:touch-none md:select-none md:active:cursor-grabbing"
+      >
         <div className="min-w-0">
           <h2 className="text-xl font-bold break-all text-text-heading">{nodeId}</h2>
           {detail && (

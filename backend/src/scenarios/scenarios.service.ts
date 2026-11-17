@@ -45,6 +45,7 @@ import {
   EventScenarioActionDefinition,
   NOMINAL_PHASE_VOLTS,
   OPEN_FUSE_ANGLE,
+  OUT_OF_RANGE_PHASE_VOLTS,
   SCENARIO_ACTIONS,
   SCENARIO_ACTION_NAMES,
   SOLAR_PANEL_FAILED,
@@ -629,12 +630,18 @@ export class ScenariosService {
         ]);
       } else {
         const drop = action === 'DROP_PHASE';
+        // A drop reads 0 V and no current; out of range reads a high voltage on a live phase.
+        const volts = drop
+          ? DROPPED_PHASE_VOLTS
+          : action === 'PHASE_OUT_OF_RANGE'
+            ? OUT_OF_RANGE_PHASE_VOLTS
+            : NOMINAL_PHASE_VOLTS;
         await manager.query(INSERT_SMAC_READING_SQL, [
           resolved.hwId,
           target,
           recordedAt,
           channel,
-          drop ? DROPPED_PHASE_VOLTS : NOMINAL_PHASE_VOLTS,
+          volts,
           drop,
         ]);
       }
@@ -1152,6 +1159,16 @@ export class ScenariosService {
         )
       ) {
         active.push(`DROP_PHASE ${channel}`);
+      }
+      if (
+        await this.isActive(
+          runner,
+          SCENARIO_ACTIONS.PHASE_OUT_OF_RANGE,
+          resolved,
+          channel,
+        )
+      ) {
+        active.push(`PHASE_OUT_OF_RANGE ${channel}`);
       }
     }
     for (const [action, condition] of [

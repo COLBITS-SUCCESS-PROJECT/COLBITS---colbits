@@ -18,7 +18,8 @@ vi.mock('react-leaflet', () => import('@/mocks/reactLeaflet.mock'))
 
 const USER: AuthUser = { id: 'u1', name: 'Consulta', email: 'c@colbits.test', role: 'VIEWER' }
 
-async function openInactiveTabAs(token: string) {
+/** The map opens on the fuses layer only: `withTransformers` also turns the transformers layer on, so every device is listed. */
+async function openInactiveTabAs(token: string, withTransformers = true) {
   useAuthStore.getState().setSession(USER, token)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
@@ -28,6 +29,9 @@ async function openInactiveTabAs(token: string) {
       </MemoryRouter>
     </QueryClientProvider>
   )
+  if (withTransformers) {
+    await userEvent.click(screen.getByRole('button', { name: /Transformadores · SMAC/ }))
+  }
   const panel = within(screen.getByRole('complementary', { name: 'Gestión de fallas' }))
   await userEvent.click(panel.getByRole('tab', { name: /Dispositivos inactivos/ }))
   await panel.findAllByRole('article')
@@ -60,6 +64,36 @@ describe('SCRUM-115 · US17 — inactive device list', () => {
     const panel = await openInactiveTabAs(MOCK_TOKENS.SOUTH)
 
     expect(listedNodes(panel)).toEqual(['ND06420A08', 'ND07120D05'])
+  })
+
+  it('F-41 — the list follows the map layers: Falcon on the fuses layer, SMAC on the transformers layer', async () => {
+    // The map opens on the fuses layer only: no SMAC device is listed
+    const panel = await openInactiveTabAs(MOCK_TOKENS.DEV, false)
+    expect(listedNodes(panel)).toEqual(['ND08890C04', 'ND06420A08', 'ND07120D05'])
+
+    // Transformers layer on as well: the SMAC devices join the list, in the backend order
+    await userEvent.click(screen.getByRole('button', { name: /Transformadores · SMAC/ }))
+    expect(listedNodes(panel)).toEqual([
+      'ND04410C07',
+      'ND08890C04',
+      'ND06420A08',
+      'ND07120D05',
+      'ND02218B09',
+    ])
+
+    // Fuses layer off: only the SMAC devices
+    await userEvent.click(screen.getByRole('button', { name: /Fusibles · Falcon/ }))
+    expect(listedNodes(panel)).toEqual(['ND04410C07', 'ND02218B09'])
+  })
+
+  it('F-41 — the map search also narrows the list', async () => {
+    const panel = await openInactiveTabAs(MOCK_TOKENS.DEV)
+
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Buscar nodo o dispositivo' }),
+      'ND0889'
+    )
+    expect(listedNodes(panel)).toEqual(['ND08890C04'])
   })
 
   it('F-41 — filtering the map by circuit or zone leaves only its devices, with no filter in the list', async () => {
