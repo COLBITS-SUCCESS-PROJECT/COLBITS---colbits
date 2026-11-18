@@ -8,6 +8,7 @@ import { LanguageSwitch } from '@/design-system/molecules'
 import { NavSidebar, TopBar } from '@/design-system/organisms'
 import { useAuthStore, type UserRole } from '@/stores/auth.store'
 import { isStale, useDataFreshnessStore } from '@/stores/dataFreshness.store'
+import { useUiPreferencesStore } from '@/stores/uiPreferences.store'
 import { useNow } from '@/hooks/useNow'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { useLanguage } from '@/hooks/useLanguage'
@@ -41,6 +42,7 @@ export function AppShell() {
   const user = useAuthStore((state) => state.user)
   const { logout, isLoggingOut } = useLogout()
   const lastSyncedAt = useDataFreshnessStore((state) => state.lastSyncedAt)
+  const isInterrupted = useDataFreshnessStore((state) => state.isInterrupted)
   const now = useNow()
   const isMobileViewport = useMediaQuery('(max-width: 767px)')
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
@@ -50,12 +52,16 @@ export function AppShell() {
     if (!isMobileViewport) setIsMobileNavOpen(false)
   }, [isMobileViewport])
   const language = useLanguage()
+  const sidebarCollapsed = useUiPreferencesStore((state) => state.sidebarCollapsed)
+  const setSidebarCollapsed = useUiPreferencesStore((state) => state.setSidebarCollapsed)
 
   const visibleSections = SECTIONS.filter(
     (entry) => !entry.roles || (user !== null && entry.roles.includes(user.role))
   )
   const section = visibleSections.find((entry) => matchPath(`${entry.to}/*`, pathname))
   const stale = lastSyncedAt !== null && isStale(lastSyncedAt, now)
+  // F-31: a failing map refresh turns the dot red at once, without waiting for the stale threshold.
+  const freshness = isInterrupted ? 'interrupted' : stale ? 'stale' : 'live'
 
   // F-11: invalidate the token, forget the session, then replace the history entry so "back" stays on login.
   async function handleLogout() {
@@ -78,6 +84,10 @@ export function AppShell() {
         isMobile={isMobileViewport}
         isMobileOpen={!isMobileViewport || isMobileNavOpen}
         onClose={closeMobileNav}
+        isCollapsed={sidebarCollapsed}
+        collapseLabel={t('nav.collapse')}
+        expandLabel={t('nav.expand')}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
@@ -90,8 +100,8 @@ export function AppShell() {
                   label: t('freshness.lastUpdate', {
                     time: formatDateTime(new Date(lastSyncedAt), i18n.language),
                   }),
-                  isStale: stale,
-                  statusLabel: t(stale ? 'freshness.stale' : 'freshness.live'),
+                  isStale: freshness !== 'live',
+                  statusLabel: t(`freshness.${freshness}`),
                   onRefresh: () => void queryClient.invalidateQueries(),
                   refreshLabel: t('freshness.refresh'),
                 }

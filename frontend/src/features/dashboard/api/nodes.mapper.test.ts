@@ -43,6 +43,37 @@ describe('toNetworkNode', () => {
   })
 })
 
+describe('toNetworkNode · transformer layer before US7 (SCRUM-106 AC2)', () => {
+  it('leaves out of the transformer layer a node the backend reports without transformer', () => {
+    const node = toNetworkNode({ ...BACKEND_NODE, fuse_state: 'NORMAL', smac_inactive: null })
+
+    expect(node.transformerState).toBeNull()
+  })
+
+  it.each([true, false])(
+    'keeps a node with a transformer (smac_inactive = %s) as UNKNOWN until its colour is sent',
+    (smacInactive) => {
+      const node = toNetworkNode({
+        ...BACKEND_NODE,
+        fuse_state: 'NORMAL',
+        smac_inactive: smacInactive,
+      })
+
+      expect(node.transformerState).toBe('UNKNOWN')
+    }
+  )
+
+  it('uses transformer_state over smac_inactive once the backend sends it', () => {
+    const node = toNetworkNode({
+      ...BACKEND_NODE,
+      transformer_state: 'WARNING',
+      smac_inactive: null,
+    })
+
+    expect(node.transformerState).toBe('WARNING')
+  })
+})
+
 describe('hasValidCoordinates', () => {
   it('accepts coordinates on the limits of the globe', () => {
     expect(hasValidCoordinates({ ...BACKEND_NODE, latitude: -90, longitude: 180 })).toBe(true)
@@ -76,5 +107,33 @@ describe('toNetworkNodes', () => {
 
   it('returns an empty list for an empty scope', () => {
     expect(toNetworkNodes(response([]))).toEqual([])
+  })
+})
+
+describe('toNetworkNode · location and devices (US14 · F-33, F-34)', () => {
+  const LOCATED: NodeDto = {
+    ...BACKEND_NODE,
+    zone: { id: 2, name: 'Zona Norte' },
+    substation: { id: 3, code: 'SUB-N-001', name: 'S/E NORTE 1' },
+    circuit: { id: 7, name: 'CTO 1' },
+    device_ids: ['0512345678', '1311111111'],
+  }
+
+  it('keeps the zone, substation and circuit with their ids as text', () => {
+    const node = toNetworkNode(LOCATED)
+
+    expect(node.location).toEqual({
+      zone: { id: '2', name: 'Zona Norte' },
+      substation: { id: '3', name: 'S/E NORTE 1' },
+      circuit: { id: '7', name: 'CTO 1' },
+    })
+    expect(node.deviceIds).toEqual(['0512345678', '1311111111'])
+  })
+
+  it('has no location when a level is missing, and no devices when none are sent', () => {
+    const node = toNetworkNode({ ...LOCATED, circuit: null, device_ids: undefined })
+
+    expect(node.location).toBeNull()
+    expect(node.deviceIds).toEqual([])
   })
 })

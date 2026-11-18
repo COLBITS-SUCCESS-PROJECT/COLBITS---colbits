@@ -33,14 +33,19 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Authenticate with a username and password.' })
+  @ApiOperation({
+    summary: 'Authenticate with a username and password.',
+    description:
+      'Returns a JWT access token that expires after JWT_EXPIRES_IN (15 minutes by default). Every failure gives the same 401, so the response never reveals whether the account exists.',
+  })
   @ApiOkResponse({
     type: LoginResponseDto,
     description: 'Credentials accepted.',
   })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Credentials are invalid or the account is inactive.',
+    description:
+      'Credentials are missing or invalid, or the account is inactive.',
   })
   login(@Body() loginDto: LoginDto) {
     return this.authService.validateAndLogin(
@@ -54,11 +59,16 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get the authenticated user profile from the access token.',
+    description:
+      'Returns the payload of the verified token without reading the database, so a role change only shows up in a new token.',
   })
-  @ApiOkResponse({ type: ProfileResponseDto })
+  @ApiOkResponse({
+    type: ProfileResponseDto,
+    description: 'Payload of the access token.',
+  })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Bearer token is missing, invalid, or expired.',
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
   })
   getProfile(@Req() req: any) {
     return {
@@ -72,11 +82,18 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Log out and invalidate the current access token.' })
-  @ApiOkResponse({ type: LogoutResponseDto })
+  @ApiOperation({
+    summary: 'Log out and invalidate the current access token.',
+    description:
+      'Adds the token to the server blacklist (F-11): from then on it gets a 401 on every protected route, even before it expires.',
+  })
+  @ApiOkResponse({
+    type: LogoutResponseDto,
+    description: 'The token was invalidated.',
+  })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Bearer token is missing, invalid, or expired.',
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
   })
   async logout(@Req() req: any) {
     const authHeader = req.headers.authorization;

@@ -6,8 +6,12 @@ import { MemoryRouter } from 'react-router-dom'
 import '@/i18n'
 import { DEFAULT_FILTERS } from '../../hooks/useLiveMonitoringFilters'
 import { selectFaults, type FaultFilters } from '../../model/faultRules'
-import { buildLiveMonitoringMock } from '../../model/liveMonitoring.mock'
+import { buildLiveMonitoringMock } from '@/mocks/data/liveMonitoring.fixtures'
+import { buildInactiveDevicesSnapshot } from '@/mocks/data/inactiveDevices.fixtures'
+import { selectInactiveDevices } from '../../model/inactiveDevices.rules'
+import { ALL } from '../../model/liveMonitoring.constants'
 import { FaultPanel, type FaultPanelProps } from './FaultPanel'
+import type { InactiveDevicesTabProps } from './InactiveDevicesTab'
 
 const NOW = Date.now()
 const data = buildLiveMonitoringMock(NOW)
@@ -18,7 +22,12 @@ function renderPanel(overrides: Partial<FaultPanelProps> = {}) {
     tab: 'ACTIVE',
     onTabChange: vi.fn(),
     activeFaults: selectFaults(data.faults, ALL_LAYERS, 'OPEN', NOW),
-    resolvedFaults: selectFaults(data.faults, ALL_LAYERS, 'RESOLVED', NOW),
+    resolved: {
+      faults: selectFaults(data.faults, ALL_LAYERS, 'RESOLVED', NOW),
+      isLoading: false,
+      isError: false,
+      onRetry: vi.fn(),
+    },
     counters: data.counters,
     filters: DEFAULT_FILTERS,
     onFiltersChange: vi.fn(),
@@ -42,7 +51,7 @@ describe('FaultPanel', () => {
 
     // Assert
     const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
-    expect(within(panel).getByText('6 activas')).toBeInTheDocument()
+    expect(within(panel).getByText('7 activas')).toBeInTheDocument()
     const counters = within(panel).getByRole('region', { name: 'Resumen de nodos con alarma' })
     expect(within(counters).getByText('7')).toBeInTheDocument()
     const cards = within(panel).getAllByRole('article')
@@ -51,6 +60,19 @@ describe('FaultPanel', () => {
       'href',
       '/analysis'
     )
+  })
+
+  it('widens the panel with the keyboard from its resize handle', async () => {
+    renderPanel()
+    const handle = screen.getByRole('separator', { name: 'Ajustar el ancho del panel de fallas' })
+    const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
+
+    expect(handle).toHaveAttribute('aria-valuenow', '360')
+    handle.focus()
+    await userEvent.keyboard('{ArrowLeft}')
+
+    expect(handle).toHaveAttribute('aria-valuenow', '384')
+    expect(panel.style.getPropertyValue('--fault-panel-width')).toBe('384px')
   })
 
   it('requests a tab change and shows the resolved list', async () => {
@@ -66,39 +88,159 @@ describe('FaultPanel', () => {
     expect(screen.getAllByRole('article')).toHaveLength(2)
   })
 
-  it('shows the placeholder on the inactive devices tab', () => {
+  it('shows the placeholder on the inactive devices tab while there is no data', () => {
     renderPanel({ tab: 'INACTIVE' })
 
     expect(screen.getByText(/dispositivos inactivos llegará/)).toBeInTheDocument()
     expect(screen.queryByRole('article')).not.toBeInTheDocument()
   })
 
-  it('reports every filter change', async () => {
+  describe('inactive devices tab', () => {
+    const everywhere = { zone: ALL, substation: ALL, circuit: ALL }
+    const views = selectInactiveDevices(buildInactiveDevicesSnapshot(NOW), everywhere)
+
+    function renderInactive(overrides: Partial<InactiveDevicesTabProps> = {}) {
+      const inactive: InactiveDevicesTabProps = {
+        devices: views,
+        timeWindow: 'LAST_DAY',
+        onTimeWindowChange: vi.fn(),
+        isLoading: false,
+        isError: false,
+        onRetry: vi.fn(),
+        ...overrides,
+      }
+      renderPanel({ tab: 'INACTIVE', inactive })
+      return inactive
+    }
+
+    it('lists the devices in the backend order (F-40) and counts those silent now', () => {
+      renderInactive()
+
+      const cards = screen.getAllByRole('article')
+      expect(cards.map((card) => card.getAttribute('aria-label'))).toEqual([
+        'ND04410C07 · Inactivo ahora',
+        'ND08890C04 · Inactivo ahora',
+        'ND06420A08 · Inactivo ahora',
+        'ND07120D05 · Inactivo en el periodo',
+        'ND02218B09 · Inactivo en el periodo',
+      ])
+      expect(screen.getByText('3 inactivos ahora')).toBeInTheDocument()
+      expect(
+        screen.getByText('5 dispositivos · último día · mayor silencio primero')
+      ).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Alarmas anteriores/ })).toHaveAttribute(
+        'href',
+        '/analysis'
+      )
+    })
+
+    it('reports the time window', async () => {
+      const inactive = renderInactive()
+
+      await userEvent.click(screen.getByRole('button', { name: 'Última hora' }))
+
+      expect(inactive.onTimeWindowChange).toHaveBeenCalledWith('LAST_HOUR')
+    })
+
+    it('offers no location filter of its own: it follows the map filter (F-41)', () => {
+      renderInactive()
+
+      expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    })
+
+    it('shows the empty state when no device is inactive', () => {
+      renderInactive({ devices: [] })
+
+      expect(screen.getByText('No hay dispositivos inactivos en este periodo.')).toBeInTheDocument()
+      expect(screen.getByText('0 inactivos ahora')).toBeInTheDocument()
+    })
+
+    it('shows skeletons while loading', () => {
+      renderInactive({ isLoading: true, devices: [] })
+
+      expect(screen.getByLabelText('Cargando dispositivos inactivos')).toHaveAttribute(
+        'aria-busy',
+        'true'
+      )
+    })
+
+    it('shows the error state with a retry action', async () => {
+      const inactive = renderInactive({ isError: true })
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'No se pudieron cargar los dispositivos inactivos.'
+      )
+      await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+      expect(inactive.onRetry).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('shows the resolved alarms with their own count and note, and no node counters (US16)', () => {
+    renderPanel({ tab: 'RESOLVED' })
+
+    const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
+    expect(within(panel).getByText('2 resueltas')).toBeInTheDocument()
+    expect(within(panel).getByRole('heading', { name: 'Fallas resueltas' })).toBeInTheDocument()
+    expect(
+      within(panel).getByText('Resueltas automáticamente por el equipo · la más reciente primero')
+    ).toBeInTheDocument()
+    expect(within(panel).getAllByRole('article')).toHaveLength(2)
+    expect(
+      within(panel).queryByRole('region', { name: 'Resumen de nodos con alarma' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows the loading state of the resolved list, whatever the active list is doing', () => {
+    renderPanel({
+      tab: 'RESOLVED',
+      isError: true,
+      resolved: { faults: [], isLoading: true, isError: false, onRetry: vi.fn() },
+    })
+
+    expect(screen.getByLabelText('Cargando fallas')).toHaveAttribute('aria-busy', 'true')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows the error of the resolved list with a retry', async () => {
+    const onRetry = vi.fn()
+    renderPanel({
+      tab: 'RESOLVED',
+      resolved: { faults: [], isLoading: false, isError: true, onRetry },
+    })
+
+    const alert = screen.getByRole('alert')
+    await userEvent.click(within(alert).getByRole('button', { name: 'Reintentar' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  it('says so when no alarm was resolved in the window', () => {
+    renderPanel({
+      tab: 'RESOLVED',
+      resolved: { faults: [], isLoading: false, isError: false, onRetry: vi.fn() },
+    })
+
+    expect(screen.getByText('No hay fallas que coincidan con los filtros.')).toBeInTheDocument()
+    expect(screen.getByText('0 resueltas')).toBeInTheDocument()
+  })
+
+  it('reports a change of the last hour / last day selector', async () => {
     const props = renderPanel()
 
     await userEvent.click(screen.getByRole('button', { name: 'Última hora' }))
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Tipo de alerta' }),
-      'NO_VOLTAGE'
-    )
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: 'Clasificación' }),
-      'TRIPHASIC'
-    )
-    await userEvent.click(screen.getByRole('switch', { name: 'Duración mínima ≥ 5 min' }))
 
     expect(props.onFiltersChange).toHaveBeenCalledWith({ timeWindow: 'LAST_HOUR' })
-    expect(props.onFiltersChange).toHaveBeenCalledWith({ alertType: 'NO_VOLTAGE' })
-    expect(props.onFiltersChange).toHaveBeenCalledWith({ classification: 'TRIPHASIC' })
-    expect(props.onFiltersChange).toHaveBeenCalledWith({ onlyLongFaults: true })
   })
 
-  it('explains the minimum-duration filter in a tooltip', () => {
+  it('has no filter of its own apart from its tabs and the last hour / last day selector (F-56)', () => {
+    // Arrange & Act
     renderPanel()
 
-    expect(
-      screen.getByRole('button', { name: 'Qué hace el filtro de duración mínima' })
-    ).toHaveAccessibleDescription(/se ocultan las fallas más cortas/)
+    // Assert: it follows the filter at the top of the map, so it offers no select or switch
+    const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
+    expect(within(panel).queryAllByRole('combobox')).toHaveLength(0)
+    expect(within(panel).queryAllByRole('switch')).toHaveLength(0)
+    expect(within(panel).getAllByRole('tab')).toHaveLength(3)
+    expect(within(panel).getByRole('group', { name: 'Mostrar' })).toBeInTheDocument()
   })
 
   it('shows skeletons while loading and hides the counters without data', () => {
@@ -116,6 +258,12 @@ describe('FaultPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('No se pudieron cargar las fallas.')
     await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
     expect(props.onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses the singular for a single active fault', () => {
+    renderPanel({ activeFaults: selectFaults(data.faults, ALL_LAYERS, 'OPEN', NOW).slice(0, 1) })
+
+    expect(screen.getByText('1 activa')).toBeInTheDocument()
   })
 
   it('shows the empty state when no fault matches', () => {

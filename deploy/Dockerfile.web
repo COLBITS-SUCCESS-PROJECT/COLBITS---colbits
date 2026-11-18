@@ -1,0 +1,19 @@
+# Production image for the COLBITS frontend on the VPS: Vite build served by nginx.
+# Built from the repo root (see docker-compose.yml).
+FROM node:20-alpine AS build
+# Same pnpm as CI (.github/workflows/ci.yml).
+RUN npm install -g --ignore-scripts pnpm@9.15.9
+WORKDIR /app
+ENV HUSKY=0
+# Vite writes the API address into the build, so changing it needs a rebuild.
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_APP_ENV=production
+COPY frontend/ .
+# --ignore-scripts: no package can run code while installing.
+RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm build
+
+# Unprivileged nginx: runs as user nginx, not root. Docker lets it listen on port 80, which Caddy expects.
+FROM nginxinc/nginx-unprivileged:alpine
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html

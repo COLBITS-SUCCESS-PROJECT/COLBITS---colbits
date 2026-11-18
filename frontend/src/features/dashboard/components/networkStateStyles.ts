@@ -18,6 +18,9 @@ export const STATE_BG_CLASS: Record<NetworkState, string> = {
   UNKNOWN: 'bg-status-unknown',
 }
 
+/** Accent of a resolved alarm card: neutral gray, whatever its severity (Figma M11). */
+export const RESOLVED_BG_CLASS = 'bg-status-offline'
+
 export const SEVERITY_BG_CLASS: Record<FaultSeverity, string> = {
   CRITICAL: 'bg-status-critical',
   WARNING: 'bg-status-warning',

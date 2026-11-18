@@ -1,9 +1,9 @@
 ---
 feature: users
 title: User Management
-status: PLANNED
-owner: TBD
-last_updated: 2026-10-07
+status: IN_PROGRESS
+owner: Monica
+last_updated: 2026-11-16
 ---
 
 # Feature: User Management
@@ -21,21 +21,23 @@ Let administrators create, edit and deactivate platform users and decide which p
 
 ### Out of scope
 - Login and session (→ `auth`)
-- Self-registration and password reset (not planned)
+- Self-registration (not planned)
+- Self-service password reset from the login page (not planned). The administrator can still send a reset email from the edit drawer (SCRUM-250 Q3).
 
 ## 3. Stories
 
 | Story | Summary | Owner | Status |
 |---|---|---|---|
-| — | Add one row per Jira story when it enters a sprint | — | — |
+| [SCRUM-250](./SCRUM-250.md) | User list, deactivate dialog and create / edit drawer with scope tree (views only) | Monica | IN_PROGRESS |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
 
 | Frame | node-id |
 |---|---|
+| Group of the four admin screens (list, create, edit, deactivate) | `2148-11452` |
 | User Table | `123-1261` |
-| User Form Drawer (Create / Edit) | `122-1340` |
+| User Form Drawer (Create / Edit) | `122-1079` |
 | Confirm Deactivate Dialog | `122-1343` |
 | User Row (molecule) | `119-6389` |
 | Sidebar · Admin | `119-6439` |
@@ -53,13 +55,14 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | Component | Layer | Location |
 |---|---|---|
 | `ScopeTreeRow` | Molecule | design-system (shared with `analysis`) |
+| `ScopeTag` | Molecule | design-system (shared with `analysis`) |
 | `UserRow`, `UserTable`, `UserFormDrawer`, `ConfirmDeactivateDialog` | Molecule / organism | feature |
 
 ## 7. API contract (PROVISIONAL)
-Not defined yet — pending backend OpenAPI (OQ-02).
+`GET`, `POST` and `PATCH /users`, `PATCH /users/:id/deactivate` and `GET /nodes` (network tree), as in `backend/src/users`; pending OpenAPI (OQ-02). Details and what the backend still lacks: [SCRUM-250 §6](./SCRUM-250.md#6-data-and-endpoints-provisional).
 
 ## 8. Open questions and decisions
 
 | ID | Question | Owner | Answer | Date |
 |---|---|---|---|---|
-| Q1 | Exact roles and what each can see? (`auth.store` has `ADMIN`, `OPERATOR`, `VIEWER`) | Paola (PO) | OPEN | — |
+| Q1 | Exact roles and what each can see? (`auth.store` has `ADMIN`, `OPERATOR`, `VIEWER`) | Paola (PO) | F-03: Colbits administrator (`ADMIN`, sees the whole network, F-04) and consultation user (`VIEWER`, sees only their scope, F-10). `OPERATOR` is removed. The user form creates consultation users only (SCRUM-250 Q2). There is a single Colbits administrator, confirmed by the client on 2026-11-16 (SCRUM-250 Q5). | 2026-11-16 |

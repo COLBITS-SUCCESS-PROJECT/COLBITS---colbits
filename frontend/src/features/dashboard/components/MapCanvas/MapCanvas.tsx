@@ -10,8 +10,11 @@ import {
   MAP_DEFAULT_CENTER,
   MAP_DEFAULT_ZOOM,
   MAP_FIT_PADDING_PX,
+  MAP_FOCUS_ZOOM,
+  MAP_MAX_BOUNDS,
   MAP_MAX_NATIVE_ZOOM,
   MAP_MAX_ZOOM,
+  MAP_MIN_ZOOM,
 } from '../../model/liveMonitoring.constants'
 import type { MapLayer, NetworkNode, NetworkState } from '../../model/liveMonitoring.types'
 import { clusterMarkers, expansionZoom, type ClusterItem } from './clusterMarkers'
@@ -27,8 +30,23 @@ export interface MapCanvasProps {
   isLoading: boolean
   isError: boolean
   onRetry: () => void
+  /** Opens the node detail (F-27). Without it, node markers are not interactive. */
+  onSelectNode?: (nodeId: string) => void
+  /** Centers the map on this node (F-34). A new `requestId` centers it again, even on the same node. */
+  focusRequest?: FocusRequest | null
   /** Overlay at the bottom-left corner (the legend). */
   children?: ReactNode
+  /**
+   * Overlays along the top edge, left of the zoom buttons, stacked from the top-left corner: the last
+   * refresh time below lg (F-32) and the warning when the map stops refreshing (F-31). Only the overlays
+   * take clicks; the space around them still drags the map.
+   */
+  topOverlay?: ReactNode
+}
+
+export interface FocusRequest {
+  nodeId: string
+  requestId: number
 }
 
 /** Keys that activate a focused cluster, as on any button. */
@@ -43,11 +61,15 @@ export function MapCanvas({
   isLoading,
   isError,
   onRetry,
+  onSelectNode,
+  focusRequest = null,
   children,
+  topOverlay,
 }: MapCanvasProps) {
   const { t } = useTranslation('dashboard')
   const [map, setMap] = useState<LeafletMap | null>(null)
   const framedNodes = useRef('')
+  const handledFocus = useRef<number | null>(null)
   const markers = useMemo(() => buildNodeMarkers(nodes, layers), [nodes, layers])
   const zoom = useMapZoom(map, MAP_DEFAULT_ZOOM)
   const items = useMemo(() => clusterMarkers(markers, zoom), [markers, zoom])
@@ -61,6 +83,21 @@ export function MapCanvas({
       padding: [MAP_FIT_PADDING_PX, MAP_FIT_PADDING_PX],
     })
   }, [map, nodes])
+
+  // F-34: center on the searched node once per request. Declared after the framing above, so a
+  // search that also changes the node set (filter cleared) ends centered on the node.
+  useEffect(() => {
+    if (!map || !focusRequest || handledFocus.current === focusRequest.requestId) return
+    const node = nodes.find((candidate) => candidate.id === focusRequest.nodeId)
+    if (!node) return
+    handledFocus.current = focusRequest.requestId
+    map.setView(toMarkerPosition(node), Math.max(map.getZoom(), MAP_FOCUS_ZOOM))
+  }, [map, nodes, focusRequest])
+
+  // SCRUM-215: drop the "Leaflet" prefix link (easy to hit by accident). The OSM credit stays — ODbL requires it.
+  useEffect(() => {
+    map?.attributionControl?.setPrefix(false)
+  }, [map])
 
   useEffect(() => {
     if (!map || typeof ResizeObserver === 'undefined') return
@@ -104,7 +141,10 @@ export function MapCanvas({
         ref={setMap}
         center={[MAP_DEFAULT_CENTER.latitude, MAP_DEFAULT_CENTER.longitude]}
         zoom={MAP_DEFAULT_ZOOM}
+        minZoom={MAP_MIN_ZOOM}
         maxZoom={MAP_MAX_ZOOM}
+        maxBounds={MAP_MAX_BOUNDS}
+        maxBoundsViscosity={1}
         zoomControl={false}
         className="absolute inset-0 isolate z-0"
       >
@@ -113,6 +153,7 @@ export function MapCanvas({
           attribution={t('map.attribution')}
           maxZoom={MAP_MAX_ZOOM}
           maxNativeZoom={MAP_MAX_NATIVE_ZOOM}
+          noWrap
         />
         <ScaleControl position="bottomright" imperial={false} />
         {state === null &&
@@ -122,8 +163,21 @@ export function MapCanvas({
                 key={item.marker.node.id}
                 position={item.marker.position}
                 icon={createMarkerIcon(item.marker.variant, describeNode(item.marker.node))}
-                interactive={false}
-                keyboard={false}
+                interactive={onSelectNode !== undefined}
+                keyboard={onSelectNode !== undefined}
+                title={
+                  onSelectNode ? t('nodeDetail.openNode', { id: item.marker.node.id }) : undefined
+                }
+                eventHandlers={
+                  onSelectNode && {
+                    click: () => onSelectNode(item.marker.node.id),
+                    keypress: (event: LeafletKeyboardEvent) => {
+                      if (ACTIVATION_KEYS.includes(event.originalEvent.key)) {
+                        onSelectNode(item.marker.node.id)
+                      }
+                    },
+                  }
+                }
               />
             ) : (
               <Marker
@@ -164,6 +218,11 @@ export function MapCanvas({
         </button>
       </div>
 
+      {topOverlay && (
+        <div className="pointer-events-none absolute top-4 right-18 left-4 z-10 flex flex-col items-start gap-2 *:pointer-events-auto">
+          {topOverlay}
+        </div>
+      )}
       {children && (
         <div className="absolute right-4 bottom-4 left-4 z-10 flex items-end justify-between gap-3">
           {children}

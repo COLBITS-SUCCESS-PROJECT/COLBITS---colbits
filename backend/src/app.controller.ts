@@ -8,7 +8,11 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Check that the API is responding.' })
+  @ApiOperation({
+    summary: 'Check that the API is responding.',
+    description:
+      'Public liveness check: it needs no token and does not touch the database.',
+  })
   @ApiOkResponse({
     description: 'The API health response.',
     schema: { type: 'string', example: 'Hello World!' },

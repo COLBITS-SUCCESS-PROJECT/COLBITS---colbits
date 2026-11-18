@@ -11,6 +11,9 @@ export class ErrorResponseDto {
   })
   message: string | string[];
 
-  @ApiProperty({ example: 'Unauthorized' })
+  @ApiProperty({
+    example: 'Unauthorized',
+    description: 'Standard name of the HTTP status.',
+  })
   error: string;
 }

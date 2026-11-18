@@ -5,6 +5,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@/i18n'
+import {
+  noInactiveDevicesHandler,
+  noLowEnergyAlertsHandler,
+} from '@/mocks/handlers/device.handlers'
+import { fuseOpeningsOnlyHandler } from '@/mocks/handlers/faults.handlers'
 import { server } from '@/mocks/server'
 import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
 import { DEV_USER } from '@/mocks/devSession'
@@ -28,6 +33,9 @@ function renderPage() {
 describe('LiveMonitoringPage', () => {
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
   beforeEach(() => {
+    // These criteria count the fuse faults of GET /faults; inactivity (SCRUM-115 AC6) and device alerts
+    // (US18, LiveMonitoringPage.deviceAlerts.acceptance.test.tsx) have their own.
+    server.use(fuseOpeningsOnlyHandler, noInactiveDevicesHandler, noLowEnergyAlertsHandler)
     useDataFreshnessStore.getState().reset()
     useAuthStore.getState().setSession(DEV_USER, MOCK_TOKENS.DEV)
   })
@@ -48,14 +56,15 @@ describe('LiveMonitoringPage', () => {
     expect(useDataFreshnessStore.getState().lastSyncedAt).not.toBeNull()
   })
 
-  it('adds transformer markers and SMAC faults when the transformer layer is turned on', async () => {
+  it('adds transformer markers when the transformer layer is turned on', async () => {
     renderPage()
     await screen.findByText('3 activas')
     await screen.findByRole('img', { name: /Nodo ND04821A07/ })
 
     await userEvent.click(screen.getByRole('button', { name: 'Transformadores · SMAC' }))
 
-    expect(screen.getByText('6 activas')).toBeInTheDocument()
+    // GET /faults lists fuse openings only for now, so the fault count does not change.
+    expect(screen.getByText('3 activas')).toBeInTheDocument()
     expect(
       screen.getByRole('img', { name: /Nodo ND06102B03, transformador: 2\+ fases caídas/ })
     ).toBeInTheDocument()
@@ -80,7 +89,10 @@ describe('LiveMonitoringPage', () => {
     renderPage()
     await screen.findByText('3 activas')
 
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar nodo' }), 'ND05510')
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Buscar nodo o dispositivo' }),
+      'ND05510'
+    )
 
     const panel = screen.getByRole('complementary', { name: 'Gestión de fallas' })
     expect(within(panel).getAllByRole('article')).toHaveLength(1)
@@ -91,7 +103,10 @@ describe('LiveMonitoringPage', () => {
     renderPage()
     await screen.findByText('3 activas')
 
-    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar nodo' }), 'zzz')
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Buscar nodo o dispositivo' }),
+      'zzz'
+    )
 
     expect(screen.getByText('No hay fallas que coincidan con los filtros.')).toBeInTheDocument()
   })

@@ -1,32 +1,23 @@
-/** useLiveMonitoringQuery — faults and counters for the Live Monitoring page; reports data freshness. */
-import { useEffect } from 'react'
+/** useLiveMonitoringQuery — faults and counters for the Live Monitoring page. */
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
-import { useDataFreshnessStore } from '@/stores/dataFreshness.store'
+import { fetchActiveFaults } from '../api/faults.api'
 import { LIVE_REFETCH_INTERVAL_MS } from '../model/liveMonitoring.constants'
-import { buildLiveMonitoringMock } from '../model/liveMonitoring.mock'
 import type { LiveMonitoringData } from '../model/liveMonitoring.types'
 
 export const LIVE_MONITORING_QUERY_KEY = ['live-monitoring'] as const
 
-// TODO SCRUM-128: replace with `fetchLiveMonitoring()` from api/ once the backend endpoint exists (OQ-02).
-async function fetchLiveMonitoringMock(): Promise<LiveMonitoringData> {
-  return buildLiveMonitoringMock(Date.now())
-}
+/** Open faults and alarms from GET /faults (US10, SCRUM-225), in backend order (F-57), with the node counters it computes (US15 · F-58). */
+const fetchLiveMonitoring = (signal?: AbortSignal): Promise<LiveMonitoringData> =>
+  fetchActiveFaults(signal)
 
+/** Refreshes with the map. The "last update" time follows the map's own request (`useNodesQuery`, F-32). */
 export function useLiveMonitoringQuery(
-  queryFn: () => Promise<LiveMonitoringData> = fetchLiveMonitoringMock
+  queryFn: (signal?: AbortSignal) => Promise<LiveMonitoringData> = fetchLiveMonitoring
 ): UseQueryResult<LiveMonitoringData> {
-  const markSynced = useDataFreshnessStore((state) => state.markSynced)
-  const query = useQuery({
+  return useQuery({
     queryKey: LIVE_MONITORING_QUERY_KEY,
-    queryFn,
+    queryFn: ({ signal }) => queryFn(signal),
     refetchInterval: LIVE_REFETCH_INTERVAL_MS,
     staleTime: 0,
   })
-
-  useEffect(() => {
-    if (query.isSuccess) markSynced(query.dataUpdatedAt)
-  }, [query.isSuccess, query.dataUpdatedAt, markSynced])
-
-  return query
 }

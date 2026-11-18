@@ -1,11 +1,15 @@
 /**
- * PROVISIONAL — sample data of the fault panel, copied from the Figma screen "Monitor / Fuses layer" (M1), until the backend API
- * exists (AGENT.md §20, OQ-02). Delete when useLiveMonitoringQuery calls the real endpoint.
+ * Sample fault-panel data for component and rule tests, copied from the Figma screen "Monitor / Fuses layer" (M1):
+ * every alert type, resolved faults and node counters (the page itself gets its counters from GET /faults, US15).
+ * The page itself reads GET /faults (useLiveMonitoringQuery; mock service: faults.fixtures.ts).
  */
-import { MS_PER_MINUTE } from './liveMonitoring.constants'
-import type { FaultAlert, LiveMonitoringData } from './liveMonitoring.types'
+import { MS_PER_MINUTE } from '@/features/dashboard/model/liveMonitoring.constants'
+import type {
+  FaultAlert,
+  LiveMonitoringData,
+} from '@/features/dashboard/model/liveMonitoring.types'
 
-type FaultSeed = Omit<FaultAlert, 'startedAt' | 'zone'>
+type FaultSeed = Omit<FaultAlert, 'startedAt' | 'endedAt' | 'zone'>
 
 const FAULT_SEEDS: FaultSeed[] = [
   {
@@ -18,10 +22,16 @@ const FAULT_SEEDS: FaultSeed[] = [
     substation: 'SE-Norte',
     circuit: 'CR-12',
     branch: 'B',
+    sourceId: null,
+    channel: null,
+    channels: null,
     phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'OK' },
+    classification: 'BIPHASIC',
     durationMinutes: 52,
     customersAffected: 318,
     transformerLoad: null,
+    conditions: null,
+    energy: null,
   },
   {
     id: 'f-2',
@@ -33,10 +43,16 @@ const FAULT_SEEDS: FaultSeed[] = [
     substation: 'SE-Norte',
     circuit: 'CR-07',
     branch: 'A',
+    sourceId: null,
+    channel: null,
+    channels: null,
     phases: { R: 'OK', S: 'OK', T: 'CRITICAL' },
+    classification: 'MONOPHASIC',
     durationMinutes: 123,
     customersAffected: 142,
     transformerLoad: null,
+    conditions: null,
+    energy: null,
   },
   {
     id: 'f-3',
@@ -48,10 +64,16 @@ const FAULT_SEEDS: FaultSeed[] = [
     substation: 'SE-Sur',
     circuit: 'CR-21',
     branch: 'C',
+    sourceId: null,
+    channel: null,
+    channels: null,
     phases: { R: 'OK', S: 'WARNING', T: 'OK' },
+    classification: 'MONOPHASIC',
     durationMinutes: 40,
     customersAffected: 142,
     transformerLoad: null,
+    conditions: null,
+    energy: null,
   },
   {
     id: 'f-4',
@@ -63,10 +85,16 @@ const FAULT_SEEDS: FaultSeed[] = [
     substation: 'SE-Centro',
     circuit: 'CR-03',
     branch: null,
+    sourceId: null,
+    channel: null,
+    channels: null,
     phases: { R: 'CRITICAL', S: 'CRITICAL', T: 'CRITICAL' },
+    classification: 'TRIPHASIC',
     durationMinutes: 98,
     customersAffected: 96,
     transformerLoad: null,
+    conditions: null,
+    energy: null,
   },
   {
     id: 'f-5',
@@ -78,10 +106,16 @@ const FAULT_SEEDS: FaultSeed[] = [
     substation: 'SE-Centro',
     circuit: 'CR-03',
     branch: null,
+    sourceId: null,
+    channel: null,
+    channels: null,
     phases: { R: 'OK', S: 'OK', T: 'WARNING' },
+    classification: 'MONOPHASIC',
     durationMinutes: 175,
     customersAffected: 64,
     transformerLoad: null,
+    conditions: null,
+    energy: null,
   },
   {
     id: 'f-6',
@@ -93,10 +127,37 @@ const FAULT_SEEDS: FaultSeed[] = [
     substation: 'SE-Norte',
     circuit: 'CR-12',
     branch: null,
+    sourceId: null,
+    channel: null,
+    channels: null,
     phases: null,
+    classification: null,
     durationMinutes: 250,
     customersAffected: 0,
-    transformerLoad: { loadPct: 118, voltageUnbalancePct: 3.4 },
+    transformerLoad: { loadPct: 118, voltageUnbalancePct: 3.4, currentUnbalancePct: null },
+    conditions: ['OVERLOAD', 'VOLTAGE_UNBALANCE'],
+    energy: null,
+  },
+  {
+    id: 'f-9',
+    device: 'SMAC',
+    type: 'PHASE_OUT_OF_RANGE',
+    severity: 'WARNING',
+    status: 'OPEN',
+    nodeId: 'ND02290C04',
+    substation: 'SE-Norte',
+    circuit: 'CR-12',
+    branch: null,
+    sourceId: null,
+    channel: null,
+    channels: null,
+    phases: null,
+    classification: null,
+    durationMinutes: 30,
+    customersAffected: 0,
+    transformerLoad: null,
+    conditions: null,
+    energy: null,
   },
   {
     id: 'f-7',
@@ -108,10 +169,16 @@ const FAULT_SEEDS: FaultSeed[] = [
     substation: 'SE-Norte',
     circuit: 'CR-07',
     branch: 'A',
+    sourceId: null,
+    channel: null,
+    channels: null,
     phases: { R: 'CRITICAL', S: 'OK', T: 'OK' },
+    classification: 'MONOPHASIC',
     durationMinutes: 35,
     customersAffected: 87,
     transformerLoad: null,
+    conditions: null,
+    energy: null,
   },
   {
     id: 'f-8',
@@ -123,19 +190,29 @@ const FAULT_SEEDS: FaultSeed[] = [
     substation: 'SE-Sur',
     circuit: 'CR-21',
     branch: null,
+    sourceId: null,
+    channel: null,
+    channels: null,
     phases: { R: 'OK', S: 'WARNING', T: 'OK' },
+    classification: 'MONOPHASIC',
     durationMinutes: 3,
     customersAffected: 12,
     transformerLoad: null,
+    conditions: null,
+    energy: null,
   },
 ]
 
-/** Builds the sample data relative to `now`, so "last hour / last day" filters behave like real data. */
+/**
+ * Builds the sample data relative to `now`, so "last hour / last day" filters behave like real data.
+ * Every fault started `durationMinutes` ago; the resolved ones were resolved at `now`.
+ */
 export function buildLiveMonitoringMock(now: number): LiveMonitoringData {
   const faults = FAULT_SEEDS.map((seed) => ({
     ...seed,
     zone: 'Z-01',
     startedAt: new Date(now - seed.durationMinutes * MS_PER_MINUTE),
+    endedAt: seed.status === 'RESOLVED' ? new Date(now) : null,
   }))
   return {
     faults,

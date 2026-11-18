@@ -7,7 +7,9 @@
     "section": "Menú",
     "logout": "Cerrar sesión",
     "open": "Abrir menú de navegación",
-    "close": "Cerrar menú de navegación"
+    "close": "Cerrar menú de navegación",
+    "collapse": "Contraer menú",
+    "expand": "Expandir menú"
   },
   "role": {
     "ADMIN": "Administrador",
@@ -82,6 +84,7 @@
     "lastUpdate": "Última actualización: {{time}}",
     "live": "Datos en vivo",
     "stale": "Datos desactualizados",
+    "interrupted": "Actualización interrumpida",
     "refresh": "Actualizar datos"
   },
   "language": {
