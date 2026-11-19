@@ -30,9 +30,10 @@ export interface ScenarioResultDto {
   target: string
   channel: ScenarioChannelDto | null
   hw_id: string
-  /** Technical Annex §4.2 code, e.g. 131420. */
-  event_code: string
-  event_type: 'SET' | 'CLEAR'
+  /** Technical Annex §4.2 code, e.g. 131420; null for the actions that write a reading and no event. */
+  event_code: string | null
+  /** MSG for a free fall (13xx01); null when no event is written. */
+  event_type: 'SET' | 'CLEAR' | 'MSG' | null
   /** ISO date-time. */
   recorded_at: string
   effect: string
