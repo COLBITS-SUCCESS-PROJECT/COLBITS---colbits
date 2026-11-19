@@ -21,7 +21,7 @@ The database checks run inside the transaction that writes. The marker shows tha
 | Local (`docker-compose.yml`) | On: `DEMO_SCENARIOS_DATABASE` defaults to `colbits` | A volume created before SCRUM-253 has no marker and no `demo_silenced_devices`: recreate it or run the generator once. |
 | Render staging (`render.yaml`, `colbits-api-dev`) | On: `colbits_dev` | Confirm the live database name; the setting reaches staging after a release or by hand; the next data refresh writes the marker. See `docs/deploy-render.md`. |
 | Render production | Off | Nothing: neither setting is set. |
-| Beta (`deploy/docker-compose.yml`) | Off: no `DEMO_SCENARIOS_*` setting | To enable it: deploy a build with SCRUM-253, let the backend refresh the data once, add `DEMO_SCENARIOS_ENABLED: 'true'` and `DEMO_SCENARIOS_DATABASE: colbits` to the backend `environment`, and agree it with the team and Colbits (their server). |
+| Beta (`deploy/docker-compose.yml`) | On: `DEMO_SCENARIOS_ENABLED: 'true'` and `DEMO_SCENARIOS_DATABASE: colbits` (since 16 Nov) | The backend regenerates test data older than `DATA_REFRESH_HOURS` when it starts, and that refresh writes the marker. |
 
 ## API
 
@@ -73,6 +73,6 @@ Values come from the configured thresholds, never fixed ones; a stop writes back
 ## Notes for the frontend (SCRUM-254)
 
 - The panel needs no change: every action has `target` FUSE or TRANSFORMER and only the phase actions (`DROP_PHASE`, `RESTORE_PHASE`, `PHASE_OUT_OF_RANGE`, `PHASE_IN_RANGE`) need a channel. Without a label (`dashboard:scenarios.action.<CODE>` / `scenarios.result.<CODE>`) a button shows its code and `effect`.
-- `event_code` / `event_type` can be null, and `event_type` can be `MSG`: the provisional `ScenarioResultDto` types should allow it (the mapper does not read them).
+- `event_code` / `event_type` can be null, and `event_type` can be `MSG`: the frontend `ScenarioResultDto` allows both (the mapper does not read them).
 - Every 409 is shown as "already in that state"; the backend message is more specific (for example "run RESUME_FALCON first").
-- After a 403 the panel asks `GET /scenarios` again and hides itself, which matches `enabled`. After an action it refreshes the map, the live monitoring and the inactive devices; low-energy alerts (`GET /device/low-energy`) and resolved alarms follow their own refresh.
+- After a 403 the panel asks `GET /scenarios` again and hides itself, which matches `enabled`. After an action it asks the map, the node detail, the fault list with the resolved alarms, the inactive devices and the low-energy alerts (active and resolved) again at once. Every other user sees the change with the 15 s refresh; the NF-01 check of all 22 actions is in `frontend/docs/specs/dashboard/SCRUM-218.md` §8 (SCRUM-255).

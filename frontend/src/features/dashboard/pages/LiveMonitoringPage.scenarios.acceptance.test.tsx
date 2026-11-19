@@ -4,9 +4,11 @@
  * Runs the whole Live Monitoring page against the mocked API (MSW). Once the administrator runs a
  * scenario, the mocked node and fault services answer with its effect, as the real API does once the
  * reading and the alarm are stored. Time is simulated, so NF-01's 20 s are measured without waiting.
+ * AC9 (SCRUM-255) covers the users who only watch: every view a scenario changes must ask the API
+ * again on its own, at least every 15 s.
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -20,8 +22,13 @@ import { NODE_FIXTURES } from '@/mocks/data/nodes.fixtures'
 import { SCENARIOS_STATUS_FIXTURE, scenarioResultFixture } from '@/mocks/data/scenarios.fixtures'
 import { STEP_MS, letTimePass, startSimulatedTime } from '@/mocks/liveRefresh'
 import { useAuthStore, type AuthUser } from '@/stores/auth.store'
-import { FAULTS_ENDPOINT } from '../api/faults.api'
+import { FAULTS_ENDPOINT, RESOLVED_FAULTS_ENDPOINT } from '../api/faults.api'
 import type { ActiveFaultDto } from '../api/faults.dto'
+import { INACTIVE_DEVICES_ENDPOINT } from '../api/inactiveDevices.api'
+import {
+  LOW_ENERGY_ALERTS_ENDPOINT,
+  RESOLVED_LOW_ENERGY_ALERTS_ENDPOINT,
+} from '../api/lowEnergyAlerts.api'
 import { NODES_ENDPOINT } from '../api/nodes.api'
 import type { RunScenarioRequestDto } from '../api/scenarios.dto'
 import { SCENARIOS_ENDPOINT } from '../api/scenarios.api'
@@ -144,6 +151,51 @@ async function msUntil(isShown: () => boolean, limitMs: number): Promise<number>
   return Date.now() - start
 }
 
+/**
+ * What a user who only watches has open in the alarm panel, and the service behind every view that a
+ * scenario changes there (SCRUM-255). In Activas the user also has the node detail open.
+ */
+const WATCHED_TABS = [
+  {
+    tab: 'Activas',
+    services: {
+      map: NODES_ENDPOINT,
+      'node detail': `${NODES_ENDPOINT}/${NODE}/detail`,
+      'faults and device alarms': FAULTS_ENDPOINT,
+      'low-energy alarms': LOW_ENERGY_ALERTS_ENDPOINT,
+      'inactivity alarms': INACTIVE_DEVICES_ENDPOINT,
+    },
+  },
+  {
+    tab: 'Resueltas',
+    services: {
+      'resolved alarms': RESOLVED_FAULTS_ENDPOINT,
+      'resolved low-energy alarms': RESOLVED_LOW_ENERGY_ALERTS_ENDPOINT,
+    },
+  },
+  { tab: 'Dispositivos inactivos', services: { 'inactive devices': INACTIVE_DEVICES_ENDPOINT } },
+]
+/** Long enough to see three automatic refreshes of every view. */
+const WATCH_MS = 3 * LIVE_REFETCH_INTERVAL_MS + STEP_MS
+
+/** Records the simulated time of every request to `endpoint`; the mocked API still answers it. */
+function timeRequestsTo(endpoint: string): number[] {
+  const times: number[] = []
+  server.use(
+    http.get(`*${endpoint}`, () => {
+      times.push(Date.now())
+      return undefined
+    })
+  )
+  return times
+}
+
+/** The longest stretch between `from` and `to` with no request: the most a stored change waits. */
+function longestWait(times: number[], from: number, to: number): number {
+  const marks = [from, ...times.filter((time) => time > from && time < to), to]
+  return Math.max(...marks.slice(1).map((time, i) => time - (marks[i] ?? time)))
+}
+
 /** Counts the requests for the scenarios, answering `body`. */
 function countScenarioRequests(body = SCENARIOS_STATUS_FIXTURE) {
   const requests = { count: 0 }
@@ -231,4 +283,29 @@ describe('SCRUM-218 · US31 — demo scenario panel', () => {
     expect(elapsed).toBeLessThan(LIVE_REFETCH_INTERVAL_MS)
     expect(await panel.findByRole('status')).toHaveTextContent(`Fusible abierto en ${FUSE}`)
   })
+
+  it.each(WATCHED_TABS)(
+    'AC9 — with $tab open, every view a scenario changes asks again within 15 s for a user who only watches (NF-01)',
+    async ({ tab, services }) => {
+      const requests = Object.entries(services).map(([view, endpoint]) => ({
+        view,
+        times: timeRequestsTo(endpoint),
+      }))
+      const user = setUpUser()
+      openMapAs(CONSULTATION, MOCK_LOGIN_TOKENS.CONSULTA)
+      if (tab === 'Activas') await openDetailOf(user, NODE)
+      else fireEvent.click(screen.getByRole('tab', { name: tab }))
+      await letTimePass(STEP_MS)
+      const from = Date.now()
+
+      await letTimePass(WATCH_MS)
+
+      // A change stored right after one request shows with the next one. Time moves in 1 s steps.
+      for (const { view, times } of requests) {
+        expect(longestWait(times, from, Date.now()), view).toBeLessThanOrEqual(
+          LIVE_REFETCH_INTERVAL_MS + STEP_MS
+        )
+      }
+    }
+  )
 })
