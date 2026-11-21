@@ -83,7 +83,7 @@ export class SubstationFaultCountDto {
   fault_count: number;
 }
 
-export class CircuitFaultCountDto {
+export class CircuitContextDto {
   @ApiProperty({ example: 1 })
   circuit_id: number;
 
@@ -95,7 +95,9 @@ export class CircuitFaultCountDto {
 
   @ApiProperty({ example: 'S/E NORTE 1' })
   substation_name: string;
+}
 
+export class CircuitFaultCountDto extends CircuitContextDto {
   @ApiProperty({
     example: 3,
     description: 'Total faults recorded in this circuit during the period (F-68).',
@@ -103,21 +105,9 @@ export class CircuitFaultCountDto {
   fault_count: number;
 }
 
-export class NodeFaultRankingDto {
+export class NodeFaultRankingDto extends CircuitContextDto {
   @ApiProperty({ example: '0000100002' })
   node: string;
-
-  @ApiProperty({ example: 1 })
-  circuit_id: number;
-
-  @ApiProperty({ example: 'CTO 1' })
-  circuit_name: string;
-
-  @ApiProperty({ example: 1 })
-  substation_id: number;
-
-  @ApiProperty({ example: 'S/E NORTE 1' })
-  substation_name: string;
 
   @ApiProperty({
     example: 4,
@@ -126,24 +116,12 @@ export class NodeFaultRankingDto {
   fault_count: number;
 }
 
-export class LongestFaultDto {
+export class LongestFaultDto extends CircuitContextDto {
   @ApiProperty({ example: '2:2026-11-01T10:00:00.000Z' })
   id: string;
 
   @ApiProperty({ example: '0000100002' })
   node: string;
-
-  @ApiProperty({ example: 1 })
-  circuit_id: number;
-
-  @ApiProperty({ example: 'CTO 1' })
-  circuit_name: string;
-
-  @ApiProperty({ example: 1 })
-  substation_id: number;
-
-  @ApiProperty({ example: 'S/E NORTE 1' })
-  substation_name: string;
 
   @ApiProperty({ example: 2 })
   fuses_set_id: number;
@@ -232,8 +210,7 @@ export class FaultIndicatorsResponseDto {
 
   @ApiProperty({
     type: () => [NodeFaultRankingDto],
-    description:
-      'Nodes ranked by total fault count descending (F-70).',
+    description: 'Nodes ranked by total fault count descending (F-70).',
   })
   node_ranking: NodeFaultRankingDto[];
 

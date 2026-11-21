@@ -38,18 +38,13 @@ export interface FaultIndicatorsQuery {
   minDurationMinutes?: number;
 }
 
+/**
+ * Fetches fuse-opening lifecycle events up to the end of the selected period ($3)
+ * for all scoped nodes ($1). Capping at $3 prevents post-period events from altering
+ * historical episodes while preserving faults that opened before 'from' and remained
+ * open or resolved inside [from, to].
+ */
 export const HISTORICAL_FAULT_EVENTS_SQL = `
-  WITH candidate_sets AS (
-    SELECT DISTINCT fs.id AS fuses_set_id
-    FROM public.fuses_sets fs
-    JOIN public.fuses f ON f.fuses_set_id = fs.id
-    JOIN public.alarms a ON a.custom_id = f.custom_id
-    WHERE fs.node_id = ANY($1::text[])
-      AND a.event_code ~ $2::text
-      AND a.event_type IN ('SET', 'set')
-      AND a.recorded_at >= $3::timestamptz
-      AND a.recorded_at <= $4::timestamptz
-  )
   SELECT fs.id AS fuses_set_id,
          fs.node_id,
          fs.set_id AS branch,
@@ -62,15 +57,16 @@ export const HISTORICAL_FAULT_EVENTS_SQL = `
          f.phase,
          a.event_type,
          a.recorded_at
-  FROM candidate_sets cs
-  JOIN public.fuses_sets fs ON fs.id = cs.fuses_set_id
+  FROM public.fuses_sets fs
   JOIN public.nodes n ON n.name = fs.node_id
   JOIN public.circuits c ON c.id = n.circuit_id
   JOIN public.substations s ON s.id = c.substation_id
   JOIN public.fuses f ON f.fuses_set_id = fs.id
   JOIN public.alarms a ON a.custom_id = f.custom_id
-  WHERE a.event_code ~ $2::text
+  WHERE fs.node_id = ANY($1::text[])
+    AND a.event_code ~ $2::text
     AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
+    AND a.recorded_at <= $3::timestamptz
   ORDER BY fs.id, a.recorded_at, a.event_type, f.custom_id
 `;
 
@@ -99,10 +95,13 @@ interface HistoricalSetInfo {
   substationName: string;
 }
 
+interface EnrichedFault {
+  dto: LongestFaultDto;
+  substationCode: string;
+}
+
 /**
  * US21 (SCRUM-285, SCRUM-286): Historical fault indicators and rankings (F-68, F-69, F-70).
- * Computes fault counts per substation and per circuit, node and longest-fault rankings,
- * and average/maximum fault duration with the configurable minimum-duration filter (NF-10).
  */
 @Injectable()
 export class FaultIndicatorsService {
@@ -121,72 +120,21 @@ export class FaultIndicatorsService {
       query.minDurationMinutes ?? this.faultsService.getMinDurationMinutes();
     const thresholdSeconds = Math.round(thresholdMinutes * 60);
 
-    const emptyResponse = (): FaultIndicatorsResponseDto => ({
-      generated_at: now.toISOString(),
-      period: {
-        from: query.from.toISOString(),
-        to: query.to.toISOString(),
-      },
-      minimum_duration_filter: {
-        active: query.minDurationFilter,
-        threshold_minutes: thresholdMinutes,
-        threshold_seconds: thresholdSeconds,
-      },
-      total_faults: 0,
-      duration: {
-        average_seconds: null,
-        max_seconds: null,
-      },
-      by_substation: [],
-      by_circuit: [],
-      node_ranking: [],
-      longest_faults: [],
-    });
-
     const nodes = await this.filteredNodesInScope(scope, query);
-    if (nodes.length === 0) return emptyResponse();
+    if (nodes.length === 0) {
+      return buildResponse(now, query, thresholdMinutes, thresholdSeconds, []);
+    }
 
     const rows: HistoricalEventRow[] = await this.nodesRepository.query(
       HISTORICAL_FAULT_EVENTS_SQL,
-      [
-        nodes,
-        FUSE_OPENING_PATTERN,
-        query.from.toISOString(),
-        query.to.toISOString(),
-      ],
+      [nodes, FUSE_OPENING_PATTERN, query.to.toISOString()],
     );
 
-    if (rows.length === 0) return emptyResponse();
-
-    const sets = new Map<number, HistoricalSetInfo>();
-    const events: FuseEvent[] = [];
-
-    for (const row of rows) {
-      const type = LIFECYCLE_TYPES.get(row.event_type);
-      if (type === undefined) continue;
-
-      const fusesSetId = Number(row.fuses_set_id);
-      if (!sets.has(fusesSetId)) {
-        sets.set(fusesSetId, {
-          node: row.node_id,
-          branch: row.branch,
-          circuitId: Number(row.circuit_id),
-          circuitName: row.circuit_name,
-          substationId: Number(row.substation_id),
-          substationCode: row.substation_code,
-          substationName: row.substation_name,
-        });
-      }
-
-      events.push({
-        fusesSetId,
-        fuseId: row.fuse_id,
-        phase: row.phase,
-        type,
-        at: new Date(row.recorded_at),
-      });
+    if (rows.length === 0) {
+      return buildResponse(now, query, thresholdMinutes, thresholdSeconds, []);
     }
 
+    const { sets, events } = collectHistoricalEvents(rows);
     const grouped = groupFuseFaults(
       events,
       this.faultsService.getGroupingWindowMinutes(),
@@ -196,44 +144,33 @@ export class FaultIndicatorsService {
     const toMs = query.to.getTime();
     const openReferenceEnd = toMs < now.getTime() ? query.to : now;
 
-    const periodFaults = grouped
+    const overlappingFaults: EnrichedFault[] = grouped
       .filter(
         (fault) =>
-          fault.startedAt.getTime() >= fromMs &&
-          fault.startedAt.getTime() <= toMs,
+          fault.startedAt.getTime() <= toMs &&
+          (fault.endedAt === null || fault.endedAt.getTime() >= fromMs),
       )
-      .map((fault) =>
-        toLongestFaultDto(
-          fault,
-          sets.get(fault.fusesSetId) as HistoricalSetInfo,
-          openReferenceEnd,
-        ),
-      );
+      .map((fault) => {
+        const info = sets.get(fault.fusesSetId) as HistoricalSetInfo;
+        return {
+          dto: toLongestFaultDto(fault, info, openReferenceEnd),
+          substationCode: info.substationCode,
+        };
+      });
 
-    const includedFaults = query.minDurationFilter
-      ? periodFaults.filter(
-          (fault) => fault.duration_seconds > thresholdSeconds,
+    const included = query.minDurationFilter
+      ? overlappingFaults.filter(
+          (item) => item.dto.duration_seconds > thresholdSeconds,
         )
-      : periodFaults;
+      : overlappingFaults;
 
-    return {
-      generated_at: now.toISOString(),
-      period: {
-        from: query.from.toISOString(),
-        to: query.to.toISOString(),
-      },
-      minimum_duration_filter: {
-        active: query.minDurationFilter,
-        threshold_minutes: thresholdMinutes,
-        threshold_seconds: thresholdSeconds,
-      },
-      total_faults: includedFaults.length,
-      duration: computeDurationSummary(includedFaults),
-      by_substation: aggregateBySubstation(includedFaults, sets),
-      by_circuit: aggregateByCircuit(includedFaults),
-      node_ranking: rankNodes(includedFaults),
-      longest_faults: rankLongestFaults(includedFaults),
-    };
+    return buildResponse(
+      now,
+      query,
+      thresholdMinutes,
+      thresholdSeconds,
+      included,
+    );
   }
 
   private async filteredNodesInScope(
@@ -274,6 +211,128 @@ export class FaultIndicatorsService {
 
     return (await qb.getMany()).map((node) => node.name);
   }
+}
+
+function collectHistoricalEvents(rows: readonly HistoricalEventRow[]): {
+  sets: Map<number, HistoricalSetInfo>;
+  events: FuseEvent[];
+} {
+  const sets = new Map<number, HistoricalSetInfo>();
+  const events: FuseEvent[] = [];
+
+  for (const row of rows) {
+    const type = LIFECYCLE_TYPES.get(row.event_type);
+    if (type === undefined) continue;
+
+    const fusesSetId = Number(row.fuses_set_id);
+    if (!sets.has(fusesSetId)) {
+      sets.set(fusesSetId, {
+        node: row.node_id,
+        branch: row.branch,
+        circuitId: Number(row.circuit_id),
+        circuitName: row.circuit_name,
+        substationId: Number(row.substation_id),
+        substationCode: row.substation_code,
+        substationName: row.substation_name,
+      });
+    }
+
+    events.push({
+      fusesSetId,
+      fuseId: row.fuse_id,
+      phase: row.phase,
+      type,
+      at: new Date(row.recorded_at),
+    });
+  }
+
+  return { sets, events };
+}
+
+function buildResponse(
+  now: Date,
+  query: FaultIndicatorsQuery,
+  thresholdMinutes: number,
+  thresholdSeconds: number,
+  items: readonly EnrichedFault[],
+): FaultIndicatorsResponseDto {
+  const dtos = items.map((item) => item.dto);
+
+  return {
+    generated_at: now.toISOString(),
+    period: {
+      from: query.from.toISOString(),
+      to: query.to.toISOString(),
+    },
+    minimum_duration_filter: {
+      active: query.minDurationFilter,
+      threshold_minutes: thresholdMinutes,
+      threshold_seconds: thresholdSeconds,
+    },
+    total_faults: dtos.length,
+    duration: computeDurationSummary(dtos),
+    by_substation: countBy<EnrichedFault, number, SubstationFaultCountDto>(
+      items,
+      (item) => item.dto.substation_id,
+      (item) => ({
+        substation_id: item.dto.substation_id,
+        substation_code: item.substationCode,
+        substation_name: item.dto.substation_name,
+        fault_count: 1,
+      }),
+      (a, b) =>
+        b.fault_count - a.fault_count || a.substation_id - b.substation_id,
+    ),
+    by_circuit: countBy<LongestFaultDto, number, CircuitFaultCountDto>(
+      dtos,
+      (fault) => fault.circuit_id,
+      (fault) => ({
+        circuit_id: fault.circuit_id,
+        circuit_name: fault.circuit_name,
+        substation_id: fault.substation_id,
+        substation_name: fault.substation_name,
+        fault_count: 1,
+      }),
+      (a, b) => b.fault_count - a.fault_count || a.circuit_id - b.circuit_id,
+    ),
+    node_ranking: countBy<LongestFaultDto, string, NodeFaultRankingDto>(
+      dtos,
+      (fault) => fault.node,
+      (fault) => ({
+        node: fault.node,
+        circuit_id: fault.circuit_id,
+        circuit_name: fault.circuit_name,
+        substation_id: fault.substation_id,
+        substation_name: fault.substation_name,
+        fault_count: 1,
+      }),
+      (a, b) =>
+        b.fault_count - a.fault_count ||
+        (a.node < b.node ? -1 : a.node > b.node ? 1 : 0),
+    ),
+    longest_faults: [...dtos].sort(
+      (a, b) =>
+        b.duration_seconds - a.duration_seconds ||
+        new Date(b.started_at).getTime() - new Date(a.started_at).getTime() ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    ),
+  };
+}
+
+function countBy<T, K, R extends { fault_count: number }>(
+  items: readonly T[],
+  keyOf: (item: T) => K,
+  init: (item: T) => R,
+  compare: (a: R, b: R) => number,
+): R[] {
+  const map = new Map<K, R>();
+  for (const item of items) {
+    const key = keyOf(item);
+    const existing = map.get(key);
+    if (existing) existing.fault_count += 1;
+    else map.set(key, init(item));
+  }
+  return [...map.values()].sort(compare);
 }
 
 function toLongestFaultDto(
@@ -325,93 +384,4 @@ export function computeDurationSummary(
     average_seconds: Number((total / faults.length).toFixed(2)),
     max_seconds: max,
   };
-}
-
-function aggregateBySubstation(
-  faults: readonly LongestFaultDto[],
-  sets: ReadonlyMap<number, HistoricalSetInfo>,
-): SubstationFaultCountDto[] {
-  const counts = new Map<number, SubstationFaultCountDto>();
-
-  for (const fault of faults) {
-    const existing = counts.get(fault.substation_id);
-    if (existing) {
-      existing.fault_count += 1;
-    } else {
-      const setInfo = sets.get(fault.fuses_set_id);
-      counts.set(fault.substation_id, {
-        substation_id: fault.substation_id,
-        substation_code: setInfo?.substationCode ?? '',
-        substation_name: fault.substation_name,
-        fault_count: 1,
-      });
-    }
-  }
-
-  return [...counts.values()].sort(
-    (a, b) =>
-      b.fault_count - a.fault_count || a.substation_id - b.substation_id,
-  );
-}
-
-function aggregateByCircuit(
-  faults: readonly LongestFaultDto[],
-): CircuitFaultCountDto[] {
-  const counts = new Map<number, CircuitFaultCountDto>();
-
-  for (const fault of faults) {
-    const existing = counts.get(fault.circuit_id);
-    if (existing) {
-      existing.fault_count += 1;
-    } else {
-      counts.set(fault.circuit_id, {
-        circuit_id: fault.circuit_id,
-        circuit_name: fault.circuit_name,
-        substation_id: fault.substation_id,
-        substation_name: fault.substation_name,
-        fault_count: 1,
-      });
-    }
-  }
-
-  return [...counts.values()].sort(
-    (a, b) => b.fault_count - a.fault_count || a.circuit_id - b.circuit_id,
-  );
-}
-
-function rankNodes(faults: readonly LongestFaultDto[]): NodeFaultRankingDto[] {
-  const counts = new Map<string, NodeFaultRankingDto>();
-
-  for (const fault of faults) {
-    const existing = counts.get(fault.node);
-    if (existing) {
-      existing.fault_count += 1;
-    } else {
-      counts.set(fault.node, {
-        node: fault.node,
-        circuit_id: fault.circuit_id,
-        circuit_name: fault.circuit_name,
-        substation_id: fault.substation_id,
-        substation_name: fault.substation_name,
-        fault_count: 1,
-      });
-    }
-  }
-
-  return [...counts.values()].sort(
-    (a, b) =>
-      b.fault_count - a.fault_count ||
-      (a.node < b.node ? -1 : a.node > b.node ? 1 : 0),
-  );
-}
-
-function rankLongestFaults(
-  faults: readonly LongestFaultDto[],
-): LongestFaultDto[] {
-  return [...faults].sort(
-    (a, b) =>
-      b.duration_seconds - a.duration_seconds ||
-      new Date(b.started_at).getTime() - new Date(a.started_at).getTime() ||
-      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-  );
 }
