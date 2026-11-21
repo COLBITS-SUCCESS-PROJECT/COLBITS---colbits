@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { ScopeService } from '../scope/scope.service';
 import { ScopeContext } from '../scope/scope.types';
 import { ActiveFaultsService } from './active-faults.service';
+import { FaultIndicatorsService } from './fault-indicators.service';
 import { FaultsController } from './faults.controller';
 
 const SCOPE: ScopeContext = { kind: 'restricted', userId: 2 };
@@ -24,11 +25,37 @@ function controllerWith() {
     activeFaults: jest.fn().mockResolvedValue(RESPONSE),
     resolvedFaults: jest.fn().mockResolvedValue(RESPONSE),
   };
+  const faultIndicatorsService = {
+    getIndicators: jest.fn().mockResolvedValue({
+      generated_at: '2026-11-21T15:00:00.000Z',
+      period: {
+        from: '2026-10-22T15:00:00.000Z',
+        to: '2026-11-21T15:00:00.000Z',
+      },
+      minimum_duration_filter: {
+        active: false,
+        threshold_minutes: 1,
+        threshold_seconds: 60,
+      },
+      total_faults: 0,
+      duration: { average_seconds: null, max_seconds: null },
+      by_substation: [],
+      by_circuit: [],
+      node_ranking: [],
+      longest_faults: [],
+    }),
+  };
   const controller = new FaultsController(
     activeFaultsService as unknown as ActiveFaultsService,
     scopeService as unknown as ScopeService,
+    faultIndicatorsService as unknown as FaultIndicatorsService,
   );
-  return { controller, scopeService, activeFaultsService };
+  return {
+    controller,
+    scopeService,
+    activeFaultsService,
+    faultIndicatorsService,
+  };
 }
 
 const requestFor = (user?: { sub?: unknown }) =>
@@ -116,6 +143,88 @@ describe('FaultsController (US10 · GET /faults & US16 · GET /faults/resolved)'
       const handler = (
         FaultsController.prototype as unknown as Record<string, object>
       )['findResolved'];
+      const guards: unknown[] =
+        Reflect.getMetadata('__guards__', handler) ?? [];
+
+      expect(guards.map((guard) => (guard as { name: string }).name)).toContain(
+        'AuthGuard',
+      );
+    });
+  });
+
+  describe('GET /faults/indicators (US21 · SCRUM-285, SCRUM-286)', () => {
+    it('forwards parsed date range, scope filters, and min_duration_filter to FaultIndicatorsService', async () => {
+      const { controller, scopeService, faultIndicatorsService } =
+        controllerWith();
+
+      await controller.getIndicators(
+        requestFor({ sub: 2 }),
+        '2026-11-01T00:00:00.000Z',
+        '2026-11-30T23:59:59.000Z',
+        '1',
+        '1',
+        '1',
+        '0000100001',
+        'true',
+        '2',
+      );
+
+      expect(scopeService.resolve).toHaveBeenCalledWith(2);
+      expect(faultIndicatorsService.getIndicators).toHaveBeenCalledWith(SCOPE, {
+        from: new Date('2026-11-01T00:00:00.000Z'),
+        to: new Date('2026-11-30T23:59:59.000Z'),
+        zoneId: 1,
+        substationId: 1,
+        circuitId: 1,
+        nodeId: '0000100001',
+        minDurationFilter: true,
+        minDurationMinutes: 2,
+      });
+    });
+
+    it('rejects invalid date range (from > to) with 400 BadRequestException', async () => {
+      const { controller, faultIndicatorsService } = controllerWith();
+
+      await expect(
+        controller.getIndicators(
+          requestFor({ sub: 2 }),
+          '2026-11-20T00:00:00.000Z',
+          '2026-11-01T00:00:00.000Z',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(faultIndicatorsService.getIndicators).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid min_duration_filter or scope ids with 400 BadRequestException', async () => {
+      const { controller } = controllerWith();
+
+      await expect(
+        controller.getIndicators(
+          requestFor({ sub: 2 }),
+          undefined,
+          undefined,
+          'abc',
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      await expect(
+        controller.getIndicators(
+          requestFor({ sub: 2 }),
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          'maybe',
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('is protected by the authentication guard', () => {
+      const handler = (
+        FaultsController.prototype as unknown as Record<string, object>
+      )['getIndicators'];
       const guards: unknown[] =
         Reflect.getMetadata('__guards__', handler) ?? [];
 

@@ -6,6 +6,7 @@ import { TokenBlacklist } from '../auth/token-blacklist.entity';
 import { Node } from '../nodes/node.entity';
 import { ScopeModule } from '../scope/scope.module';
 import { ActiveFaultsService } from './active-faults.service';
+import { FaultIndicatorsService } from './fault-indicators.service';
 import { FaultsController } from './faults.controller';
 import { FaultsService } from './faults.service';
 
@@ -17,6 +18,6 @@ import { FaultsService } from './faults.service';
     ScopeModule,
   ],
   controllers: [FaultsController],
-  providers: [FaultsService, ActiveFaultsService],
+  providers: [FaultsService, ActiveFaultsService, FaultIndicatorsService],
 })
 export class FaultsModule {}
