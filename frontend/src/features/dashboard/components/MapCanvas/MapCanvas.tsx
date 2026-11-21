@@ -184,8 +184,11 @@ export function MapCanvas({
                 key={item.id}
                 position={item.position}
                 icon={createMarkerIcon(
-                  { kind: 'cluster', count: item.markers.length },
-                  t('map.cluster', { count: item.markers.length })
+                  { kind: 'cluster', count: item.markers.length, state: item.state },
+                  t('map.cluster', {
+                    count: item.markers.length,
+                    state: t(`map.clusterState.${item.state}`),
+                  })
                 )}
                 title={t('map.expandCluster')}
                 eventHandlers={{

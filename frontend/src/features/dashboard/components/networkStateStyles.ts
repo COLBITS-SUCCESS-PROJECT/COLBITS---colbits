@@ -18,6 +18,15 @@ export const STATE_BG_CLASS: Record<NetworkState, string> = {
   UNKNOWN: 'bg-status-unknown',
 }
 
+/** Text color that stays readable on each state background (the count of a cluster). */
+export const STATE_TEXT_CLASS: Record<NetworkState, string> = {
+  CRITICAL: 'text-text-inverse',
+  WARNING: 'text-text-primary',
+  INACTIVE: 'text-text-primary',
+  NORMAL: 'text-text-primary',
+  UNKNOWN: 'text-text-primary',
+}
+
 /** Accent of a resolved alarm card: neutral gray, whatever its severity (Figma M11). */
 export const RESOLVED_BG_CLASS = 'bg-status-offline'
 
