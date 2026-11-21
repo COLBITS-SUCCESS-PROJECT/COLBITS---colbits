@@ -46,23 +46,23 @@ async function removeFixtures(dataSource: DataSource): Promise<void> {
   ]);
   await dataSource.query(
     `DELETE FROM public.user_scopes WHERE user_id IN (
-      SELECT id FROM public.users WHERE email = ANY($1::text[])
+      SELECT id FROM public.users WHERE username = ANY($1::text[])
     )`,
     [Object.values(USERS)],
   );
   await dataSource.query(
-    'DELETE FROM public.users WHERE email = ANY($1::text[])',
+    'DELETE FROM public.users WHERE username = ANY($1::text[])',
     [Object.values(USERS)],
   );
 }
 
 async function login(
   app: INestApplication,
-  email: string,
+  username: string,
 ): Promise<string> {
   const res = await request(app.getHttpServer())
     .post('/auth/login')
-    .send({ email, password: PASSWORD })
+    .send({ username, password: PASSWORD })
     .expect(200);
   return (res.body as { access_token: string }).access_token;
 }
@@ -108,14 +108,14 @@ describe('GET /faults/indicators (US21 · SCRUM-285, SCRUM-286 e2e)', () => {
     // Create test users
     const passwordHash = await bcrypt.hash(PASSWORD, 4);
     await dataSource.query(
-      `INSERT INTO public.users (email, password_hash, role, is_active)
+      `INSERT INTO public.users (username, password_hash, role, is_active)
        VALUES ($1, $3, 'Colbits administrator', true),
               ($2, $3, 'consultation user', true)`,
       [USERS.admin, USERS.circuit1, passwordHash],
     );
     await dataSource.query(
       `INSERT INTO public.user_scopes (user_id, entity_type, entity_id)
-       SELECT id, 'circuit', '1' FROM public.users WHERE email = $1`,
+       SELECT id, 'circuit', '1' FROM public.users WHERE username = $1`,
       [USERS.circuit1],
     );
 
