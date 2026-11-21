@@ -270,7 +270,7 @@ describe('MapCanvas — clusters (SCRUM-63 · F-13)', () => {
     location: null,
     deviceIds: [],
   }
-  const CLUSTER = { name: '2 nodos agrupados' }
+  const CLUSTER = { name: /^2 nodos agrupados/ }
 
   it('groups overlapping markers into one cluster that shows the node count (AC1)', () => {
     renderMap({ nodes: [N1, N3], layers: ['FUSES'] })
@@ -279,6 +279,42 @@ describe('MapCanvas — clusters (SCRUM-63 · F-13)', () => {
     expect(cluster).toHaveAttribute('title', 'Acercar para separar los nodos')
     expect(within(cluster).getByRole('img', CLUSTER)).toHaveAttribute('data-kind', 'cluster')
     expect(screen.queryByRole('img', { name: /ND04821A07/ })).not.toBeInTheDocument()
+  })
+
+  it('colors a cluster with the most severe state of its nodes and says it to screen readers', () => {
+    renderMap({ nodes: [N1, N3], layers: ['FUSES'] })
+
+    const cluster = screen.getByRole('img', { name: '2 nodos agrupados, el más grave en rojo' })
+    expect(cluster.querySelector('.bg-status-critical')).toBeInTheDocument()
+  })
+
+  it('counts the transformer state of a grouped node when that layer is shown', () => {
+    const transformerDown: NetworkNode = {
+      ...N3,
+      fuseState: 'NORMAL',
+      transformerState: 'CRITICAL',
+    }
+    const allNormal: NetworkNode = { ...N1, fuseState: 'NORMAL', transformerState: 'NORMAL' }
+
+    renderMap({ nodes: [allNormal, transformerDown], layers: ['FUSES', 'TRANSFORMERS'] })
+
+    expect(
+      screen.getByRole('img', { name: '2 nodos agrupados, el más grave en rojo' })
+    ).toBeInTheDocument()
+  })
+
+  it('ignores the state of a hidden layer', () => {
+    const transformerDown: NetworkNode = {
+      ...N3,
+      fuseState: 'NORMAL',
+      transformerState: 'CRITICAL',
+    }
+    const allNormal: NetworkNode = { ...N1, fuseState: 'NORMAL', transformerState: 'NORMAL' }
+
+    renderMap({ nodes: [allNormal, transformerDown], layers: ['FUSES'] })
+
+    const cluster = screen.getByRole('img', { name: '2 nodos agrupados, todos en verde' })
+    expect(cluster.querySelector('.bg-status-online')).toBeInTheDocument()
   })
 
   it('shows each node again when the user zooms in until the markers separate (AC2)', () => {
