@@ -4,7 +4,7 @@ story: SCRUM-63
 title: '[F-13] Group overlapping node markers into a single cluster marker'
 status: IN_REVIEW
 owner: Paola
-last_updated: 2026-10-16
+last_updated: 2026-11-20
 ---
 
 # SCRUM-63 — [F-13] Group overlapping node markers into a single cluster marker
@@ -38,7 +38,7 @@ Two markers overlap when their drawings touch on screen at the current zoom, usi
 | What | Where |
 |---|---|
 | Node colors by state (F-15 to F-18) | Monica (F-15 to F-17), Paola (F-18) |
-| Showing inside a cluster the state of its nodes, e.g. a red cluster when one node is critical | Not in any requirement — Q1 |
+| Showing inside a cluster the state of its nodes, e.g. a red cluster when one node is critical | [SCRUM-305](./SCRUM-305.md), requested by Colbits on 2026-11-20 (Q1) |
 | Reaching each node of a group that still overlaps at the deepest zoom | Q2 |
 
 ## 2. Acceptance criteria
@@ -50,7 +50,7 @@ Two markers overlap when their drawings touch on screen at the current zoom, usi
 | AC3 | **Given** two nodes whose markers do not overlap, **when** the map is shown, **then** both appear as separate markers. | Automated | `MapCanvas/clusterMarkers.test.ts` |
 | AC4 | **Given** the user shows both layers, **when** fuse + transformer markers become wider (58 px), **then** the grouping uses the new size. | Automated | `MapCanvas/clusterMarkers.test.ts` |
 | AC5 | **Given** a cluster on the map, **when** the user clicks it or presses Enter on it, **then** the map zooms in on it, to the first zoom where its nodes separate. *(PO decision 2026-10-16)* | Automated | `MapCanvas/MapCanvas.test.tsx` |
-| AC6 | **Given** the map with clusters, **when** it is compared with the Figma *Map Marker* component, **then** the cluster marker matches it: dark circle, white border and the node count. | Manual | Section 8 |
+| AC6 | **Given** the map with clusters, **when** it is compared with the Figma *Map Marker* component, **then** the cluster marker matches it: circle, white border and the node count. Since SCRUM-305 the circle has the color of its most severe node instead of the dark color. | Manual | Section 8 |
 
 The F-12 acceptance tests (SCRUM-77) must keep passing: nodes whose markers do not overlap are still drawn one by one at their coordinates.
 
@@ -84,7 +84,7 @@ No new data. Grouping is calculated in the browser from the node list of SCRUM-7
 
 | ID | Question | Owner | Blocking | Answer |
 |---|---|---|---|---|
-| Q1 | Should a cluster show the worst state of its nodes (e.g. red when one is critical)? Today it is neutral, as in Figma. | Paola (PO) / Colbits | No | OPEN |
+| Q1 | Should a cluster show the worst state of its nodes (e.g. red when one is critical)? Today it is neutral, as in Figma. | Paola (PO) / Colbits | No | Yes: Colbits asked for it on 2026-11-20 → [SCRUM-305](./SCRUM-305.md) |
 | Q2 | Nodes that still overlap at the deepest zoom (19) stay grouped. How should the user reach each one: a list, or spreading them out on click? | Paola (PO) | No | OPEN — to decide with the node detail story |
 
 ## 8. Acceptance test results
