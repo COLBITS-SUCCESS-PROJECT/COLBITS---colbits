@@ -3,9 +3,23 @@ import { Brackets, Repository } from 'typeorm';
 import { FaultsService } from '../faults/faults.service';
 import { Node } from '../nodes/node.entity';
 import { ScopeContext } from '../scope/scope.types';
+import { SOURCE_ALARM_PATTERNS } from '../faults/source-alarms';
 import { HistoryQuery, HistorySelection } from './history-params';
-import { SELECTION_OVERLAP_SQL } from './history-selection';
-import { HistoryService } from './history.service';
+import {
+  FUSE_OPENING_PATTERN,
+  HISTORY_FUSE_EVENTS_SQL,
+  HISTORY_NO_VOLTAGE_STARTS_SQL,
+  type HistoryFuseEventRow,
+  type HistoryNoVoltageStartRow,
+} from './history-queries';
+import {
+  DEVICE_SCOPED_FUSES_SQL,
+  SELECTION_OVERLAP_SQL,
+} from './history-selection';
+import { type HistoryArea, HistoryService } from './history.service';
+
+/** An area with no device-level restriction (what resolveArea returns without device assignments). */
+const everyFuseOf = (nodes: string[]): HistoryArea => ({ nodes, fuses: null });
 
 const NOT_FOUND = 'Selected scope element not found';
 const NO_SELECTION: HistorySelection = {
@@ -86,13 +100,36 @@ function bracketsConditions(condition: unknown): WhereCall[] {
 function serviceWith(options?: {
   nodeNames?: string[];
   overlapRows?: unknown[];
+  fuseRows?: HistoryFuseEventRow[];
+  noVoltageRows?: HistoryNoVoltageStartRow[];
+  deviceRows?: unknown[];
+  windowMinutes?: number;
 }) {
   const { builder, recorded } = fakeQueryBuilder(options?.nodeNames ?? []);
+  // Each read answers with its own rows, keyed by the SQL constant (as active-faults.service.spec).
   const nodesRepository = {
-    query: jest.fn().mockResolvedValue(options?.overlapRows ?? []),
+    query: jest.fn((sql: string, _parameters: unknown[]): Promise<unknown> => {
+      if (sql === SELECTION_OVERLAP_SQL) {
+        return Promise.resolve(options?.overlapRows ?? []);
+      }
+      if (sql === HISTORY_FUSE_EVENTS_SQL) {
+        return Promise.resolve(options?.fuseRows ?? []);
+      }
+      if (sql === HISTORY_NO_VOLTAGE_STARTS_SQL) {
+        return Promise.resolve(options?.noVoltageRows ?? []);
+      }
+      if (sql === DEVICE_SCOPED_FUSES_SQL) {
+        return Promise.resolve(
+          options?.deviceRows ?? [{ has_device_scope: false, fuses: null }],
+        );
+      }
+      return Promise.reject(new Error('unexpected SQL'));
+    }),
     createQueryBuilder: jest.fn().mockReturnValue(builder),
   };
-  const faultsService = { getGroupingWindowMinutes: () => 5 };
+  const faultsService = {
+    getGroupingWindowMinutes: () => options?.windowMinutes ?? 5,
+  };
   const service = new HistoryService(
     nodesRepository as unknown as Repository<Node>,
     faultsService as unknown as FaultsService,
@@ -462,5 +499,409 @@ describe('HistoryService.history (SCRUM-283 · US20)', () => {
     await expect(
       service.history(RESTRICTED, queryOf(selectionOf({ zoneIds: [1] })), NOW),
     ).rejects.toThrow(NOT_FOUND);
+  });
+});
+
+describe('HistoryService.fuseFaultsStartedIn (reusable historical fault reader)', () => {
+  const FROM = new Date('2026-10-21T05:00:00.000Z');
+  const TO = new Date('2026-10-24T05:00:00.000Z');
+  const AS_OF = new Date('2026-11-20T15:20:00.000Z');
+  const at = (base: Date, minutes: number) =>
+    new Date(base.getTime() + minutes * 60_000).toISOString();
+  const row = (
+    set: number | string,
+    phase: string,
+    isSet: boolean,
+    recordedAt: string | Date,
+  ): HistoryFuseEventRow => ({
+    fuses_set_id: set,
+    fuse_id: `fuse-${set}-${phase}`,
+    phase,
+    is_set: isSet,
+    recorded_at: recordedAt,
+  });
+
+  it('returns no faults and reads nothing without nodes', async () => {
+    const { service, nodesRepository } = serviceWith();
+
+    await expect(
+      service.fuseFaultsStartedIn(everyFuseOf([]), {
+        from: FROM,
+        to: TO,
+        asOf: AS_OF,
+      }),
+    ).resolves.toEqual([]);
+    expect(nodesRepository.query).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['from equal to to', { from: FROM, to: FROM, asOf: AS_OF }],
+    ['from after to', { from: TO, to: FROM, asOf: AS_OF }],
+    ['an invalid from', { from: new Date(Number.NaN), to: TO, asOf: AS_OF }],
+    ['an invalid asOf', { from: FROM, to: TO, asOf: new Date(Number.NaN) }],
+  ])('rejects %s with a RangeError', async (_label, range) => {
+    const { service, nodesRepository } = serviceWith();
+
+    await expect(
+      service.fuseFaultsStartedIn(everyFuseOf(['n1']), range),
+    ).rejects.toThrow(RangeError);
+    expect(nodesRepository.query).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the default window, asOf after to', 5, AS_OF, AS_OF],
+    ['a configured window of 3 minutes', 3, AS_OF, AS_OF],
+    // A `to` in the future: events up to `to` are still read (the clocks may differ).
+    ['asOf before to', 5, new Date('2026-10-22T00:00:00.000Z'), TO],
+  ])(
+    'reads from (from - window) up to max(to, asOf) with %s',
+    async (_label, windowMinutes, asOf, readUntil) => {
+      const { service, nodesRepository } = serviceWith({ windowMinutes });
+      const nodes = ['n1', 'n2'];
+
+      await service.fuseFaultsStartedIn(everyFuseOf(nodes), {
+        from: FROM,
+        to: TO,
+        asOf,
+      });
+
+      expect(nodesRepository.query).toHaveBeenCalledWith(
+        HISTORY_FUSE_EVENTS_SQL,
+        [
+          ['n1', 'n2'],
+          FUSE_OPENING_PATTERN,
+          at(FROM, -windowMinutes),
+          FROM.toISOString(),
+          TO.toISOString(),
+          readUntil.toISOString(),
+          null,
+        ],
+      );
+      // The caller's array is passed as a copy.
+      const parameters = nodesRepository.query.mock.calls[0][1] as unknown[];
+      expect(parameters[0]).not.toBe(nodes);
+    },
+  );
+
+  it('groups with the live rule and keeps the faults that start in [from, to), complete as of asOf', async () => {
+    const { service } = serviceWith({
+      fuseRows: [
+        // Set 1: two openings 2 minutes apart (one fault) that close only after `to`.
+        row(1, 'R', true, at(FROM, 60)),
+        row(1, 'S', true, at(FROM, 62)),
+        row(1, 'R', false, at(TO, 60)),
+        row(1, 'S', false, at(TO, 120)),
+        // Set 2: open before `from` (the seed) and SET again inside: started before, left out.
+        row(2, 'R', true, at(FROM, -10)),
+        row(2, 'R', true, at(FROM, 300)),
+        // Set 3: opens exactly at `from` (included); set 4 exactly at `to` (excluded).
+        row(3, 'T', true, FROM.toISOString()),
+        row(4, 'R', true, TO.toISOString()),
+        // Set "5" as text and a Date instant, the way pg may return them.
+        row('5', 'S', true, new Date(at(FROM, 120))),
+      ],
+    });
+
+    const faults = await service.fuseFaultsStartedIn(everyFuseOf(['n1']), {
+      from: FROM,
+      to: TO,
+      asOf: AS_OF,
+    });
+
+    expect(faults.map((fault) => fault.fusesSetId)).toEqual([3, 1, 5]);
+    const [set3, set1, set5] = faults;
+    expect(set3.startedAt.toISOString()).toBe(FROM.toISOString());
+    expect(set3.state).toBe('OPEN');
+    expect(set1.openings.map((opening) => opening.phase)).toEqual(['R', 'S']);
+    expect(set1.state).toBe('RESOLVED');
+    expect(set1.endedAt?.toISOString()).toBe(at(TO, 120));
+    expect(set5.startedAt.toISOString()).toBe(at(FROM, 120));
+  });
+
+  it('groups with the configured window (a gap equal to the window starts a new fault)', async () => {
+    const fuseRows = [
+      row(1, 'R', true, at(FROM, 60)),
+      row(1, 'S', true, at(FROM, 63)),
+    ];
+    const range = { from: FROM, to: TO, asOf: AS_OF };
+
+    const three = serviceWith({ windowMinutes: 3, fuseRows }).service;
+    const five = serviceWith({ windowMinutes: 5, fuseRows }).service;
+
+    await expect(
+      three.fuseFaultsStartedIn(everyFuseOf(['n1']), range),
+    ).resolves.toHaveLength(2);
+    await expect(
+      five.fuseFaultsStartedIn(everyFuseOf(['n1']), range),
+    ).resolves.toHaveLength(1);
+  });
+});
+
+describe('HistoryService.noVoltageStartsIn (loss-of-voltage episode starts)', () => {
+  const FROM = new Date('2026-10-21T05:00:00.000Z');
+  const TO = new Date('2026-10-24T05:00:00.000Z');
+
+  it('returns no starts and reads nothing without nodes', async () => {
+    const { service, nodesRepository } = serviceWith();
+
+    await expect(
+      service.noVoltageStartsIn(everyFuseOf([]), FROM, TO),
+    ).resolves.toEqual([]);
+    expect(nodesRepository.query).not.toHaveBeenCalled();
+  });
+
+  it('passes the nodes, the three source-alarm patterns and the range, and maps the starts to dates', async () => {
+    const { service, nodesRepository } = serviceWith({
+      noVoltageRows: [
+        { source_id: 'f1', started_at: '2026-10-21T10:00:00.000Z' },
+        { source_id: 'f2', started_at: new Date('2026-10-22T10:00:00.000Z') },
+      ],
+    });
+
+    const starts = await service.noVoltageStartsIn(
+      everyFuseOf(['n1']),
+      FROM,
+      TO,
+    );
+
+    expect(nodesRepository.query).toHaveBeenCalledWith(
+      HISTORY_NO_VOLTAGE_STARTS_SQL,
+      [
+        ['n1'],
+        ...SOURCE_ALARM_PATTERNS,
+        FROM.toISOString(),
+        TO.toISOString(),
+        null,
+      ],
+    );
+    expect(starts.map((start) => start.toISOString())).toEqual([
+      '2026-10-21T10:00:00.000Z',
+      '2026-10-22T10:00:00.000Z',
+    ]);
+  });
+});
+
+describe('HistoryService device-level authorization (F-10, F-08)', () => {
+  const FROM = new Date('2026-10-21T05:00:00.000Z');
+  const TO = new Date('2026-10-24T05:00:00.000Z');
+  const AS_OF = new Date('2026-11-20T15:20:00.000Z');
+  const NOW = AS_OF;
+  const deviceArea: HistoryArea = { nodes: ['n1'], fuses: ['n1-R'] };
+
+  describe('resolveArea', () => {
+    it('does not restrict the fuses of an unrestricted user (no device query)', async () => {
+      const { service, nodesRepository } = serviceWith({ nodeNames: ['n1'] });
+
+      await expect(
+        service.resolveArea(UNRESTRICTED, NO_SELECTION),
+      ).resolves.toEqual({ nodes: ['n1'], fuses: null });
+      expect(nodesRepository.query).not.toHaveBeenCalled();
+    });
+
+    it('reads nothing for an empty scope', async () => {
+      const { service, nodesRepository } = serviceWith();
+
+      await expect(service.resolveArea(EMPTY, NO_SELECTION)).resolves.toEqual({
+        nodes: [],
+        fuses: null,
+      });
+      expect(nodesRepository.query).not.toHaveBeenCalled();
+    });
+
+    it('skips the device query when the selection covers no nodes', async () => {
+      const { service, nodesRepository } = serviceWith({ nodeNames: [] });
+
+      await service.resolveArea(RESTRICTED, NO_SELECTION);
+
+      expect(nodesRepository.query).not.toHaveBeenCalled();
+    });
+
+    it('keeps node-level scope exact for a user without device assignments', async () => {
+      const { service, nodesRepository } = serviceWith({
+        nodeNames: ['n1', 'n2'],
+        deviceRows: [{ has_device_scope: false, fuses: null }],
+      });
+
+      await expect(
+        service.resolveArea(RESTRICTED, NO_SELECTION),
+      ).resolves.toEqual({ nodes: ['n1', 'n2'], fuses: null });
+      expect(nodesRepository.query).toHaveBeenCalledWith(
+        DEVICE_SCOPED_FUSES_SQL,
+        [['n1', 'n2'], 7],
+      );
+    });
+
+    it('limits a user with device assignments to the authorized fuses', async () => {
+      const { service } = serviceWith({
+        nodeNames: ['n1', 'n2'],
+        deviceRows: [{ has_device_scope: true, fuses: ['n1-R', 'n2-R'] }],
+      });
+
+      await expect(
+        service.resolveArea(RESTRICTED, NO_SELECTION),
+      ).resolves.toEqual({ nodes: ['n1', 'n2'], fuses: ['n1-R', 'n2-R'] });
+    });
+
+    it('fails closed: device assignments with no fuse list authorize no fuse', async () => {
+      const { service } = serviceWith({
+        nodeNames: ['n1'],
+        deviceRows: [{ has_device_scope: true, fuses: null }],
+      });
+
+      await expect(
+        service.resolveArea(RESTRICTED, NO_SELECTION),
+      ).resolves.toEqual({ nodes: ['n1'], fuses: [] });
+    });
+
+    it('fails when the device query returns no row', async () => {
+      const { service } = serviceWith({ nodeNames: ['n1'], deviceRows: [] });
+
+      await expect(
+        service.resolveArea(RESTRICTED, NO_SELECTION),
+      ).rejects.toThrow('The device-scope query returned no row');
+    });
+  });
+
+  it('passes the authorized fuses to both historical reads', async () => {
+    const { service, nodesRepository } = serviceWith();
+
+    await service.fuseFaultsStartedIn(deviceArea, {
+      from: FROM,
+      to: TO,
+      asOf: AS_OF,
+    });
+    await service.noVoltageStartsIn(deviceArea, FROM, TO);
+
+    const parameters = nodesRepository.query.mock.calls.map(([sql, values]) => [
+      sql,
+      values[values.length - 1],
+    ]);
+    expect(parameters).toEqual([
+      [HISTORY_FUSE_EVENTS_SQL, ['n1-R']],
+      [HISTORY_NO_VOLTAGE_STARTS_SQL, ['n1-R']],
+    ]);
+  });
+
+  it('reads nothing when no fuse is authorized (fail closed)', async () => {
+    const { service, nodesRepository } = serviceWith();
+    const none: HistoryArea = { nodes: ['n1'], fuses: [] };
+
+    await expect(
+      service.fuseFaultsStartedIn(none, { from: FROM, to: TO, asOf: AS_OF }),
+    ).resolves.toEqual([]);
+    await expect(service.noVoltageStartsIn(none, FROM, TO)).resolves.toEqual(
+      [],
+    );
+    expect(nodesRepository.query).not.toHaveBeenCalled();
+  });
+
+  it('applies the device restriction to GET /history counts', async () => {
+    const { service, nodesRepository } = serviceWith({
+      nodeNames: ['n1'],
+      deviceRows: [{ has_device_scope: true, fuses: ['n1-R'] }],
+    });
+
+    await service.history(RESTRICTED, queryOf(), NOW);
+
+    const reads = nodesRepository.query.mock.calls.filter(
+      ([sql]) =>
+        sql === HISTORY_FUSE_EVENTS_SQL ||
+        sql === HISTORY_NO_VOLTAGE_STARTS_SQL,
+    );
+    expect(reads).toHaveLength(2);
+    for (const [, values] of reads) {
+      expect(values[values.length - 1]).toEqual(['n1-R']);
+    }
+  });
+
+  it('answers zeros without reading events when a device user has no authorized fuse', async () => {
+    const { service, nodesRepository } = serviceWith({
+      nodeNames: ['n1'],
+      deviceRows: [{ has_device_scope: true, fuses: [] }],
+    });
+
+    const response = await service.history(RESTRICTED, queryOf(), NOW);
+
+    expect(response.totals).toEqual({ fuse_faults: 0, voltage_alarms: 0 });
+    expect(nodesRepository.query.mock.calls.map(([sql]) => sql)).toEqual([
+      DEVICE_SCOPED_FUSES_SQL,
+    ]);
+  });
+});
+
+describe('HistoryService.history with historical events (F-66)', () => {
+  const NOW = new Date('2026-11-20T15:20:00.000Z');
+  const fuse = (
+    set: number,
+    fuseId: string,
+    phase: string,
+    recordedAt: string,
+  ): HistoryFuseEventRow => ({
+    fuses_set_id: set,
+    fuse_id: fuseId,
+    phase,
+    is_set: true,
+    recorded_at: recordedAt,
+  });
+
+  it('counts fuse faults and loss-of-voltage alarms in the bucket of their start', async () => {
+    const { service, nodesRepository } = serviceWith({
+      nodeNames: ['n1', 'n2'],
+      fuseRows: [
+        // Day 1: one fault of two openings (counted once) and one starting 1 ms before day 2.
+        fuse(1, 'a-R', 'R', '2026-10-21T10:00:00.000Z'),
+        fuse(1, 'a-S', 'S', '2026-10-21T10:01:00.000Z'),
+        fuse(2, 'b-R', 'R', '2026-10-22T04:59:59.999Z'),
+        // Day 3: one fault starting 1 ms before the end of the range.
+        fuse(3, 'c-R', 'R', '2026-10-24T04:59:59.999Z'),
+      ],
+      noVoltageRows: [
+        { source_id: 'a-R', started_at: '2026-10-22T05:00:00.000Z' },
+        { source_id: 'b-T', started_at: '2026-10-22T06:00:00.000Z' },
+      ],
+    });
+
+    const response = await service.history(UNRESTRICTED, queryOf(), NOW);
+
+    expect(
+      response.series.map((bucket) => [
+        bucket.start,
+        bucket.fuse_faults,
+        bucket.voltage_alarms,
+      ]),
+    ).toEqual([
+      ['2026-10-21T05:00:00.000Z', 2, 0],
+      ['2026-10-22T05:00:00.000Z', 0, 2],
+      ['2026-10-23T05:00:00.000Z', 1, 0],
+    ]);
+    expect(response.totals).toEqual({ fuse_faults: 3, voltage_alarms: 2 });
+
+    const fuseCall = nodesRepository.query.mock.calls.find(
+      ([sql]) => sql === HISTORY_FUSE_EVENTS_SQL,
+    );
+    const fuseParameters = fuseCall?.[1] as unknown[];
+    expect(fuseParameters[0]).toEqual(['n1', 'n2']);
+    // The faults are complete as of the request time.
+    expect(fuseParameters[5]).toBe(NOW.toISOString());
+  });
+
+  it('reads no events when the selection covers no nodes', async () => {
+    const { service, nodesRepository } = serviceWith({
+      nodeNames: [],
+      overlapRows: [{ type: 'circuit', id: '9', overlaps_scope: true }],
+    });
+
+    const response = await service.history(
+      RESTRICTED,
+      queryOf(selectionOf({ circuitIds: [9] })),
+      NOW,
+    );
+
+    expect(response.totals).toEqual({ fuse_faults: 0, voltage_alarms: 0 });
+    expect(nodesRepository.query).toHaveBeenCalledTimes(1);
+    expect(nodesRepository.query).toHaveBeenCalledWith(
+      SELECTION_OVERLAP_SQL,
+      expect.any(Array),
+    );
   });
 });

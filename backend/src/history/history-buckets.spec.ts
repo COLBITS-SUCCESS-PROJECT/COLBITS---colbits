@@ -268,3 +268,118 @@ describe('buildSeries', () => {
     ).toEqual({ buckets: [], totals: { fuseFaults: 0, voltageAlarms: 0 } });
   });
 });
+
+describe('bucket edge cases (SCRUM-283 review)', () => {
+  const starts = (buckets: ReturnType<typeof bucketsBetween>) =>
+    buckets.map((bucket) => iso(bucket.start));
+
+  it('returns one bucket, partial at both ends, for a range inside a single day or week', () => {
+    const day = bucketsBetween(
+      at('2024-10-07T10:00:00.000Z'),
+      at('2024-10-07T20:00:00.000Z'),
+      'day',
+    );
+    expect(day).toEqual([
+      {
+        start: at('2024-10-07T05:00:00.000Z'),
+        end: at('2024-10-08T05:00:00.000Z'),
+        isPartial: true,
+      },
+    ]);
+
+    const week = bucketsBetween(
+      at('2024-10-09T05:00:00.000Z'),
+      at('2024-10-11T05:00:00.000Z'),
+      'week',
+    );
+    expect(starts(week)).toEqual(['2024-10-07T05:00:00.000Z']);
+    expect(week[0].isPartial).toBe(true);
+  });
+
+  it('marks only the last weekly bucket partial for a Monday start and a mid-week end', () => {
+    const buckets = bucketsBetween(
+      at('2024-10-14T05:00:00.000Z'),
+      new Date(Date.parse('2024-10-14T05:00:00.000Z') + 66 * DAY_MS),
+      'week',
+    );
+
+    expect(buckets[0].isPartial).toBe(false);
+    expect(buckets[buckets.length - 1].isPartial).toBe(true);
+    expect(buckets.slice(1, -1).every((bucket) => !bucket.isPartial)).toBe(
+      true,
+    );
+  });
+
+  it('crosses a year boundary and a leap day with plain calendar days', () => {
+    expect(
+      starts(
+        bucketsBetween(
+          at('2024-12-30T05:00:00.000Z'),
+          at('2025-01-02T05:00:00.000Z'),
+          'day',
+        ),
+      ),
+    ).toEqual([
+      '2024-12-30T05:00:00.000Z',
+      '2024-12-31T05:00:00.000Z',
+      '2025-01-01T05:00:00.000Z',
+    ]);
+    expect(
+      starts(
+        bucketsBetween(
+          at('2028-02-28T05:00:00.000Z'),
+          at('2028-03-02T05:00:00.000Z'),
+          'day',
+        ),
+      ),
+    ).toEqual([
+      '2028-02-28T05:00:00.000Z',
+      '2028-02-29T05:00:00.000Z',
+      '2028-03-01T05:00:00.000Z',
+    ]);
+  });
+
+  it('covers 366 days with 53 weekly buckets from a Monday and 54 from a Sunday', () => {
+    const fromMonday = at('2025-01-06T05:00:00.000Z');
+    const fromSunday = at('2025-01-12T05:00:00.000Z');
+    const plus366 = (date: Date) => new Date(date.getTime() + 366 * DAY_MS);
+
+    expect(
+      bucketsBetween(fromMonday, plus366(fromMonday), 'week'),
+    ).toHaveLength(53);
+    expect(
+      bucketsBetween(fromSunday, plus366(fromSunday), 'week'),
+    ).toHaveLength(54);
+  });
+
+  it('handles instants around the Unix epoch (buckets that start before it)', () => {
+    const epoch = at('1970-01-01T00:00:00.000Z'); // Wednesday 31 Dec 1969, 19:00 in Bogota
+
+    expect(iso(bucketStartOf(epoch, 'day'))).toBe('1969-12-31T05:00:00.000Z');
+    expect(iso(bucketStartOf(epoch, 'week'))).toBe('1969-12-29T05:00:00.000Z');
+    expect(
+      starts(bucketsBetween(epoch, at('1970-01-03T00:00:00.000Z'), 'day')),
+    ).toEqual([
+      '1969-12-31T05:00:00.000Z',
+      '1970-01-01T05:00:00.000Z',
+      '1970-01-02T05:00:00.000Z',
+    ]);
+  });
+
+  it('buckets instants given with other offsets in Bogota time', () => {
+    // 10:30 at +05:30 is 05:00Z, Bogota midnight; 00:00 at +05:30 the day after is 18:30Z.
+    expect(
+      iso(bucketStartOf(new Date('2024-10-07T10:30:00+05:30'), 'day')),
+    ).toBe('2024-10-07T05:00:00.000Z');
+    expect(
+      iso(bucketStartOf(new Date('2024-10-08T00:00:00+05:30'), 'day')),
+    ).toBe('2024-10-07T05:00:00.000Z');
+    expect(
+      bucketsBetween(
+        new Date('2024-10-07T10:30:00+05:30'),
+        new Date('2024-10-10T10:30:00+05:30'),
+        'day',
+      ).every((bucket) => !bucket.isPartial),
+    ).toBe(true);
+  });
+});

@@ -81,3 +81,53 @@ export interface SelectionOverlapRow {
   id: string;
   overlaps_scope: boolean;
 }
+
+/**
+ * Device-level authorization of the historical reads (F-10, F-08). The shared node scope
+ * (applyNodeScope) lets a device assignment in through its whole node; the historical counts must
+ * not include the other devices of that node. For a restricted user with at least one `device`
+ * assignment, this returns the fuses (fuses.custom_id) of the given nodes the user may see:
+ *   - every fuse of a node covered by a node, circuit, substation or zone assignment;
+ *   - otherwise only the fuses matched by a device assignment, with the same matching as
+ *     applyNodeScope (fuses.current_hw_id or fuses.custom_id). A transformer (SMAC) assignment
+ *     authorizes no fuse, so it adds no Falcon event.
+ * A user without device assignments gets has_device_scope = false and fuses = NULL: node-level scope
+ * is then exact and nothing is restricted further (the list is not even built).
+ *
+ * Parameters: $1 text[] node names (already inside the user's node scope), $2 integer user id.
+ */
+export const DEVICE_SCOPED_FUSES_SQL = `
+  WITH device_scope AS (
+    SELECT EXISTS (
+      SELECT 1 FROM public.user_scopes us
+      WHERE us.user_id = $2 AND us.entity_type = 'device'
+    ) AS present
+  )
+  SELECT ds.present AS has_device_scope,
+         CASE WHEN ds.present THEN COALESCE((
+           SELECT array_agg(f.custom_id ORDER BY f.custom_id)
+           FROM public.fuses_sets fs
+           JOIN public.fuses f ON f.fuses_set_id = fs.id
+           JOIN public.nodes n ON n.name = fs.node_id
+           JOIN public.circuits c ON c.id = n.circuit_id
+           JOIN public.substations s ON s.id = c.substation_id
+           WHERE fs.node_id = ANY($1::text[])
+             AND EXISTS (
+               SELECT 1 FROM public.user_scopes us
+               WHERE us.user_id = $2
+                 AND ((us.entity_type = 'node' AND us.entity_id = n.name)
+                   OR (us.entity_type = 'circuit' AND us.entity_id = c.id::text)
+                   OR (us.entity_type = 'substation' AND us.entity_id = s.id::text)
+                   OR (us.entity_type = 'zone' AND us.entity_id = s.zone_id::text)
+                   OR (us.entity_type = 'device'
+                       AND (f.current_hw_id = us.entity_id OR f.custom_id = us.entity_id)))
+             )
+         ), ARRAY[]::text[]) END AS fuses
+  FROM device_scope ds
+`;
+
+export interface DeviceScopedFusesRow {
+  has_device_scope: boolean;
+  /** NULL without device assignments; otherwise the authorized fuses (possibly empty). */
+  fuses: string[] | null;
+}
