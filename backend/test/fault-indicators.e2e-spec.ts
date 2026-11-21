@@ -134,8 +134,8 @@ describe('GET /faults/indicators (US21 · SCRUM-285, SCRUM-286 e2e)', () => {
 
     for (const [hwId, recordedAt, eventCode, customId, eventType] of alarmRows) {
       await dataSource.query(
-        `INSERT INTO public.alarms (hw_id, recorded_at, event_code, custom_id, event_type)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO public.alarms (hw_id, recorded_at, event_code, custom_id, event_type, alarm, value)
+         VALUES ($1, $2, $3, $4, $5, 'e2e', NULL)`,
         [hwId, recordedAt, eventCode, customId, eventType],
       );
     }
