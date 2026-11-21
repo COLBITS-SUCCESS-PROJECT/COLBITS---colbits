@@ -2,7 +2,7 @@
 
 Platform for visualization, alerting and intelligent querying of time-series data for IoT electrical grids
 
-Version 2.3 · 16 November 2026 · GDSD 2026–27
+Version 2.4 · 20 November 2026 · GDSD 2026–27
 
 ## About this document
 
@@ -13,7 +13,7 @@ This document states the requirements of the COLBITS platform using the template
 | Section | IDs | Requirements |
 | --- | --- | --- |
 | 1.1 Authentication, roles and data scope | F-01 to F-11 | 11 |
-| 1.2 Map and node state | F-12 to F-35 | 24 |
+| 1.2 Map and node state | F-12 to F-35 and F-101 | 25 |
 | 1.3 Device inactivity | F-36 to F-46 | 11 |
 | 1.4 Alarms and fault classification | F-47 to F-58 | 12 |
 | 1.5 Alarm state | F-59 to F-63 | 5 |
@@ -47,7 +47,7 @@ F-01 to F-11
 
 ### 1.2 Map and node state
 
-F-12 to F-35
+F-12 to F-35 and F-101
 
 | ID | Requirement statement | Type | Source | Rationale | Status | Priority | Verification |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -75,6 +75,7 @@ F-12 to F-35
 | F-33 | When the user filters the map by zone, substation or circuit, the system shall show only the nodes that belong to the selected element. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Users work one area at a time. | Validated | High | Acceptance test |
 | F-34 | When the user searches for a node or device identifier, the system shall center the map on the matching node. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Field teams report problems by pole or device code. | Validated | High | Acceptance test |
 | F-35 | When the user selects an alarm in the alarm listing, the system shall center the map on the corresponding node and highlight it. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Connects the fault list with its location. | Validated | Medium | Acceptance test |
+| F-101 | While two or more nodes are grouped in a cluster marker, the system shall show the cluster in the color of the most severe state among its nodes on the layers shown, ranking red above yellow, yellow above gray and gray above green. | Functional | Colbits, client request in the meeting of 20 November 2026 | When the map is zoomed out, a neutral cluster can hide an open fuse or a phase down; the color of its most severe node shows where to look first. The order is the one F-15 to F-22 use for a single node. | Validated | High | Acceptance test |
 
 ### 1.3 Device inactivity
 
@@ -259,7 +260,7 @@ Every requirement has at least one pass-or-fail check. Functional criteria use G
 | F-10 | Given an authenticated consultation user assigned only to Circuit A, when they call any service, counts and aggregates included, then only data from Circuit A is returned. |
 | F-11 | Given an active session, when the user logs out and presses the browser's back button, then no data is shown and they remain on the login page. |
 
-#### Map and node state (F-12 to F-35)
+#### Map and node state (F-12 to F-35 and F-101)
 
 | ID | Acceptance criteria |
 | --- | --- |
@@ -287,6 +288,7 @@ Every requirement has at least one pass-or-fail check. Functional criteria use G
 | F-33 | Given nodes in circuits C1 and C2, when the user filters by C1, then only C1's nodes remain. The filter offers only elements within the user's scope. |
 | F-34 | Given a node identifier and the identifier of a device installed on another node, when the user searches each one, then the map centers on the corresponding node. An unknown identifier, or one outside the user's scope, shows no results. |
 | F-35 | Given the alarm listing next to the map, when the user selects an alarm, then the map centers on that alarm's node and highlights it. |
+| F-101 | Given a cluster where one node is red and the others are green, when the map is shown zoomed out, then the cluster is red. Given a cluster whose most severe node is yellow, then the cluster is yellow, and a cluster is green only when every node in it is green. Given a node whose transformer is red while every fuse is green, then its cluster is red while the transformer layer is shown and green when only the fuse layer is shown. |
 
 #### Device inactivity (F-36 to F-46)
 
