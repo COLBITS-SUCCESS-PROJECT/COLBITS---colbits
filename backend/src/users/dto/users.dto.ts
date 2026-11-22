@@ -45,14 +45,8 @@ export class CreateUserDto {
   })
   password: string;
 
-  @ApiPropertyOptional({
-    enum: [...USER_ROLES],
-    default: 'consultation user',
-    example: 'consultation user',
-    description:
-      'Platform role: only Colbits administrator or consultation user (F-03). Defaults to consultation user.',
-  })
-  role?: UserRole;
+  // No role (F-03): POST /users always creates a consultation user. The service still reads a
+  // submitted `role` from the raw body and rejects any value other than 'consultation user'.
 
   @ApiPropertyOptional({
     type: () => [ScopeAssignmentDto],
@@ -75,12 +69,7 @@ export class UpdateUserDto {
   })
   password?: string;
 
-  @ApiPropertyOptional({
-    enum: [...USER_ROLES],
-    example: 'consultation user',
-    description: 'Updated role (F-03, F-05).',
-  })
-  role?: UserRole;
+  // No role (F-03): a user's role cannot be changed, and a body with `role` is rejected with 400.
 
   @ApiPropertyOptional({
     example: true,

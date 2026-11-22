@@ -72,9 +72,9 @@ export class UsersController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary:
-      'Create a new user account with optional scope assignments (US19 · F-03, F-05, F-07, F-08, F-09).',
+      'Create a new consultation user with optional scope assignments (US19 · F-03, F-05, F-07, F-08, F-09).',
     description:
-      'Hashes the password with bcrypt (NF-04) and stores any initial scope assignments (zone, substation, circuit, node or device).',
+      'Always creates a consultation user: the platform has a single Colbits administrator, created by the seed script (F-03). A request that tries to create a Colbits administrator is rejected with 400. Hashes the password with bcrypt (NF-04) and stores any initial scope assignments (zone, substation, circuit, node or device).',
   })
   @ApiCreatedResponse({ type: UserResponseDto })
   @ApiBadRequestResponse({ type: ErrorResponseDto })
@@ -88,9 +88,9 @@ export class UsersController {
   @Patch(':id')
   @ApiOperation({
     summary:
-      'Modify an existing user account or its scope assignments (US19 · F-05, F-08, F-09).',
+      'Modify an existing user account or its scope assignments (US19 · F-03, F-05, F-08, F-09).',
     description:
-      'Rejects deactivating or demoting the last active Colbits administrator (CU-06 flow 2a).',
+      "A user's role cannot be changed: a body with a `role` field is rejected with 400, even when it repeats the current role (F-03). Rejects deactivating the last active Colbits administrator (CU-06 flow 2a).",
   })
   @ApiOkResponse({ type: UserResponseDto })
   @ApiBadRequestResponse({ type: ErrorResponseDto })
