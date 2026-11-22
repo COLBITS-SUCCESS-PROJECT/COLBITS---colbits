@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import type { GeneratorConfig } from './config.ts';
 import type { Network } from './network.ts';
+import { planScenarios } from './scenarios.ts';
 import { falconRows, pickSilentDevices, smacRows } from './telemetry.ts';
 
 const SCHEMA_FILE = new URL('../sql/schema.sql', import.meta.url);
@@ -14,6 +15,26 @@ const TABLES = [
   'falcon_values', 'smac_vc_values', 'smac_pw_values', 'smac_pf_values',
   'fuses', 'trafos', 'fuses_sets', 'devices', 'nodes', 'circuits', 'substations', 'zones', 'departments',
 ];
+
+// SCRUM-253: the synthetic-dataset marker. It is not part of Colbits' schema and only the synthetic
+// loaders write it (this generator and backend/database/02_dummy_inserts.sql). The backend's demo
+// scenarios write data only to a database that has a marker naming that very database.
+const MARKER_TABLE = 'synthetic_dataset';
+const CREATE_MARKER_TABLE = `CREATE TABLE IF NOT EXISTS public.${MARKER_TABLE} (
+  database_name text PRIMARY KEY,
+  source text NOT NULL CHECK (source IN ('seed', 'generator')),
+  created_at timestamptz NOT NULL DEFAULT now()
+)`;
+
+// SCRUM-253: deliberate silences of the backend's demo scenarios (SILENCE_FALCON / SILENCE_SMAC).
+// They describe the data of one generation, so every run empties them, with or without --reset.
+const SILENCE_TABLE = 'demo_silenced_devices';
+const CREATE_SILENCE_TABLE = `CREATE TABLE IF NOT EXISTS public.${SILENCE_TABLE} (
+  hw_id text PRIMARY KEY,
+  source_id text NOT NULL,
+  cutoff timestamptz NOT NULL,
+  silenced_at timestamptz NOT NULL
+)`;
 
 export type InsertSummary = Record<string, number>;
 
@@ -51,17 +72,34 @@ export async function applySchema(client: pg.ClientBase): Promise<void> {
 }
 
 export async function resetData(client: pg.ClientBase): Promise<void> {
-  await client.query(`TRUNCATE ${TABLES.map((t) => `public.${t}`).join(', ')}`);
+  // SCRUM-253: the marker and the demo silences go in the same TRUNCATE as the data they describe.
+  await client.query(CREATE_MARKER_TABLE);
+  await client.query(CREATE_SILENCE_TABLE);
+  await client.query(`TRUNCATE ${[...TABLES, MARKER_TABLE, SILENCE_TABLE].map((t) => `public.${t}`).join(', ')}`);
+}
+
+/**
+ * SCRUM-253: removes the marker and the demo silences and commits that before any data is
+ * written, with or without --reset, so a run that fails or stops half-way never leaves a marker
+ * standing, and no silence of an earlier dataset outlives it.
+ */
+async function invalidateMarker(client: pg.ClientBase): Promise<void> {
+  await client.query(CREATE_MARKER_TABLE);
+  await client.query(CREATE_SILENCE_TABLE);
+  await client.query(`DELETE FROM public.${MARKER_TABLE}`);
+  await client.query(`DELETE FROM public.${SILENCE_TABLE}`);
 }
 
 export async function writeDataset(client: pg.ClientBase, network: Network, config: GeneratorConfig, log: (msg: string) => void = () => {}): Promise<InsertSummary> {
   const summary: InsertSummary = {};
   const silent = pickSilentDevices(network, config);
+  const plan = planScenarios(network, config, silent);
   const step = async (table: string, columns: string[], rows: Iterable<unknown[]>): Promise<void> => {
     summary[table] = await insertRows(client, table, columns, rows);
     log(`  ${table.padEnd(16)} ${summary[table]}`);
   };
 
+  await invalidateMarker(client);
   await client.query('BEGIN');
   try {
     await step('departments', ['id', 'name'], network.departments.map((d) => [d.id, d.name]));
@@ -82,23 +120,32 @@ export async function writeDataset(client: pg.ClientBase, network: Network, conf
     await step('falcon_values', [
       'hw_id', 'custom_id', 'post', 'recorded_at', 'angle_incl', 'internal_temperature', 'supercaps_per', 'solar_panel',
       'fuse_state', 'is_voltage_present', 'is_fuse_alarm', 'is_free_fall_alarm', 'is_solar_panel_alarm',
-    ], falconRows(network, config, silent));
+    ], falconRows(network, config, silent, plan));
 
     // One pass per SMAC table so each insert stays a single statement type.
     await step('smac_vc_values', [
       'hw_id', 'custom_id', 'recorded_at', 'internal_temperature', 'battery_per',
       'va', 'vb', 'vc', 'ia', 'ib', 'ic', 'in_', 'cuf_percent', 'vuf_percent', 'load_percent',
-    ], map(smacRows(network, config, silent), (r) => r.vc));
+    ], map(smacRows(network, config, silent, plan), (r) => r.vc));
     await step('smac_pw_values', [
       'hw_id', 'custom_id', 'recorded_at',
       'phase_a_active_power', 'phase_b_active_power', 'phase_c_active_power',
       'phase_a_reactive_power', 'phase_b_reactive_power', 'phase_c_reactive_power',
       'phase_a_apparent_power', 'phase_b_apparent_power',
-    ], map(smacRows(network, config, silent), (r) => r.pw));
+    ], map(smacRows(network, config, silent, plan), (r) => r.pw));
     await step('smac_pf_values', [
       'hw_id', 'custom_id', 'recorded_at',
       'phase_c_apparent_power', 'phase_a_power_factor', 'phase_b_power_factor', 'phase_c_power_factor',
-    ], map(smacRows(network, config, silent), (r) => r.pf));
+    ], map(smacRows(network, config, silent, plan), (r) => r.pf));
+
+    // F-93 / F-94: device-reported events of the induced scenarios (Technical Annex §4.2 codes).
+    await step('alarms', ['hw_id', 'custom_id', 'event_code', 'event_type', 'alarm', 'value', 'recorded_at'], plan.alarms);
+
+    // SCRUM-253: the new marker is the last write, committed together with the data or not at all.
+    await client.query(
+      `INSERT INTO public.${MARKER_TABLE} (database_name, source) VALUES (current_database(), 'generator')
+       ON CONFLICT (database_name) DO UPDATE SET source = EXCLUDED.source, created_at = now()`,
+    );
 
     await client.query('COMMIT');
   } catch (error) {

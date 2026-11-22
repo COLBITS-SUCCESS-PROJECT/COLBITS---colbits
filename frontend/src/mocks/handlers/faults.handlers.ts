@@ -1,0 +1,97 @@
+/** MSW handlers for the fault service — returns only the faults in the caller's scope, like the real API (F-10). */
+import { http, HttpResponse } from 'msw'
+import { FAULTS_ENDPOINT, RESOLVED_FAULTS_ENDPOINT } from '@/features/dashboard/api/faults.api'
+import type { ActiveFaultDto } from '@/features/dashboard/api/faults.dto'
+import {
+  activeFaultFixtures,
+  activeFuseOpeningFixtures,
+  resolvedFaultFixtures,
+} from '../data/faults.fixtures'
+import { MOCK_SCOPES } from '../data/nodes.fixtures'
+import { isTokenRevoked } from '../data/revokedTokens'
+import { bearerToken } from './bearerToken'
+
+const UNAUTHORIZED = 401
+const BAD_REQUEST = 400
+const MS_PER_HOUR = 3_600_000
+/** Windows GET /faults/resolved accepts, in hours (backend/src/faults/faults.controller.ts). */
+const RESOLVED_WINDOW_HOURS: Record<string, number> = { '1h': 1, '24h': 24, '1d': 24 }
+
+const problem = (status: number, title: string, detail: string) =>
+  HttpResponse.json({ title, detail, status }, { status })
+
+/** The caller's scope (`null` = whole network), or undefined when the token is missing, unknown or logged out (F-02, F-11). */
+function scopeOf(request: Request): string[] | null | undefined {
+  const token = bearerToken(request)
+  return token in MOCK_SCOPES && !isTokenRevoked(token) ? MOCK_SCOPES[token] : undefined
+}
+
+/** Distinct nodes per alert type, like countNodesByAlertType in the backend (US15 · F-58). */
+function countersOf(faults: ActiveFaultDto[]) {
+  const nodesOf = (type: ActiveFaultDto['alert_type']) =>
+    new Set(faults.filter((fault) => fault.alert_type === type).map((fault) => fault.node)).size
+  return {
+    fuseAlarmNodes: nodesOf('FUSE_OPENING'),
+    voltageAlarmNodes: nodesOf('NO_VOLTAGE'),
+    phaseOutOfRangeNodes: nodesOf('PHASE_OUT_OF_RANGE'),
+    phaseDroppedNodes: nodesOf('PHASE_LOSS'),
+  }
+}
+
+/** Backend order of the active list with the default weights: most clients first, then oldest (F-57). */
+const byClientsThenAge = (a: ActiveFaultDto, b: ActiveFaultDto) =>
+  (b.client_count ?? 0) - (a.client_count ?? 0) ||
+  Date.parse(a.started_at) - Date.parse(b.started_at)
+
+/** Same shape as backend/src/faults/active-faults.service.ts → { generated_at, count, counters, faults }. */
+function faultsResponse(faults: ActiveFaultDto[], scope: string[] | null, now: number) {
+  const inScope = faults.filter((fault) => scope === null || scope.includes(fault.node))
+  return HttpResponse.json({
+    generated_at: new Date(now).toISOString(),
+    count: inScope.length,
+    counters: countersOf(inScope),
+    faults: inScope,
+  })
+}
+
+/** GET /faults over the open faults that `fixtures` builds at the request time. */
+function activeFaultsHandler(fixtures: (now: number) => ActiveFaultDto[]) {
+  return http.get(`*${FAULTS_ENDPOINT}`, ({ request }) => {
+    const scope = scopeOf(request)
+    if (scope === undefined) {
+      return problem(UNAUTHORIZED, 'Unauthorized', 'Missing or invalid access token')
+    }
+    const now = Date.now()
+    return faultsResponse(fixtures(now).sort(byClientsThenAge), scope, now)
+  })
+}
+
+/**
+ * GET /faults with the fuse openings only (US10), without the device alerts of US18. For tests that
+ * count the fuse faults, which would otherwise also list the sample device alerts.
+ */
+export const fuseOpeningsOnlyHandler = activeFaultsHandler(activeFuseOpeningFixtures)
+
+export const faultsHandlers = [
+  activeFaultsHandler(activeFaultFixtures),
+
+  // US16: resolved inside the window (1h, 24h or 1d; 24h when absent), newest resolution first (F-62).
+  http.get(`*${RESOLVED_FAULTS_ENDPOINT}`, ({ request }) => {
+    const scope = scopeOf(request)
+    if (scope === undefined) {
+      return problem(UNAUTHORIZED, 'Unauthorized', 'Missing or invalid access token')
+    }
+    const window = new URL(request.url).searchParams.get('window') ?? '24h'
+    const hours = RESOLVED_WINDOW_HOURS[window]
+    if (hours === undefined) {
+      return problem(BAD_REQUEST, 'Bad Request', 'window must be one of: 1h, 24h, 1d')
+    }
+    const now = Date.now()
+    const since = now - hours * MS_PER_HOUR
+    const resolved = resolvedFaultFixtures(now).filter(
+      (fault) => fault.ended_at !== null && Date.parse(fault.ended_at) >= since
+    )
+    resolved.sort((a, b) => Date.parse(b.ended_at ?? '') - Date.parse(a.ended_at ?? ''))
+    return faultsResponse(resolved, scope, now)
+  }),
+]

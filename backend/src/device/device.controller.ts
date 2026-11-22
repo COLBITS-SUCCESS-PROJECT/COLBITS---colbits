@@ -21,8 +21,23 @@ import {
 import { AuthGuard } from '../auth/auth.guard';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { ScopeService } from '../scope/scope.service';
+import { InactiveDevicesResponseDto } from './dto/inactive-devices.dto';
 import { InactivityResultDto } from './dto/inactivity-result.dto';
+import {
+  RESOLVED_WINDOWS,
+  type ResolvedWindow,
+} from '../faults/dto/faults.dto';
+import {
+  LowEnergyAlertsResponseDto,
+  ResolvedLowEnergyAlertsResponseDto,
+} from './dto/low-energy-alerts.dto';
 import { DeviceService } from './device.service';
+import {
+  DEFAULT_WINDOW_HOURS,
+  InactiveDevicesService,
+  MAX_WINDOW_HOURS,
+} from './inactive-devices.service';
+import { LowEnergyAlertsService } from './low-energy-alerts.service';
 
 @Controller('device')
 @UseGuards(AuthGuard)
@@ -32,12 +47,100 @@ export class DeviceController {
   constructor(
     private readonly deviceService: DeviceService,
     private readonly scopeService: ScopeService,
+    private readonly inactiveDevicesService: InactiveDevicesService,
+    private readonly lowEnergyAlertsService: LowEnergyAlertsService,
   ) {}
+
+  @Get('low-energy')
+  @ApiOperation({
+    summary:
+      'Active low-energy alerts of the user scope (F-44 Falcon supercapacitors, F-45 SMAC battery; NF-08).',
+    description:
+      'One alert per device whose latest stored reading is below its threshold: supercaps_per for a Falcon (FALCON_LOW_ENERGY_PERCENT) and battery_per for a SMAC (SMAC_LOW_ENERGY_PERCENT), 30 % by default (Colbits, CL-11). A reading below the threshold raises the alert and a reading at or above it clears it. `since` is the first reading of the current low streak. Lowest level first.',
+  })
+  @ApiOkResponse({ type: LowEnergyAlertsResponseDto })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, or expired.',
+  })
+  async getLowEnergyAlerts(@Req() request: Request) {
+    const scope = await this.scopeService.resolve(userIdOf(request));
+
+    return this.lowEnergyAlertsService.activeAlerts(scope);
+  }
+
+  @Get('low-energy/resolved')
+  @ApiOperation({
+    summary:
+      'Low-energy alerts of the user scope that resolved inside a window (F-44, F-45; the Resolved tab).',
+    description:
+      'An episode is a run of stored readings below the threshold (supercaps_per for a Falcon, battery_per for a SMAC) that ended with a reading at or above it. Listed when that ending reading falls inside the window, newest first. Derived from the readings, with the same rule as the active alert.',
+  })
+  @ApiQuery({
+    name: 'window',
+    required: false,
+    enum: [...RESOLVED_WINDOWS],
+    example: '24h',
+    description: 'Resolution window, as GET /faults/resolved (default 24h).',
+  })
+  @ApiOkResponse({ type: ResolvedLowEnergyAlertsResponseDto })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDto,
+    description: `window must be one of: ${RESOLVED_WINDOWS.join(', ')}`,
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, or expired.',
+  })
+  async getResolvedLowEnergyAlerts(
+    @Query('window') window: string | undefined,
+    @Req() request: Request,
+  ) {
+    const parsedWindow = parseResolvedWindow(window);
+    const scope = await this.scopeService.resolve(userIdOf(request));
+
+    return this.lowEnergyAlertsService.resolvedAlerts(scope, parsedWindow);
+  }
+
+  @Get('inactive')
+  @ApiOperation({
+    summary:
+      'Inactive devices of the user scope with their inactivity alarms (US17: F-38, F-39, F-40, F-46; NF-07, NF-08).',
+    description:
+      'A device is inactive when its next record comes more than its threshold after the previous one (FALCON_INACTIVITY_HOURS 9, SMAC_INACTIVITY_HOURS 3), or when it has not reported for longer than that. Each such silence is an inactivity alarm: it opens at "previous record + threshold" (F-38) and resolves by itself at the next stored record (F-39); end is null while it is open. Lists the devices of the user scope inactive at any moment of the last `hours` (or that never reported): inactive now first, oldest last record first (F-40), then the ones that reported again, most recently resolved first. low_energy flags an energy level below FALCON_LOW_ENERGY_PERCENT / SMAC_LOW_ENERGY_PERCENT (30 % by default, NF-08), which can explain the silence.',
+  })
+  @ApiQuery({
+    name: 'hours',
+    required: false,
+    type: Number,
+    example: DEFAULT_WINDOW_HOURS,
+    description: `Window in hours up to now (default ${DEFAULT_WINDOW_HOURS}, at most ${MAX_WINDOW_HOURS}).`,
+  })
+  @ApiOkResponse({ type: InactiveDevicesResponseDto })
+  @ApiBadRequestResponse({
+    type: ErrorResponseDto,
+    description: `hours must be a number greater than 0 and at most ${MAX_WINDOW_HOURS}.`,
+  })
+  @ApiUnauthorizedResponse({
+    type: ErrorResponseDto,
+    description: 'Bearer token is missing, invalid, or expired.',
+  })
+  async getInactiveDevices(
+    @Query('hours') hours: string | undefined,
+    @Req() request: Request,
+  ) {
+    const windowHours = parseWindowHours(hours);
+    const scope = await this.scopeService.resolve(userIdOf(request));
+
+    return this.inactiveDevicesService.inactiveDevices(scope, windowHours);
+  }
 
   @Get('inactivity-status')
   @ApiOperation({
     summary:
-      'Evaluate device inactivity using the supplied hours since its last record.',
+      'Evaluate device inactivity from its latest stored database timestamp (US5: F-36, F-37, F-46, NF-07).',
+    description:
+      'Reads the latest recorded_at timestamp from the database (last_falcon_values for Falcon; newest of last_smac_vc_values, last_smac_pw_values, and last_smac_pf_values for SMAC) and compares elapsed hours against the configured device threshold (FALCON_INACTIVITY_HOURS, 9 by default; SMAC_INACTIVITY_HOURS, 3 by default). A device with no telemetry records is treated as inactive. A device that does not exist and one outside the user scope give the same 404.',
   })
   @ApiQuery({
     name: 'deviceId',
@@ -45,26 +148,25 @@ export class DeviceController {
     type: String,
     example: '0501000001',
     description:
-      'Hardware identifier of a device that exists in the database and is visible in the authenticated user scope. As a example use 1301000001 for a Falcon device or 0501000001 for a SMAC device.',
+      'Hardware identifier of a device that exists in the database and is visible in the authenticated user scope. As an example, use 1301000001 for a Falcon device or 0501000001 for a SMAC device.',
   })
-  @ApiQuery({ name: 'type', enum: ['Falcon', 'SMAC'], required: true })
   @ApiQuery({
-    name: 'lastTimestamp',
+    name: 'type',
+    enum: ['Falcon', 'SMAC'],
     required: true,
-    type: Number,
-    example: 4,
-    description:
-      'Hours elapsed since the last record. The API derives lastRecordTimestamp from this value; inactivity is true only when the value is greater than the device threshold.',
+    description: 'Device type; it selects the table and inactivity threshold.',
   })
-  @ApiOkResponse({ type: InactivityResultDto })
+  @ApiOkResponse({
+    type: InactivityResultDto,
+    description: 'Inactivity evaluation of the device.',
+  })
   @ApiBadRequestResponse({
     type: ErrorResponseDto,
-    description:
-      'deviceId is required, type must be Falcon or SMAC, and lastTimestamp must be a non-negative number of hours.',
+    description: 'deviceId is required and type must be Falcon or SMAC.',
   })
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
-    description: 'Bearer token is missing, invalid, or expired.',
+    description: 'Bearer token is missing, invalid, expired, or logged out.',
   })
   @ApiNotFoundResponse({
     type: ErrorResponseDto,
@@ -73,7 +175,6 @@ export class DeviceController {
   async getInactivityStatus(
     @Query('deviceId') deviceId: string,
     @Query('type') type: string,
-    @Query('lastTimestamp') lastTimestamp: string,
     @Req() request: Request,
   ) {
     if (typeof deviceId !== 'string' || deviceId.trim().length === 0) {
@@ -82,21 +183,6 @@ export class DeviceController {
 
     if (type !== 'Falcon' && type !== 'SMAC') {
       throw new BadRequestException('type must be Falcon or SMAC');
-    }
-
-    if (
-      typeof lastTimestamp !== 'string' ||
-      lastTimestamp.trim().length === 0
-    ) {
-      throw new BadRequestException(
-        'lastTimestamp must be a non-negative number of hours',
-      );
-    }
-    const hoursSinceLastRecord = Number(lastTimestamp);
-    if (!Number.isFinite(hoursSinceLastRecord) || hoursSinceLastRecord < 0) {
-      throw new BadRequestException(
-        'lastTimestamp must be a non-negative number of hours',
-      );
     }
 
     const userId: unknown = (request as Request & { user?: { sub?: unknown } })
@@ -112,11 +198,43 @@ export class DeviceController {
 
     const scope = await this.scopeService.resolve(userId);
 
-    return this.deviceService.checkInactivity(
-      deviceId,
-      type,
-      hoursSinceLastRecord,
-      scope,
+    return this.deviceService.checkInactivity(deviceId.trim(), type, scope);
+  }
+}
+
+/** Window of GET /device/low-energy/resolved: the default (24h) when absent, otherwise one of RESOLVED_WINDOWS. */
+function parseResolvedWindow(window: string | undefined): ResolvedWindow {
+  if (window === undefined || window.trim() === '') return '24h';
+  if ((RESOLVED_WINDOWS as readonly string[]).includes(window)) {
+    return window as ResolvedWindow;
+  }
+  throw new BadRequestException(
+    `window must be one of: ${RESOLVED_WINDOWS.join(', ')}`,
+  );
+}
+
+/** Window of GET /device/inactive: the default when absent, otherwise a number in (0, MAX_WINDOW_HOURS]. */
+function parseWindowHours(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return DEFAULT_WINDOW_HOURS;
+  const hours = Number(raw);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > MAX_WINDOW_HOURS) {
+    throw new BadRequestException(
+      `hours must be a number greater than 0 and at most ${MAX_WINDOW_HOURS}`,
     );
   }
+  return hours;
+}
+
+/** User id from the verified token, or 401 (the guard already checked the signature). */
+function userIdOf(request: Request): number {
+  const userId: unknown = (request as Request & { user?: { sub?: unknown } })
+    .user?.sub;
+  if (
+    typeof userId !== 'number' ||
+    !Number.isSafeInteger(userId) ||
+    userId <= 0
+  ) {
+    throw new UnauthorizedException('Invalid user identity');
+  }
+  return userId;
 }

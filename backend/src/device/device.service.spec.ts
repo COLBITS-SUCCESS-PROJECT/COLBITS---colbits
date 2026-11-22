@@ -6,7 +6,7 @@ import { DeviceService } from './device.service';
 
 describe('DeviceService (US5 · F-36, F-37, F-46, NF-07)', () => {
   function makeService(
-    rows: { node_id: string }[],
+    rows: { node_id: string; recorded_at: Date | string | null }[],
     inScope = true,
     env: Record<string, string | undefined> = {},
   ) {
@@ -31,37 +31,41 @@ describe('DeviceService (US5 · F-36, F-37, F-46, NF-07)', () => {
     };
   }
 
-  it('derives an ISO last-record timestamp from the supplied hours', async () => {
-    const { service } = makeService([{ node_id: '0000100001' }]);
-    const before = Date.now();
+  it('marks a device with no record in the DB as inactive', async () => {
+    const { service } = makeService([
+      { node_id: '0000100001', recorded_at: null },
+    ]);
 
-    const res = await service.checkInactivity('1301000030', 'Falcon', 10, {
+    const res = await service.checkInactivity('1301000030', 'Falcon', {
       kind: 'unrestricted',
     });
 
     expect(res.isInactive).toBe(true);
-    expect(res.hoursSilent).toBe(10);
-    expect(res.lastRecordTimestamp).toBeInstanceOf(Date);
-    expect(
-      Math.abs(res.lastRecordTimestamp!.getTime() - (before - 10 * 3600_000)),
-    ).toBeLessThan(100);
+    expect(res.lastRecordTimestamp).toBeNull();
+    expect(res.hoursSilent).toBeNull();
   });
 
-  it('marks a Falcon inactive only when its age is greater than 9h', async () => {
-    const { service } = makeService([{ node_id: '0000100001' }]);
+  it('reads the date from the DB and marks a Falcon silent > 9h as inactive', async () => {
+    const tenHoursAgo = new Date(Date.now() - 10 * 3600_000).toISOString();
+    const { service } = makeService([
+      { node_id: '0000100001', recorded_at: tenHoursAgo },
+    ]);
 
-    const res = await service.checkInactivity('1301000030', 'Falcon', 9, {
+    const res = await service.checkInactivity('1301000030', 'Falcon', {
       kind: 'unrestricted',
     });
 
-    expect(res.isInactive).toBe(false);
+    expect(res.isInactive).toBe(true);
     expect(res.thresholdHours).toBe(9);
   });
 
-  it('marks a Falcon silent for less than 9h as active', async () => {
-    const { service } = makeService([{ node_id: '0000100001' }]);
+  it('marks a Falcon with a recent DB record as active', async () => {
+    const oneHourAgo = new Date(Date.now() - 1 * 3600_000).toISOString();
+    const { service } = makeService([
+      { node_id: '0000100001', recorded_at: oneHourAgo },
+    ]);
 
-    const res = await service.checkInactivity('1301000001', 'Falcon', 1, {
+    const res = await service.checkInactivity('1301000001', 'Falcon', {
       kind: 'unrestricted',
     });
 
@@ -69,32 +73,35 @@ describe('DeviceService (US5 · F-36, F-37, F-46, NF-07)', () => {
   });
 
   it('evaluates SMAC inactivity against the 3h threshold', async () => {
-    const { service } = makeService([{ node_id: '0000100001' }]);
+    const fourHoursAgo = new Date(Date.now() - 4 * 3600_000).toISOString();
+    const { service } = makeService([
+      { node_id: '0000100001', recorded_at: fourHoursAgo },
+    ]);
 
-    const res = await service.checkInactivity('2301000001', 'SMAC', 4, {
+    const res = await service.checkInactivity('0501000001', 'SMAC', {
       kind: 'unrestricted',
     });
 
     expect(res.thresholdHours).toBe(3);
     expect(res.isInactive).toBe(true);
-    expect(res.hoursSilent).toBe(4);
   });
 
   it('throws 404 NotFoundException when the device does not exist', async () => {
     const { service } = makeService([]);
 
     await expect(
-      service.checkInactivity('9999999999', 'Falcon', 4, {
-        kind: 'unrestricted',
-      }),
+      service.checkInactivity('9999999999', 'Falcon', { kind: 'unrestricted' }),
     ).rejects.toThrow(NotFoundException);
   });
 
   it('throws 404 NotFoundException when the device is outside the user scope', async () => {
-    const { service } = makeService([{ node_id: '0000100002' }], false);
+    const { service } = makeService(
+      [{ node_id: '0000100002', recorded_at: new Date().toISOString() }],
+      false,
+    );
 
     await expect(
-      service.checkInactivity('1301000001', 'Falcon', 4, {
+      service.checkInactivity('1301000001', 'Falcon', {
         kind: 'restricted',
         userId: 2,
       }),

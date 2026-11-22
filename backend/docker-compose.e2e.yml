@@ -1,0 +1,19 @@
+# Throwaway PostgreSQL for `npm run test:e2e`, which starts and removes it (scripts/test-e2e.mjs).
+# Its own port, so it never meets the development database or another server on 5432.
+# The data lives in memory; the password only exists here.
+name: colbits-e2e
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: e2e-only
+    ports:
+      - '127.0.0.1:55432:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -h 127.0.0.1']
+      interval: 1s
+      timeout: 3s
+      retries: 30

@@ -1,4 +1,6 @@
 // Generator configuration: every count, the periodicity and the time range are parameters (F-91, F-92).
+import { readFileSync } from 'node:fs';
+import { demoScenarios, parseScenarioSpecs, type ScenarioSpec } from './scenarios.ts';
 
 export type GeneratorConfig = {
   seed: number;
@@ -19,6 +21,16 @@ export type GeneratorConfig = {
   end: Date;
   /** Devices that stop reporting 10 h before `end`, so the inactivity rule (gray node) has data to work on. */
   silentDevices: number;
+  /** Controlled test scenarios (F-93, F-94). Empty = plain healthy network. */
+  scenarios: ScenarioSpec[];
+  /** Fault grouping window in minutes (RF-ALR-04, initial value 5); used by the demo set and the expected results. */
+  groupingWindowMinutes: number;
+  /**
+   * Backend inactivity thresholds in hours (RF-ING-01, NF-07), read from the same variables as the backend.
+   * F-95: they only change the expected results; the generated data never depends on them.
+   */
+  falconInactivityHours: number;
+  smacInactivityHours: number;
 };
 
 export const DEFAULTS = {
@@ -33,6 +45,9 @@ export const DEFAULTS = {
   intervalMinutes: 15,
   days: 7,
   silentDevices: 0,
+  groupingWindowMinutes: 5,
+  falconInactivityHours: 9,
+  smacInactivityHours: 3,
 } as const;
 
 const HELP = `COLBITS synthetic data generator
@@ -55,6 +70,12 @@ Telemetry (F-92)
   --end <ISO date>         range end                           (default: today 00:00 UTC)
   --silent-devices <n>     devices with no data in the last 10 h (default ${DEFAULTS.silentDevices})
 
+Test scenarios (F-93, F-94)
+  --scenarios <file|demo>  JSON file with the scenarios to induce, or "demo" for the
+                           built-in set (every scenario type, see README)
+  --grouping-window <min>  fault grouping window used by "demo" and the expected
+                           results                             (default ${DEFAULTS.groupingWindowMinutes})
+
 Reproducibility (F-96)
   --seed <n>               same seed + same options = same dataset (default ${DEFAULTS.seed})
 
@@ -75,6 +96,12 @@ export type CliOptions = {
   help: boolean;
 };
 
+/** Same rule as the backend's hoursFromConfig: a finite number of hours above 0, otherwise the default. */
+function thresholdHours(raw: string | undefined, fallback: number): number {
+  const configured = Number(raw);
+  return Number.isFinite(configured) && configured > 0 ? configured : fallback;
+}
+
 function startOfTodayUtc(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -86,6 +113,7 @@ export function parseArgs(argv: readonly string[], env: Record<string, string | 
   const valueFlags = new Set([
     '--seed', '--zones', '--substations', '--circuits', '--nodes', '--two-branch-nodes', '--trafo-ratio',
     '--two-phase-ratio', '--interval', '--days', '--start', '--end', '--silent-devices', '--db',
+    '--scenarios', '--grouping-window',
   ]);
   const switchFlags = new Set(['--create-schema', '--reset', '--dry-run', '--help', '-h']);
   for (let i = 0; i < argv.length; i++) {
@@ -133,7 +161,24 @@ export function parseArgs(argv: readonly string[], env: Record<string, string | 
     start,
     end,
     silentDevices: num('--silent-devices', DEFAULTS.silentDevices),
+    scenarios: [],
+    groupingWindowMinutes: num('--grouping-window', DEFAULTS.groupingWindowMinutes),
+    falconInactivityHours: thresholdHours(env['FALCON_INACTIVITY_HOURS'], DEFAULTS.falconInactivityHours),
+    smacInactivityHours: thresholdHours(env['SMAC_INACTIVITY_HOURS'], DEFAULTS.smacInactivityHours),
   };
+  if (!(config.groupingWindowMinutes > 0)) throw new Error('grouping-window must be > 0 minutes');
+  const scenarioSource = flags.get('--scenarios');
+  if (scenarioSource === 'demo') {
+    config.scenarios = demoScenarios(config.groupingWindowMinutes);
+  } else if (scenarioSource !== undefined) {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(readFileSync(scenarioSource, 'utf8'));
+    } catch (error) {
+      throw new Error(`cannot read scenarios file ${scenarioSource}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    config.scenarios = parseScenarioSpecs(raw);
+  }
 
   const help = switches.has('--help') || switches.has('-h');
   if (!help) validateConfig(config);

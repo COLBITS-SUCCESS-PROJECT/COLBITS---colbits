@@ -58,9 +58,23 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       FALCON_INACTIVITY_HOURS: ${FALCON_INACTIVITY_HOURS:-9}
       SMAC_INACTIVITY_HOURS: ${SMAC_INACTIVITY_HOURS:-3}
+      #CORRECTION TD-04 (2026-11-09): new setting (decisions doc, section 7.2).
+      #CORRECTION TD-04 (2026-11-11): default changed from 7 to 0 after Colbits confirmed (CL-24) that a failed phase always reports a value.
+      SMAC_PHASE_WINDOW_DAYS: ${SMAC_PHASE_WINDOW_DAYS:-0}
       # File events do not cross the Windows/macOS → Docker boundary; poll instead.
       TSC_WATCHFILE: DynamicPriorityPolling
       CHOKIDAR_USEPOLLING: 'true'
+      FALCON_LOW_ENERGY_PERCENT: ${FALCON_LOW_ENERGY_PERCENT:-30}
+      SMAC_LOW_ENERGY_PERCENT: ${SMAC_LOW_ENERGY_PERCENT:-30}
+      # Local data comes from the generator, so the demo scenario panel is on (US31).
+      DEMO_SCENARIOS_ENABLED: ${DEMO_SCENARIOS_ENABLED:-true}
+      # SCRUM-253: the one database scenarios may write to; it must also have the synthetic-dataset
+      # marker (written by 02_dummy_inserts.sql on a new volume, or by the generator).
+      DEMO_SCENARIOS_DATABASE: ${DEMO_SCENARIOS_DATABASE:-colbits}
+      SMAC_OVERLOAD_PERCENT: ${SMAC_OVERLOAD_PERCENT:-90}
+      SMAC_VOLTAGE_UNBALANCE_PERCENT: ${SMAC_VOLTAGE_UNBALANCE_PERCENT:-2}
+      # Empty = disabled: TD-10 has no approved current-imbalance threshold yet.
+      SMAC_CURRENT_UNBALANCE_PERCENT: ${SMAC_CURRENT_UNBALANCE_PERCENT:-}
     volumes:
       - ./backend:/app
       # Keep the container's Linux node_modules; never mix them with the host's.

@@ -4,7 +4,7 @@ story: SCRUM-110
 title: 'US12 - Live node state updates'
 status: IN_REVIEW
 owner: Paola
-last_updated: 2026-10-27
+last_updated: 2026-11-11
 ---
 
 # SCRUM-110 — US12 · Live node state updates
@@ -63,7 +63,7 @@ No new screens: markers change color in place.
 | Loading | Only on the first load (same as SCRUM-77); refreshes run in the background with no spinner |
 | Populated | Markers change color on their own when a refresh brings a new state |
 | Empty | Same as SCRUM-77 |
-| Error | If a refresh fails again after its retry, the map shows the error state with its retry button until a refresh succeeds (Q2) |
+| Error | If the first load fails, the map shows the error state with its retry button. If a later refresh fails again after its retry, the map keeps the last known states under the warning of [SCRUM-111](./SCRUM-111.md) (F-31) until a refresh succeeds (Q2) |
 
 ## 5. User flow
 1. The user opens **Monitoreo en vivo** (`/dashboard`); the map loads the nodes and frames them once.
@@ -79,7 +79,7 @@ While the browser tab is hidden the requests pause; the next one runs at most 15
 | ID | Question | Owner | Blocking | Answer |
 |---|---|---|---|---|
 | Q1 | WebSocket or polling for live data? (OQ-03) | Mahmoud / Javier | Yes | **Polling every 15 s** (Mahmoud, 2026-10-27) — [decision](../../decisions/live-updates.md) |
-| Q2 | When a refresh fails, should the map keep the last known states (with the US13 warning) instead of the error state? | Paola (PO) | No | OPEN — decide with US13 |
+| Q2 | When a refresh fails, should the map keep the last known states (with the US13 warning) instead of the error state? | Paola (PO) | No | Proposed in [SCRUM-111](./SCRUM-111.md) (F-31): keep them, with the warning banner of Figma M10. The error state stays for a first load that fails |
 
 ## 8. Acceptance test results
 

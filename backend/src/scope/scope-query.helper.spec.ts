@@ -56,6 +56,7 @@ describe('applyNodeScope', () => {
     expect(sql).toContain("us.entity_type = 'circuit'");
     expect(sql).toContain("us.entity_type = 'substation'");
     expect(sql).toContain("us.entity_type = 'zone'");
+    expect(sql).toContain("us.entity_type = 'device'");
     expect(sql).toContain('node.name IN');
 
     expect(result.getParameters()).toMatchObject({

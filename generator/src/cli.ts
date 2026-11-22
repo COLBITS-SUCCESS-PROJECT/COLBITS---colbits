@@ -4,6 +4,7 @@ import pg from 'pg';
 import { HELP, parseArgs } from './config.ts';
 import { applySchema, resetData, writeDataset } from './db.ts';
 import { buildNetwork } from './network.ts';
+import { planScenarios } from './scenarios.ts';
 import { pickSilentDevices, recordsPerDevice } from './telemetry.ts';
 
 async function main(): Promise<void> {
@@ -19,7 +20,16 @@ async function main(): Promise<void> {
   console.log(`COLBITS generator · seed ${config.seed} · ${config.start.toISOString()} → ${config.end.toISOString()} every ${config.intervalMinutes} min`);
   console.log(`  ${network.zones.length} zones · ${network.substations.length} substations · ${network.circuits.length} circuits · ${network.nodes.length} nodes`);
   console.log(`  ${network.fuseSets.length} fuse sets · ${network.fuses.length} fuses (Falcon) · ${network.trafos.length} transformers (SMAC)`);
-  console.log(`  ~${perDevice} records per device · ${pickSilentDevices(network, config).size} silent device(s)`);
+  const silent = pickSilentDevices(network, config);
+  console.log(`  ~${perDevice} records per device · ${silent.size} silent device(s)`);
+  const plan = planScenarios(network, config, silent);
+  if (plan.scenarios.length > 0) {
+    console.log(`Scenarios (grouping window ${config.groupingWindowMinutes} min) · ${plan.alarms.length} alarm event(s):`);
+    for (const s of plan.scenarios) {
+      console.log(`  ${s.type.padEnd(18)} node ${s.node} at ${s.at}${s.until ? ` until ${s.until}` : ''}`);
+      console.log(`  ${''.padEnd(18)} ${s.devices.join(', ')} → expect: ${s.expect}`);
+    }
+  }
 
   if (options.dryRun) return;
   if (!options.databaseUrl) {

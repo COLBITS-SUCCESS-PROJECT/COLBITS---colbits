@@ -218,8 +218,10 @@ INSERT INTO smac_vc_values
 VALUES
   ('0501000001', '0000100004-T1-3', '2026-09-01 08:00:00-05', 31.2, 87,
    221.4, 220.9, 222.1, 12.1, 11.8, 12.4, 0.3, 1.8, 0.6, 71.4),
+  -- #CORRECTION TD-25 (2026-11-09): vc and ic were 0.
+  -- TD-25 (CL-07): the missing phase C of this two-phase transformer is NULL, not 0.
   ('0501000002', '0000100005-T1-2', '2026-09-01 08:00:05-05', 30.5, 62,
-   220.1, 219.8, 0,     9.5,  9.3,  0,    0.2, 2.4, 0.9, 58.2);
+   220.1, 219.8, NULL,  9.5,  9.3,  NULL, 0.2, 2.4, 0.9, 58.2);
 
 INSERT INTO smac_pw_values
   (hw_id, custom_id, recorded_at,
@@ -268,7 +270,38 @@ INSERT INTO alarms (hw_id, custom_id, event_code, event_type, alarm, value, reco
   ('130100000E', '1000300001-R', '139999', 'SET', 'Código de evento no documentado', NULL, '2026-09-01 10:00:00-05');
 
 -- ============================================================================
+-- SCRUM-253: deliberate silences of the demo scenarios (SILENCE_FALCON /
+-- SILENCE_SMAC write one row per device, RESUME removes it). Not part of
+-- Colbits' schema; created empty here and by the generator, never by the API.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.demo_silenced_devices (
+    hw_id text PRIMARY KEY,
+    source_id text NOT NULL,
+    cutoff timestamptz NOT NULL,
+    silenced_at timestamptz NOT NULL
+);
+
+-- ============================================================================
+-- SCRUM-253: synthetic-dataset marker. Not part of Colbits' schema (01). It says
+-- this database was loaded with synthetic data, so the demo scenarios (US31) may
+-- write to it when DEMO_SCENARIOS_DATABASE names it. It is the last statement on
+-- purpose: if any insert above fails, the marker is never created. It names the
+-- database it was created in, so a copy of this database does not inherit it.
+-- The generator writes the same marker (generator/src/db.ts).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.synthetic_dataset (
+    database_name text PRIMARY KEY,
+    source text NOT NULL CHECK (source IN ('seed', 'generator')),
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO public.synthetic_dataset (database_name, source)
+VALUES (current_database(), 'seed')
+ON CONFLICT (database_name) DO UPDATE SET source = EXCLUDED.source, created_at = now();
+
+-- ============================================================================
 -- END OF FILE
--- 8 nodes, 17 devices, 6 fuse sets, 11 fuses, 3 transformers, 8 Falcon
--- readings, 2+2+2 SMAC readings, 9 alarm events.
+-- 8 nodes, 17 devices, 6 fuse sets, 14 fuses, 3 transformers, 8 Falcon
+-- readings, 2+2+2 SMAC readings, 10 alarm events.
+-- #CORRECTION TD-20 (2026-11-09): totals corrected.
+-- (TD-20: the original comment said 11 fuses and 9 alarm events; counted from this file.)
 -- ============================================================================

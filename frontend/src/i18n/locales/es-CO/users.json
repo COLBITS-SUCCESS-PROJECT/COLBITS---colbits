@@ -1,0 +1,96 @@
+{
+  "table": {
+    "title": "Usuarios de consulta",
+    "subtitle": "Crea, edita y desactiva usuarios y asigna su alcance de datos",
+    "newUser": "Nuevo usuario",
+    "search": "Buscar usuario por nombre o correo",
+    "searchPlaceholder": "Buscar por nombre o correo…",
+    "statusFilter": "Estado",
+    "empty": "Todavía no hay usuarios de consulta.",
+    "noResults": "Ningún usuario coincide con la búsqueda."
+  },
+  "status": {
+    "ALL": "Todos los estados",
+    "ACTIVE": "Activo",
+    "INACTIVE": "Inactivo"
+  },
+  "row": {
+    "scope": "Alcance de {{name}}",
+    "moreScope": "+{{count}} más",
+    "edit": "Editar a {{name}}",
+    "deactivate": "Desactivar a {{name}}",
+    "reactivate": "Reactivar a {{name}}"
+  },
+  "scopeLevel": {
+    "ZONE": "Zona",
+    "SUBSTATION": "Subestación",
+    "CIRCUIT": "Circuito",
+    "NODE": "Nodo",
+    "DEVICE": "Dispositivo"
+  },
+  "scopeTag": "{{level}} {{name}}",
+  "deactivate": {
+    "title": "¿Desactivar este usuario?",
+    "description": "{{name}} perderá el acceso a Colbits de inmediato. Su alcance de datos se conserva y se puede restaurar si la cuenta se reactiva.",
+    "cancel": "Cancelar",
+    "confirm": "Desactivar usuario"
+  },
+  "form": {
+    "createTitle": "Nuevo usuario de consulta",
+    "createSubtitle": "Solo un administrador de Colbits puede crear usuarios",
+    "close": "Cerrar formulario",
+    "name": "Nombre completo",
+    "namePlaceholder": "p. ej. Laura Gómez",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "usuario@colbits.com",
+    "password": "Contraseña temporal",
+    "passwordPlaceholder": "Autogenerada · se muestra al crear el usuario",
+    "cancel": "Cancelar",
+    "create": "Crear usuario",
+    "validation": {
+      "nameRequired": "Escribe el nombre completo",
+      "nameTooLong": "El nombre no puede tener más de {{max}} caracteres",
+      "emailRequired": "Escribe el correo electrónico",
+      "emailInvalid": "Escribe un correo válido, p. ej. usuario@colbits.com",
+      "emailTaken": "Ya existe un usuario con este correo",
+      "scopeRequired": "Selecciona al menos un elemento de la red"
+    },
+    "editTitle": "Editar usuario",
+    "editSubtitle": "Solo un administrador de Colbits puede modificar esta cuenta",
+    "save": "Guardar cambios",
+    "resetPassword": "Enviar enlace de restablecimiento",
+    "resetPasswordNotice": "El envío del enlace estará disponible cuando el backend lo habilite.",
+    "deactivate": "Desactivar usuario",
+    "submitError": "No se pudieron guardar los cambios. Inténtalo de nuevo."
+  },
+  "scope": {
+    "title": "Alcance de datos",
+    "description": "Asigna una o más zonas, subestaciones, circuitos, nodos o dispositivos individuales. El mismo alcance se puede asignar a varios usuarios.",
+    "search": "Buscar en la red",
+    "searchPlaceholder": "Buscar zona, subestación, circuito, nodo o dispositivo…",
+    "noMatches": "Ningún elemento coincide con la búsqueda.",
+    "selected": "Alcance seleccionado ({{count}})",
+    "noneSelected": "Todavía no has seleccionado ningún elemento.",
+    "devices_one": "{{count}} dispositivo",
+    "devices_other": "{{count}} dispositivos",
+    "rowWithDescription": "{{level}} {{name}} · {{description}}",
+    "expand": "Mostrar contenido de {{name}}",
+    "collapse": "Ocultar contenido de {{name}}"
+  },
+  "page": {
+    "loading": "Cargando usuarios…",
+    "loadError": "No se pudieron cargar los usuarios ni la red.",
+    "retry": "Reintentar",
+    "statusError": "No se pudo cambiar el estado de {{name}}. Inténtalo de nuevo."
+  },
+  "password": {
+    "title": "Usuario creado",
+    "description": "Comparte esta contraseña temporal con {{name}} ({{email}}) por un canal seguro.",
+    "label": "Contraseña temporal",
+    "onceNotice": "Solo se muestra esta vez. Si la pierdes, tendrás que restablecerla.",
+    "copy": "Copiar contraseña",
+    "copied": "Contraseña copiada",
+    "failed": "No se pudo copiar. Selecciónala y cópiala a mano.",
+    "done": "Listo"
+  }
+}

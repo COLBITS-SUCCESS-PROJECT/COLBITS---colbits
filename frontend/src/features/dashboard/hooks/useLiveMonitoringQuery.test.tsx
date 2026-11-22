@@ -1,11 +1,16 @@
-/** Tests for useLiveMonitoringQuery — success, error and data-freshness reporting. */
+/** Tests for useLiveMonitoringQuery — real fault service (MSW) and error state. */
 import type { ReactNode } from 'react'
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach, beforeEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { fuseOpeningsOnlyHandler } from '@/mocks/handlers/faults.handlers'
+import { server } from '@/mocks/server'
+import { MOCK_TOKENS } from '@/mocks/data/nodes.fixtures'
+import { useAuthStore, type AuthUser } from '@/stores/auth.store'
 import { useDataFreshnessStore } from '@/stores/dataFreshness.store'
-import { buildLiveMonitoringMock } from '../model/liveMonitoring.mock'
 import { useLiveMonitoringQuery } from './useLiveMonitoringQuery'
+
+const USER: AuthUser = { id: 'u1', name: 'Test', email: 't@colbits.test', role: 'VIEWER' }
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -13,29 +18,61 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe('useLiveMonitoringQuery', () => {
-  beforeEach(() => useDataFreshnessStore.getState().reset())
+  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+  beforeEach(() => {
+    // Counts the fuse faults only; the device alerts of US18 have their own tests.
+    server.use(fuseOpeningsOnlyHandler)
+    useDataFreshnessStore.getState().reset()
+    useAuthStore.getState().setSession(USER, MOCK_TOKENS.NORTH)
+  })
+  afterEach(() => server.resetHandlers())
+  afterAll(() => server.close())
 
-  it('returns the live data and records when it arrived', async () => {
+  it('returns the open faults of the fault service', async () => {
     // Arrange & Act
     const { result } = renderHook(() => useLiveMonitoringQuery(), { wrapper })
 
     // Assert
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data?.faults.length).toBeGreaterThan(0)
-    expect(useDataFreshnessStore.getState().lastSyncedAt).toBe(result.current.dataUpdatedAt)
+    expect(result.current.data?.faults.map((fault) => fault.nodeId)).toEqual([
+      'ND04821A07',
+      'ND04821A07',
+    ]) // the third mock fault is outside the north user's scope (F-10)
+    // The node counters come from the service (F-58), over its whole in-scope list
+    expect(result.current.data?.counters).toEqual({
+      fuseAlarmNodes: 1,
+      voltageAlarmNodes: 0,
+      phaseOutOfRangeNodes: 0,
+      phaseDroppedNodes: 0,
+    })
   })
 
-  it('exposes the error and does not mark the data as fresh when the request fails', async () => {
+  it('leaves the last update time to the map refresh (F-32)', async () => {
+    const { result } = renderHook(() => useLiveMonitoringQuery(), { wrapper })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(useDataFreshnessStore.getState().lastSyncedAt).toBeNull() // set by useNodesQuery
+  })
+
+  it('exposes the error when the request fails', async () => {
     const failing = () => Promise.reject(new Error('network'))
 
     const { result } = renderHook(() => useLiveMonitoringQuery(failing), { wrapper })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
-    expect(useDataFreshnessStore.getState().lastSyncedAt).toBeNull()
+    expect(result.current.error).toEqual(new Error('network'))
   })
 
   it('handles a network without faults', async () => {
-    const empty = async () => ({ ...buildLiveMonitoringMock(Date.now()), faults: [] })
+    const empty = async () => ({
+      faults: [],
+      counters: {
+        fuseAlarmNodes: 0,
+        voltageAlarmNodes: 0,
+        phaseOutOfRangeNodes: 0,
+        phaseDroppedNodes: 0,
+      },
+    })
 
     const { result } = renderHook(() => useLiveMonitoringQuery(empty), { wrapper })
 

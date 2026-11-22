@@ -15,6 +15,19 @@ export interface GeoCoordinates {
   longitude: number
 }
 
+/** One element of the network hierarchy (zone, substation or circuit). The id is the database id as text. */
+export interface NetworkPlace {
+  id: string
+  name: string
+}
+
+/** Where a node sits in the network: zone › substation › circuit (F-33). */
+export interface NodeLocation {
+  zone: NetworkPlace
+  substation: NetworkPlace
+  circuit: NetworkPlace
+}
+
 /** A network node (pole) within the user's scope, with its recorded coordinates (F-12). */
 export interface NetworkNode {
   /** 10-character node ID, e.g. ND04821A07. */
@@ -24,6 +37,10 @@ export interface NetworkNode {
   fuseState: NetworkState | null
   /** null when the node has no transformer. */
   transformerState: NetworkState | null
+  /** null when the service does not report it. */
+  location: NodeLocation | null
+  /** Devices installed on the node now (Falcons and SMACs), to find it by device identifier (F-34). */
+  deviceIds: string[]
 }
 
 export type PhaseState = 'CRITICAL' | 'WARNING' | 'OK'
@@ -37,15 +54,37 @@ export interface PhaseStates {
 
 export type PhaseClassification = 'MONOPHASIC' | 'BIPHASIC' | 'TRIPHASIC'
 
-export type AlertType = 'FUSE_OPENING' | 'NO_VOLTAGE' | 'PHASE_LOSS' | 'OVERLOAD_UNBALANCE'
+/** Closed list of F-47 (Scope v6.0 §3.2): same identifiers as backend/src/faults/fault-alert-types.ts, the source of truth. */
+export type AlertType =
+  | 'FUSE_OPENING'
+  | 'NO_VOLTAGE'
+  | 'FREE_FALL'
+  | 'SOLAR_PANEL_FAILURE'
+  | 'PHASE_LOSS'
+  | 'PHASE_OUT_OF_RANGE'
+  | 'OVERLOAD_UNBALANCE'
+  | 'LOW_ENERGY'
+  | 'DEVICE_INACTIVITY'
 
 export type FaultSeverity = 'CRITICAL' | 'WARNING' | 'INACTIVE'
 
 export type FaultStatus = 'OPEN' | 'RESOLVED'
 
+/** Conditions of an OVERLOAD_UNBALANCE alarm that are active (backend OVERLOAD_CONDITIONS). */
+export type OverloadCondition = 'OVERLOAD' | 'VOLTAGE_UNBALANCE' | 'CURRENT_UNBALANCE'
+
 export interface TransformerLoad {
-  loadPct: number
-  voltageUnbalancePct: number
+  /** A value the transformer never reported is null. */
+  loadPct: number | null
+  voltageUnbalancePct: number | null
+  currentUnbalancePct: number | null
+}
+
+/** Energy level of a LOW_ENERGY alarm: supercapacitor (Falcon, F-44) or battery (SMAC, F-45), in %. */
+export interface DeviceEnergy {
+  levelPct: number
+  /** Threshold the level is below (NF-08), as the backend applied it. */
+  thresholdPct: number
 }
 
 /** One alarm of the fault panel (Figma: Fault List Item — F-51, F-55). */
@@ -57,15 +96,33 @@ export interface FaultAlert {
   status: FaultStatus
   /** 10-character node ID, e.g. ND04821A07. */
   nodeId: string
-  zone: string
-  substation: string
+  /** null when the service does not send it (GET /faults sends only the circuit). */
+  zone: string | null
+  substation: string | null
   circuit: string
   branch: string | null
+  /** custom_id of the single fuse or transformer behind the alarm; null for fuse openings and inactivity. */
+  sourceId: string | null
+  /** SMAC channel (A · B · C) of a transformer alarm; null on the others. It is not a phase: never mapped to R · S · T. */
+  channel: 'A' | 'B' | 'C' | null
+  /** Channels the transformer of a SMAC alarm has; null when unknown (a two-phase pair is never guessed). */
+  channels: ('A' | 'B' | 'C')[] | null
+  /** R · S · T states; null when they do not apply or cannot be drawn as R · S · T. */
   phases: PhaseStates | null
+  /** As computed by the backend (F-49); null when the phases could not be classified. */
+  classification: PhaseClassification | null
   startedAt: Date
+  /** When the device reported the condition back to normal (F-60); null while the alarm is open. */
+  endedAt: Date | null
+  /** Up to `endedAt` when resolved, up to the last refresh while open (F-63). */
   durationMinutes: number
-  customersAffected: number
+  /** Clients of the affected fuse set (F-55); null when the number is not recorded. */
+  customersAffected: number | null
   transformerLoad: TransformerLoad | null
+  /** Active conditions of an OVERLOAD_UNBALANCE alarm; null on every other alarm. */
+  conditions: OverloadCondition[] | null
+  /** Energy level and threshold of a LOW_ENERGY alarm; null on every other alarm. */
+  energy: DeviceEnergy | null
 }
 
 export interface FaultCounters {
@@ -78,5 +135,6 @@ export interface FaultCounters {
 /** Fault panel data. Map nodes come from the node service (`useNodesQuery`). */
 export interface LiveMonitoringData {
   faults: FaultAlert[]
+  /** Nodes in alarm per type, as GET /faults counts them over its whole list (US15 · F-58). */
   counters: FaultCounters
 }

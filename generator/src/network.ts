@@ -14,7 +14,15 @@ export type Node = { name: string; circuitId: number; latitude: number; longitud
 export type Device = { hwId: string; deviceType: 'falcon' | 'smac'; latitude: number; longitude: number };
 export type FuseSet = { id: number; nodeId: string; setId: string | null; extRefId: string; clientCount: number };
 export type Fuse = { customId: string; fusesSetId: number; phase: string; currentHwId: string; nodeId: string };
-export type Trafo = { customId: string; nodeId: string; ratedKva: number; extRefId: string; currentHwId: string; phases: 2 | 3 };
+/**
+ * #CORRECTION CL-07/TD-22 (2026-11-09): phaseIndexes added; every two-phase transformer was A-B.
+ * `phaseIndexes`: the SMAC phases the transformer has (0 = A, 1 = B, 2 = C), in order. CL-07: a
+ * two-phase transformer can have any pair (A-B, B-C, A-C), and TD-22 makes the generator vary it.
+ */
+export type Trafo = {
+  customId: string; nodeId: string; ratedKva: number; extRefId: string; currentHwId: string;
+  phases: 2 | 3; phaseIndexes: readonly number[];
+};
 
 export type Network = {
   departments: Department[];
@@ -36,6 +44,9 @@ const DEPARTMENT_CENTRES: Record<DepartmentName, [number, number]> = {
 };
 const CURRENT_PHASES = ['R', 'S', 'T'] as const;
 const TRAFO_KVA = [25, 37.5, 50, 75, 112.5] as const;
+// #CORRECTION TD-22 (2026-11-09): the pairs a two-phase transformer can have.
+/** CL-07 / TD-22: the phase pairs a two-phase transformer can have. */
+const TWO_PHASE_PAIRS: readonly (readonly number[])[] = [[0, 1], [1, 2], [0, 2]];
 
 /** Splits `total` items over `buckets` as evenly as possible: [3, 3, 2] for (8, 3). */
 export function distribute(total: number, buckets: number): number[] {
@@ -154,6 +165,9 @@ export function buildNetwork(config: GeneratorConfig): Network {
       extRefId: `EXT-TR-${pad(i + 1, 6)}`,
       currentHwId: id,
       phases,
+      // #CORRECTION TD-22 (2026-11-09): one pair per device, from its own seeded stream.
+      // Own seeded stream, so choosing the pair does not change any other generated value.
+      phaseIndexes: phases === 3 ? [0, 1, 2] : createRng(deriveSeed(config.seed, `phases:${id}`)).pick(TWO_PHASE_PAIRS),
     });
   });
 

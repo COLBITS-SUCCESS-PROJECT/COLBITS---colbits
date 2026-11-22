@@ -1,4 +1,4 @@
-/** FaultPanel organism — fault management side panel: tabs, node counters, filters and alarm list (Figma: Fault Panel). */
+/** FaultPanel organism — fault management side panel: tabs, node counters, last hour / last day selector and alarm list (Figma: Fault Panel; no filters of its own, F-56). */
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -9,8 +9,11 @@ import { cn } from '@/utils/cn'
 import type { FaultFilters as Filters } from '../../model/faultRules'
 import type { FaultAlert, FaultCounters } from '../../model/liveMonitoring.types'
 import type { FaultTab } from '../../hooks/useLiveMonitoringFilters'
+import { useResizablePanel } from '../../hooks/useResizablePanel'
 import { FaultFilters } from './FaultFilters'
-import { FaultList } from './FaultList'
+import { FaultList, type FaultListProps } from './FaultList'
+import { FaultPanelResizeHandle } from './FaultPanelResizeHandle'
+import { InactiveDevicesTab, type InactiveDevicesTabProps } from './InactiveDevicesTab'
 
 const TABS: FaultTab[] = ['ACTIVE', 'RESOLVED', 'INACTIVE']
 const ID_PREFIX = 'fault-panel'
@@ -19,13 +22,20 @@ export interface FaultPanelProps {
   tab: FaultTab
   onTabChange: (tab: FaultTab) => void
   activeFaults: FaultAlert[]
-  resolvedFaults: FaultAlert[]
+  /** Resolved tab: the alarms resolved in the window, with their own loading and error states (US16). */
+  resolved: FaultListProps
+  /** null hides the node counters (no data yet, or loading). Only the Active tab shows them. */
   counters: FaultCounters | null
   filters: Filters
   onFiltersChange: (patch: Partial<Filters>) => void
+  /** States of the active list. */
   isLoading: boolean
   isError: boolean
   onRetry: () => void
+  /** Inactive devices tab data; null/undefined until the backend reports them: the tab says they are coming. */
+  inactive?: InactiveDevicesTabProps | null
+  /** M13: a card was clicked; the page centers the map on that node. Without it the cards are not clickable. */
+  onSelectCard?: (nodeId: string) => void
   closeLabel?: string
   isMobileOpen?: boolean
   onClose?: () => void
@@ -37,17 +47,36 @@ export function FaultPanel(props: FaultPanelProps) {
     tab,
     onTabChange,
     activeFaults,
-    resolvedFaults,
+    resolved,
     counters,
     filters,
     onFiltersChange,
+    inactive,
+    onSelectCard,
     closeLabel,
     isMobileOpen = false,
     onClose,
   } = props
   const { t } = useTranslation('dashboard')
   const panelRef = useRef<HTMLElement>(null)
-  const listState = { isLoading: props.isLoading, isError: props.isError, onRetry: props.onRetry }
+  const resize = useResizablePanel()
+  const isResolvedTab = tab === 'RESOLVED'
+  // The Active and Resolved tabs list alarms, each with its own data and states.
+  const list: FaultListProps = isResolvedTab
+    ? resolved
+    : {
+        faults: activeFaults,
+        isLoading: props.isLoading,
+        isError: props.isError,
+        onRetry: props.onRetry,
+      }
+  const listCountKey = isResolvedTab ? 'panel.resolvedCount' : 'panel.activeCount'
+  const inactiveTab = tab === 'INACTIVE' ? inactive : null
+  const headerCount = inactiveTab
+    ? t('inactive.nowCount', {
+        count: inactiveTab.devices.filter((view) => view.isInactiveNow).length,
+      })
+    : t(listCountKey, { count: list.faults.length })
 
   useEffect(() => {
     if (!isMobileOpen || !onClose) return
@@ -87,95 +116,105 @@ export function FaultPanel(props: FaultPanelProps) {
   }, [isMobileOpen, onClose])
 
   return (
-    <aside
-      aria-labelledby="fault-panel-title"
-      id="fault-panel"
-      aria-modal={isMobileOpen ? true : undefined}
-      role={isMobileOpen ? 'dialog' : 'complementary'}
-      ref={panelRef}
-      className={cn(
-        'min-w-0 flex-col gap-3 overflow-y-auto border-border-default bg-bg-panel px-4 pt-4 pb-4 xl:w-90 xl:shrink-0 xl:border-l xl:px-2.5 xl:pb-2.5',
-        props.className
-      )}
-    >
-      <header className="flex items-center justify-between px-1">
-        <h2 id="fault-panel-title" className="text-base font-semibold text-text-heading">
-          {t('panel.title')}
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-text-subtle">
-            {t('panel.activeCount', { count: activeFaults.length })}
-          </span>
-          {closeLabel && props.onClose && (
-            <IconButton
-              icon="close"
-              label={closeLabel}
-              onClick={props.onClose}
-              className="xl:hidden"
-            />
+    <>
+      <FaultPanelResizeHandle {...resize} />
+      <aside
+        aria-labelledby="fault-panel-title"
+        id="fault-panel"
+        aria-modal={isMobileOpen ? true : undefined}
+        role={isMobileOpen ? 'dialog' : 'complementary'}
+        ref={panelRef}
+        style={resize.style}
+        className={cn(
+          'min-w-0 flex-col gap-3 overflow-y-auto border-border-default bg-bg-panel px-4 pt-4 pb-4 xl:w-(--fault-panel-width,22.5rem) xl:shrink-0 xl:border-l xl:px-2.5 xl:pb-2.5',
+          props.className
+        )}
+      >
+        <header className="flex items-center justify-between px-1">
+          <h2 id="fault-panel-title" className="text-base font-semibold text-text-heading">
+            {t('panel.title')}
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-text-subtle">{headerCount}</span>
+            {closeLabel && props.onClose && (
+              <IconButton
+                icon="close"
+                label={closeLabel}
+                onClick={props.onClose}
+                className="xl:hidden"
+              />
+            )}
+          </div>
+        </header>
+
+        <Tabs
+          idPrefix={ID_PREFIX}
+          label={t('panel.tabsLabel')}
+          items={TABS.map((id) => ({ id, label: t(`panel.tab.${id}`) }))}
+          activeId={tab}
+          onChange={onTabChange}
+        />
+
+        <div
+          role="tabpanel"
+          id={getTabPanelId(ID_PREFIX, tab)}
+          aria-labelledby={getTabId(ID_PREFIX, tab)}
+          className="flex flex-col gap-3"
+        >
+          {inactiveTab && <InactiveDevicesTab {...inactiveTab} onSelect={onSelectCard} />}
+          {tab === 'INACTIVE' && !inactiveTab && (
+            <p className="p-6 text-center text-sm text-text-subtle">{t('panel.inactiveSoon')}</p>
+          )}
+          {tab !== 'INACTIVE' && (
+            <>
+              {!isResolvedTab && counters && (
+                <section
+                  aria-label={t('panel.counters.label')}
+                  className="grid grid-cols-2 gap-x-2.5 gap-y-2"
+                >
+                  <CounterCard
+                    value={counters.fuseAlarmNodes}
+                    label={t('panel.counters.fuseAlarm')}
+                    tone="primary"
+                  />
+                  <CounterCard
+                    value={counters.voltageAlarmNodes}
+                    label={t('panel.counters.voltageAlarm')}
+                    tone="info"
+                  />
+                  <CounterCard
+                    value={counters.phaseOutOfRangeNodes}
+                    label={t('panel.counters.phaseOutOfRange')}
+                    tone="warning"
+                  />
+                  <CounterCard
+                    value={counters.phaseDroppedNodes}
+                    label={t('panel.counters.phaseDropped')}
+                    tone="critical"
+                  />
+                </section>
+              )}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-text-primary">
+                  {t(`panel.list.${tab}`)}
+                </h3>
+                <Link
+                  to={ROUTES.analysis}
+                  className="text-overline font-medium text-action-link hover:underline"
+                >
+                  {t('panel.olderAlarms')}
+                </Link>
+              </div>
+              <FaultFilters
+                filters={filters}
+                onChange={onFiltersChange}
+                note={t(isResolvedTab ? 'panel.resolvedNote' : 'panel.sortNote')}
+              />
+              <FaultList {...list} onSelect={onSelectCard} />
+            </>
           )}
         </div>
-      </header>
-
-      <Tabs
-        idPrefix={ID_PREFIX}
-        label={t('panel.tabsLabel')}
-        items={TABS.map((id) => ({ id, label: t(`panel.tab.${id}`) }))}
-        activeId={tab}
-        onChange={onTabChange}
-      />
-
-      <div
-        role="tabpanel"
-        id={getTabPanelId(ID_PREFIX, tab)}
-        aria-labelledby={getTabId(ID_PREFIX, tab)}
-        className="flex flex-col gap-3"
-      >
-        {tab === 'INACTIVE' ? (
-          <p className="p-6 text-center text-sm text-text-subtle">{t('panel.inactiveSoon')}</p>
-        ) : (
-          <>
-            {counters && (
-              <section
-                aria-label={t('panel.counters.label')}
-                className="grid grid-cols-2 gap-x-2.5 gap-y-2"
-              >
-                <CounterCard
-                  value={counters.fuseAlarmNodes}
-                  label={t('panel.counters.fuseAlarm')}
-                  tone="primary"
-                />
-                <CounterCard
-                  value={counters.voltageAlarmNodes}
-                  label={t('panel.counters.voltageAlarm')}
-                  tone="info"
-                />
-                <CounterCard
-                  value={counters.phaseOutOfRangeNodes}
-                  label={t('panel.counters.phaseOutOfRange')}
-                  tone="warning"
-                />
-                <CounterCard
-                  value={counters.phaseDroppedNodes}
-                  label={t('panel.counters.phaseDropped')}
-                  tone="critical"
-                />
-              </section>
-            )}
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-text-primary">{t(`panel.list.${tab}`)}</h3>
-              <Link
-                to={ROUTES.analysis}
-                className="text-overline font-medium text-action-link hover:underline"
-              >
-                {t('panel.olderAlarms')}
-              </Link>
-            </div>
-            <FaultFilters filters={filters} onChange={onFiltersChange} />
-            <FaultList faults={tab === 'ACTIVE' ? activeFaults : resolvedFaults} {...listState} />
-          </>
-        )}
-      </div>
-    </aside>
+      </aside>
+    </>
   )
 }

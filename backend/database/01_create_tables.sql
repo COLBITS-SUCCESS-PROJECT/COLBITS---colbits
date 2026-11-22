@@ -6,6 +6,12 @@
 -- with students:
 --   - department_name enum values renamed to fictional district names
 --
+-- #CORRECTION TD-18/TD-19 (2026-11-09): changes listed below.
+-- Team changes to this copy (docs/decisions/client-clarifications-2026-11.md):
+--   - TD-18: the update_last_* trigger functions name their tables with public., because
+--     this script sets an empty search_path and the triggers would fail in the same session
+--   - TD-19: only one of the two identical falcon_values(custom_id) indexes is created (CL-23)
+--
 -- NOTE ON TIMESTAMPS: every recorded_at / created_at / updated_at column
 -- below is `timestamp with time zone`, matching production. Telemetry
 -- timestamps are NOT naive — they carry zone information. Any code that
@@ -55,7 +61,8 @@ CREATE FUNCTION public.update_last_falcon_values() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO last_falcon_values (
+    -- #CORRECTION TD-18 (2026-11-09): public. prefix.
+    INSERT INTO public.last_falcon_values (
         hw_id, custom_id, post, recorded_at, angle_incl, internal_temperature,
         supercaps_per, solar_panel, fuse_state, is_voltage_present,
         is_fuse_alarm, is_free_fall_alarm, is_solar_panel_alarm
@@ -93,7 +100,8 @@ CREATE FUNCTION public.update_last_smac_vc_values() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO last_smac_vc_values (
+    -- #CORRECTION TD-18 (2026-11-09): public. prefix.
+    INSERT INTO public.last_smac_vc_values (
         hw_id, custom_id, recorded_at, internal_temperature, battery_per,
         va, vb, vc, ia, ib, ic, in_, cuf_percent, vuf_percent, load_percent
     )
@@ -132,7 +140,8 @@ CREATE FUNCTION public.update_last_smac_pw_values() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO last_smac_pw_values (
+    -- #CORRECTION TD-18 (2026-11-09): public. prefix.
+    INSERT INTO public.last_smac_pw_values (
         hw_id, custom_id, recorded_at,
         phase_a_active_power, phase_b_active_power, phase_c_active_power,
         phase_a_reactive_power, phase_b_reactive_power, phase_c_reactive_power,
@@ -170,7 +179,8 @@ CREATE FUNCTION public.update_last_smac_pf_values() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    INSERT INTO last_smac_pf_values (
+    -- #CORRECTION TD-18 (2026-11-09): public. prefix.
+    INSERT INTO public.last_smac_pf_values (
         hw_id, custom_id, recorded_at,
         phase_c_apparent_power, phase_a_power_factor, phase_b_power_factor, phase_c_power_factor
     )
@@ -609,7 +619,8 @@ CREATE INDEX idx_alarms_custom_id ON public.alarms USING btree (custom_id);
 CREATE INDEX idx_alarms_node ON public.alarms USING btree ("left"(custom_id, 10));
 CREATE INDEX idx_alarms_recorded_hw ON public.alarms USING btree (recorded_at, hw_id);
 CREATE INDEX idx_devices_device_type ON public.devices USING btree (device_type);
-CREATE INDEX idx_falcon_values_custom ON public.falcon_values USING btree (custom_id);
+-- #CORRECTION TD-19 (2026-11-09): duplicate index removed.
+-- TD-19 / CL-23: idx_falcon_values_custom was identical to idx_falcon_values_custom_id.
 CREATE INDEX idx_falcon_values_custom_id ON public.falcon_values USING btree (custom_id);
 CREATE INDEX idx_falcon_values_node ON public.falcon_values USING btree ("left"(custom_id, 10));
 CREATE INDEX idx_fuses_fuses_set_id ON public.fuses USING btree (fuses_set_id);

@@ -9,6 +9,7 @@ import { server } from '@/mocks/server'
 import { isTokenRevoked, resetRevokedTokens } from '@/mocks/data/revokedTokens'
 import { useAuthStore } from '@/stores/auth.store'
 import { STALE_AFTER_MS, useDataFreshnessStore } from '@/stores/dataFreshness.store'
+import { useUiPreferencesStore } from '@/stores/uiPreferences.store'
 import { ROUTES } from '@/app/router/routes'
 import { AppShell } from './AppShell'
 
@@ -44,6 +45,7 @@ describe('AppShell', () => {
     useAuthStore.getState().clearAuth()
     useDataFreshnessStore.getState().reset()
     resetRevokedTokens()
+    useUiPreferencesStore.getState().setSidebarCollapsed(false)
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -86,6 +88,17 @@ describe('AppShell', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Abrir menú de navegación' }))
 
     expect(screen.getByRole('dialog', { name: 'Navegación principal' })).toBeInTheDocument()
+  })
+
+  it('collapses and expands the sidebar, and remembers the choice (SCRUM-215)', async () => {
+    renderShellAt(ROUTES.dashboard)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Contraer menú' }))
+
+    expect(useUiPreferencesStore.getState().sidebarCollapsed).toBe(true)
+    expect(screen.getByRole('link', { name: 'Monitoreo en vivo' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Expandir menú' }))
+    expect(useUiPreferencesStore.getState().sidebarCollapsed).toBe(false)
   })
 
   it('updates the page and the top bar title when a sidebar link is clicked', async () => {
@@ -159,6 +172,23 @@ describe('AppShell', () => {
       'data-status',
       'critical'
     )
+  })
+
+  it('marks the refresh as interrupted at once when the map refresh fails (F-31)', () => {
+    // Arrange: fresh data, but the last refresh of the map failed
+    useDataFreshnessStore.getState().markSynced(Date.now())
+    useDataFreshnessStore.getState().setInterrupted(true)
+
+    // Act
+    renderShellAt(ROUTES.dashboard)
+
+    // Assert: red dot with its own meaning, and the time of the last successful refresh
+    expect(screen.getByRole('img', { name: 'Actualización interrumpida' })).toHaveAttribute(
+      'data-status',
+      'critical'
+    )
+    expect(screen.queryByRole('img', { name: 'Datos en vivo' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Última actualización:/)).toBeInTheDocument()
   })
 
   describe('user management entry (F-05, US19)', () => {
