@@ -1,5 +1,4 @@
 import { ALERT_TYPE_DEFINITIONS } from '../faults/fault-alert-types';
-import { SOURCE_ALARM_EVENTS_CTE } from '../faults/source-alarms';
 
 /**
  * SCRUM-283 · US20 (F-66): the two reads behind GET /history. They only select events; the rules
@@ -7,10 +6,21 @@ import { SOURCE_ALARM_EVENTS_CTE } from '../faults/source-alarms';
  * fuse openings are grouped by groupFuseFaults (fault-grouping.ts) in TypeScript, and loss-of-voltage
  * episodes follow the lifecycle of source-alarms.ts (CLEAR wins at the same instant, zero-length
  * episodes are not reported). Nothing is stored; nothing here changes the live queries.
+ *
+ * Cost (NF-02): each read passes once over the events of each fuse in the area (one `events` CTE,
+ * materialized), takes what it needs from before the range with a hash aggregate (no sort of the
+ * history) and sorts only the rows of the range. There is no (custom_id, recorded_at) index, so a
+ * fuse's events before the range cannot be skipped; they are only aggregated.
  */
 
 /** Event-code pattern of a fuse opening (13xx20), from the alert-type registry. */
 export const FUSE_OPENING_PATTERN: string = requiredPattern('FUSE_OPENING');
+
+/**
+ * Event-code pattern of a loss of voltage (NO_VOLTAGE, Falcon 13xx21), from the alert-type registry:
+ * the same value SOURCE_ALARM_PATTERNS holds for NO_VOLTAGE.
+ */
+export const NO_VOLTAGE_PATTERN: string = requiredPattern('NO_VOLTAGE');
 
 /**
  * Fuse-opening events (13xx20 SET/CLEAR) needed to rebuild, exactly as a read of the whole history
@@ -22,12 +32,14 @@ export const FUSE_OPENING_PATTERN: string = requiredPattern('FUSE_OPENING');
  * assignment is enforced: only the events of those fuses exist for this read, so the faults are
  * grouped from them alone (see HistoryArea in history.service.ts).
  *
+ * - Events: every SET and CLEAR of the area's fuses up to read-until, read once.
  * - Candidate sets: fuse sets with a SET in [from, to). A set without one cannot have a fault that
  *   starts in the range.
- * - Window events: every SET and CLEAR of the candidate sets in [L, read-until].
+ * - Window events: the events of the candidate sets in [L, read-until].
  * - Seed: for each fuse of a candidate set, its last event before L, kept only when it is a SET (the
  *   fuse was open at L). At the same instant the SET wins, the order of ACTIVE_FAULT_EVENTS_SQL and
- *   of groupFuseFaults (a SET and a CLEAR at one instant leave the fuse open).
+ *   of groupFuseFaults (a SET and a CLEAR at one instant leave the fuse open): the seed is the
+ *   latest instant before L, kept when a SET is among its events (latest SET = latest event).
  *
  * Why this equals the whole history for faults starting in [from, to): an opening only joins the
  * previous opening of its set when it is less than one window later (fault-grouping.ts), so an
@@ -39,49 +51,39 @@ export const FUSE_OPENING_PATTERN: string = requiredPattern('FUSE_OPENING');
  * end and state as of read-until), which F-67 classification needs.
  */
 export const HISTORY_FUSE_EVENTS_SQL = `
-  WITH scoped_fuses AS (
-    SELECT f.custom_id, f.fuses_set_id, f.phase
+  WITH events AS MATERIALIZED (
+    SELECT f.fuses_set_id, f.custom_id AS fuse_id, f.phase,
+           (a.event_type IN ('SET', 'set')) AS is_set, a.recorded_at
     FROM public.fuses_sets fs
     JOIN public.fuses f ON f.fuses_set_id = fs.id
+    JOIN public.alarms a ON a.custom_id = f.custom_id
     WHERE fs.node_id = ANY($1::text[])
       AND ($7::text[] IS NULL OR f.custom_id = ANY($7::text[]))
-  ), window_events AS (
-    SELECT sf.fuses_set_id, sf.custom_id AS fuse_id, sf.phase,
-           (a.event_type IN ('SET', 'set')) AS is_set, a.recorded_at
-    FROM scoped_fuses sf
-    JOIN public.alarms a ON a.custom_id = sf.custom_id
-    WHERE a.event_code ~ $2::text
+      AND a.event_code ~ $2::text
       AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
-      AND a.recorded_at >= $3::timestamptz
       AND a.recorded_at <= $6::timestamptz
   ), candidate_sets AS (
     SELECT DISTINCT fuses_set_id
-    FROM window_events
+    FROM events
     WHERE is_set
       AND recorded_at >= $4::timestamptz
       AND recorded_at < $5::timestamptz
   ), seeds AS (
-    SELECT sf.fuses_set_id, sf.custom_id AS fuse_id, sf.phase,
-           TRUE AS is_set, last_event.recorded_at
-    FROM scoped_fuses sf
-    JOIN candidate_sets cs ON cs.fuses_set_id = sf.fuses_set_id
-    CROSS JOIN LATERAL (
-      SELECT a.recorded_at, (a.event_type IN ('SET', 'set')) AS is_set
-      FROM public.alarms a
-      WHERE a.custom_id = sf.custom_id
-        AND a.event_code ~ $2::text
-        AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
-        AND a.recorded_at < $3::timestamptz
-      ORDER BY a.recorded_at DESC, (a.event_type IN ('SET', 'set')) DESC
-      LIMIT 1
-    ) last_event
-    WHERE last_event.is_set
+    SELECT fuses_set_id, fuse_id, phase, TRUE AS is_set,
+           max(recorded_at) AS recorded_at
+    FROM events
+    WHERE recorded_at < $3::timestamptz
+    GROUP BY fuses_set_id, fuse_id, phase
+    HAVING max(recorded_at) FILTER (WHERE is_set) = max(recorded_at)
   )
-  SELECT fuses_set_id, fuse_id, phase, is_set, recorded_at FROM seeds
+  SELECT s.fuses_set_id, s.fuse_id, s.phase, s.is_set, s.recorded_at
+  FROM seeds s
+  JOIN candidate_sets cs ON cs.fuses_set_id = s.fuses_set_id
   UNION ALL
   SELECT w.fuses_set_id, w.fuse_id, w.phase, w.is_set, w.recorded_at
-  FROM window_events w
+  FROM events w
   JOIN candidate_sets cs ON cs.fuses_set_id = w.fuses_set_id
+  WHERE w.recorded_at >= $3::timestamptz
   ORDER BY fuses_set_id, recorded_at, fuse_id
 `;
 
@@ -95,7 +97,7 @@ export interface HistoryFuseEventRow {
 
 /**
  * Starts of loss-of-voltage episodes (NO_VOLTAGE, Falcon 13xx21) in [from, to), one row per episode,
- * built on SOURCE_ALARM_EVENTS_CTE (unchanged) with the lifecycle of the live alarm lists:
+ * with the lifecycle of the live alarm lists (source-alarms.ts):
  *
  * - An episode starts at a SET whose previous event of the same fuse is a CLEAR or nothing; repeated
  *   SETs never restart it (F-59). Events of one instant are ordered SET before CLEAR, so a CLEAR at
@@ -106,44 +108,63 @@ export interface HistoryFuseEventRow {
  *   (D3-B, RESOLVED_SOURCE_ALARMS_SQL `ended_at > started_at`); it is not counted either.
  * - Open episodes (no CLEAR yet) count: an alarm is counted by its start.
  *
- * Only fuses with a NO_VOLTAGE SET in [from, to) are kept (a start must be such a SET); their whole
- * history before `to` is read, because the previous event of the first SET can be long before
- * `from`. Events at or after `to` cannot change a start before `to`.
+ * Events: the NO_VOLTAGE branch of SOURCE_ALARM_EVENTS_CTE (source = every fuse of an in-scope fuse
+ * set, alarms joined by custom_id, the same four event types), limited to the authorized fuses and
+ * to recorded_at < `to`; events at or after `to` cannot change a start before `to`. The SMAC branch
+ * of that CTE is not read: those alarms are never counted here.
  *
- * Parameters: $1 text[] node names in scope, $2-$4 SOURCE_ALARM_PATTERNS (NO_VOLTAGE, PHASE_LOSS,
- * PHASE_OUT_OF_RANGE, the CTE needs all three), $5 from, $6 to, $7 text[] authorized fuses
- * (fuses.custom_id, the source of a NO_VOLTAGE alarm) or NULL for every fuse of the nodes.
+ * Bounded: only the events in [from, to) are ordered. What comes before `from` only matters through
+ * the event just before the first of them (the `lag` of the first in-range row), so each fuse gets
+ * one seed row: its last instant before `from`, as a CLEAR when a CLEAR is among that instant's
+ * events (the CLEAR wins, it sorts last), otherwise as a SET (the episode was still open). The seed is
+ * before `from`, so it is never a start itself. This gives the same starts as ordering the whole
+ * history (cross-checked against the live lists in test/history.e2e-spec.ts, S6).
+ *
+ * Parameters: $1 text[] node names in scope, $2 NO_VOLTAGE_PATTERN, $3 from, $4 to, $5 text[]
+ * authorized fuses (fuses.custom_id, the source of a NO_VOLTAGE alarm) or NULL for every fuse of the
+ * nodes.
  */
 export const HISTORY_NO_VOLTAGE_STARTS_SQL = `
-  WITH ${SOURCE_ALARM_EVENTS_CTE}, ordered AS (
-    SELECT e.source_id, e.is_set, e.recorded_at,
-           lag(e.is_set) OVER (
-             PARTITION BY e.alert_type, e.source_id, e.channel_key
-             ORDER BY e.recorded_at, e.is_set DESC
+  WITH events AS MATERIALIZED (
+    SELECT f.custom_id AS source_id, (a.event_type IN ('SET', 'set')) AS is_set,
+           a.recorded_at
+    FROM public.fuses_sets fs
+    JOIN public.fuses f ON f.fuses_set_id = fs.id
+    JOIN public.alarms a ON a.custom_id = f.custom_id
+    WHERE fs.node_id = ANY($1::text[])
+      AND ($5::text[] IS NULL OR f.custom_id = ANY($5::text[]))
+      AND a.event_code ~ $2::text
+      AND a.event_type IN ('SET', 'set', 'CLEAR', 'clear')
+      AND a.recorded_at < $4::timestamptz
+  ), bounded AS (
+    SELECT source_id,
+           max(recorded_at) FILTER (WHERE NOT is_set)
+             IS DISTINCT FROM max(recorded_at) AS is_set,
+           max(recorded_at) AS recorded_at
+    FROM events
+    WHERE recorded_at < $3::timestamptz
+    GROUP BY source_id
+    UNION ALL
+    SELECT source_id, is_set, recorded_at
+    FROM events
+    WHERE recorded_at >= $3::timestamptz
+  ), ordered AS (
+    SELECT b.source_id, b.is_set, b.recorded_at,
+           lag(b.is_set) OVER (
+             PARTITION BY b.source_id
+             ORDER BY b.recorded_at, b.is_set DESC
            ) AS previous_is_set,
-           bool_or(NOT e.is_set) OVER (
-             PARTITION BY e.alert_type, e.source_id, e.channel_key, e.recorded_at
+           bool_or(NOT b.is_set) OVER (
+             PARTITION BY b.source_id, b.recorded_at
            ) AS cleared_same_instant
-    FROM events e
-    WHERE e.alert_type = 'NO_VOLTAGE'
-      AND ($7::text[] IS NULL OR e.source_id = ANY($7::text[]))
-      AND e.recorded_at < $6::timestamptz
-      AND EXISTS (
-        SELECT 1
-        FROM public.alarms r
-        WHERE r.custom_id = e.source_id
-          AND r.event_code ~ $2::text
-          AND r.event_type IN ('SET', 'set')
-          AND r.recorded_at >= $5::timestamptz
-          AND r.recorded_at < $6::timestamptz
-      )
+    FROM bounded b
   )
   SELECT source_id, recorded_at AS started_at
   FROM ordered
   WHERE is_set
     AND previous_is_set IS DISTINCT FROM TRUE
     AND NOT cleared_same_instant
-    AND recorded_at >= $5::timestamptz
+    AND recorded_at >= $3::timestamptz
   ORDER BY started_at, source_id
 `;
 
@@ -152,7 +173,7 @@ export interface HistoryNoVoltageStartRow {
   started_at: Date | string;
 }
 
-function requiredPattern(type: 'FUSE_OPENING'): string {
+function requiredPattern(type: 'FUSE_OPENING' | 'NO_VOLTAGE'): string {
   const { eventCodePattern } = ALERT_TYPE_DEFINITIONS[type];
   if (eventCodePattern === null) {
     throw new Error(`${type} must have a documented event code pattern`);

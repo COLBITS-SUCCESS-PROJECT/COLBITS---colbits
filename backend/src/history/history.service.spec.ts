@@ -3,12 +3,16 @@ import { Brackets, Repository } from 'typeorm';
 import { FaultsService } from '../faults/faults.service';
 import { Node } from '../nodes/node.entity';
 import { ScopeContext } from '../scope/scope.types';
-import { SOURCE_ALARM_PATTERNS } from '../faults/source-alarms';
+import {
+  SOURCE_ALARM_PATTERNS,
+  SOURCE_ALARM_TYPES,
+} from '../faults/source-alarms';
 import { HistoryQuery, HistorySelection } from './history-params';
 import {
   FUSE_OPENING_PATTERN,
   HISTORY_FUSE_EVENTS_SQL,
   HISTORY_NO_VOLTAGE_STARTS_SQL,
+  NO_VOLTAGE_PATTERN,
   type HistoryFuseEventRow,
   type HistoryNoVoltageStartRow,
 } from './history-queries';
@@ -650,7 +654,13 @@ describe('HistoryService.noVoltageStartsIn (loss-of-voltage episode starts)', ()
     expect(nodesRepository.query).not.toHaveBeenCalled();
   });
 
-  it('passes the nodes, the three source-alarm patterns and the range, and maps the starts to dates', async () => {
+  it('reads NO_VOLTAGE with the registry pattern the live source-alarm queries use', () => {
+    expect(NO_VOLTAGE_PATTERN).toBe(
+      SOURCE_ALARM_PATTERNS[SOURCE_ALARM_TYPES.indexOf('NO_VOLTAGE')],
+    );
+  });
+
+  it('passes the nodes, the NO_VOLTAGE pattern and the range, and maps the starts to dates', async () => {
     const { service, nodesRepository } = serviceWith({
       noVoltageRows: [
         { source_id: 'f1', started_at: '2026-10-21T10:00:00.000Z' },
@@ -668,7 +678,7 @@ describe('HistoryService.noVoltageStartsIn (loss-of-voltage episode starts)', ()
       HISTORY_NO_VOLTAGE_STARTS_SQL,
       [
         ['n1'],
-        ...SOURCE_ALARM_PATTERNS,
+        NO_VOLTAGE_PATTERN,
         FROM.toISOString(),
         TO.toISOString(),
         null,

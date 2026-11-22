@@ -7,7 +7,6 @@ import {
   groupFuseFaults,
 } from '../faults/fault-grouping';
 import { FaultsService } from '../faults/faults.service';
-import { SOURCE_ALARM_PATTERNS } from '../faults/source-alarms';
 import { Node } from '../nodes/node.entity';
 import { applyNodeScope } from '../scope/scope-query.helper';
 import { ScopeContext } from '../scope/scope.types';
@@ -27,6 +26,7 @@ import {
   FUSE_OPENING_PATTERN,
   HISTORY_FUSE_EVENTS_SQL,
   HISTORY_NO_VOLTAGE_STARTS_SQL,
+  NO_VOLTAGE_PATTERN,
   type HistoryFuseEventRow,
   type HistoryNoVoltageStartRow,
 } from './history-queries';
@@ -322,7 +322,7 @@ export class HistoryService {
       HISTORY_NO_VOLTAGE_STARTS_SQL,
       [
         [...area.nodes],
-        ...SOURCE_ALARM_PATTERNS,
+        NO_VOLTAGE_PATTERN,
         from.toISOString(),
         to.toISOString(),
         fusesParameter(area),

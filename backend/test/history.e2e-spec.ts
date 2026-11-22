@@ -1914,8 +1914,16 @@ describe('GET /history (SCRUM-283 · F-64, F-65, F-66)', () => {
       from: Date;
       to: Date;
     }
+    interface VoltageEpisode {
+      sourceId: string;
+      startMs: number;
+      endMs: number;
+    }
     let allFaults: FuseFault[];
     let voltageStartsMs: number[];
+    /** Resolved NO_VOLTAGE episodes of the live lists, and every NO_VOLTAGE SET written. */
+    let voltageEpisodes: VoltageEpisode[];
+    let voltageSets: Array<{ customId: string; atMs: number }>;
     let ranges: Range[];
 
     const label = ({ from, to }: Range): string =>
@@ -2008,6 +2016,26 @@ describe('GET /history (SCRUM-283 · F-64, F-65, F-66)', () => {
           )
           .map((fault) => new Date(fault.started_at).getTime()),
       ].sort((a, b) => a - b);
+      voltageEpisodes = resolved.flatMap((episode) =>
+        episode.alertType === 'NO_VOLTAGE' &&
+        S6_NODES.includes(episode.node) &&
+        episode.endedAt !== null
+          ? [
+              {
+                sourceId: episode.sourceId,
+                startMs: episode.startedAt.getTime(),
+                endMs: episode.endedAt.getTime(),
+              },
+            ]
+          : [],
+      );
+      voltageSets = history
+        .filter(
+          (event) =>
+            event.code === CODES.NO_VOLTAGE &&
+            ['SET', 'set'].includes(event.type),
+        )
+        .map((event) => ({ customId: event.customId, atMs: event.atMs }));
 
       // Ranges: random ones at second precision (at least one hour), then ones aimed at chains.
       const random = seededRandom(283_018);
@@ -2055,6 +2083,30 @@ describe('GET /history (SCRUM-283 · F-64, F-65, F-66)', () => {
           to: fault.startedAt,
         });
       }
+      // Ranges aimed at loss-of-voltage episodes that begin before `from` (the bounded read only
+      // sees them through each fuse's last event before `from`): `from` exactly at a repeated SET
+      // of an open episode (it must not restart it), and one millisecond after an episode's start.
+      voltageEpisodes
+        .flatMap((episode) => {
+          const repeat = voltageSets.find(
+            (set) =>
+              set.customId === episode.sourceId &&
+              set.atMs > episode.startMs &&
+              set.atMs < episode.endMs,
+          );
+          return repeat === undefined ? [] : [{ episode, repeat }];
+        })
+        .slice(0, 6)
+        .forEach(({ episode, repeat }, index) => {
+          ranges.push({
+            from: new Date(repeat.atMs),
+            to: new Date(repeat.atMs + hours(2 + index * 4)),
+          });
+          ranges.push({
+            from: new Date(episode.startMs + 1),
+            to: new Date(episode.endMs + hours(1)),
+          });
+        });
     }, 120_000);
 
     it('has a history rich enough to be a meaningful cross-check', () => {
@@ -2066,6 +2118,25 @@ describe('GET /history (SCRUM-283 · F-64, F-65, F-66)', () => {
       expect(
         ranges.some((range) => oracleVoltageStarts(range).length > 0),
       ).toBe(true);
+    });
+
+    it('includes ranges that begin inside a loss-of-voltage episode with a repeated SET in the range', () => {
+      const cutting = ranges.filter((range) => {
+        const from = range.from.getTime();
+        return voltageEpisodes.some(
+          (episode) =>
+            episode.startMs < from &&
+            episode.endMs > from &&
+            voltageSets.some(
+              (set) =>
+                set.customId === episode.sourceId &&
+                set.atMs >= from &&
+                set.atMs < Math.min(range.to.getTime(), episode.endMs),
+            ),
+        );
+      });
+
+      expect(cutting.length).toBeGreaterThanOrEqual(6);
     });
 
     it('fuseFaultsStartedIn returns exactly the faults of the complete history that start in each range', async () => {
