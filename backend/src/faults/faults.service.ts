@@ -8,12 +8,23 @@ import { DEFAULT_SEVERITY_WEIGHTS, SeverityWeights } from './fault-ordering';
 import { resolveSmacPhaseWindowDays } from '../nodes/transformer-state';
 
 export const DEFAULT_FAULT_GROUPING_WINDOW_MINUTES = 5;
+export const DEFAULT_FAULT_MIN_DURATION_MINUTES = 1;
 
 @Injectable()
 export class FaultsService {
   constructor(private readonly configService: ConfigService) {}
 
   /** US10 · NF-09: grouping window in minutes, configurable without code changes. */
+  /** US21 / NF-10 (SCRUM-286): minimum fault duration in minutes when the filter is enabled. */
+  getMinDurationMinutes(): number {
+    const configured = Number(
+      this.configService.get('FAULT_MIN_DURATION_MINUTES'),
+    );
+    return Number.isFinite(configured) && configured > 0
+      ? configured
+      : DEFAULT_FAULT_MIN_DURATION_MINUTES;
+  }
+
   getGroupingWindowMinutes(): number {
     const configured = Number(
       this.configService.get('FAULT_GROUPING_WINDOW_MINUTES'),
