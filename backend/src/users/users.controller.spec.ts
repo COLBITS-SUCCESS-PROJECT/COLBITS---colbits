@@ -1,5 +1,6 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { AdminGuard } from './admin.guard';
+import { CreateUserDto, UpdateUserDto } from './dto/users.dto';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
@@ -52,5 +53,20 @@ describe('UsersController & AdminGuard (US19 · F-05, F-06, F-07, F-08, F-09)', 
     expect(service.assignScopes).toHaveBeenCalledWith(2, [
       { entity_type: 'zone', entity_id: '1' },
     ]);
+  });
+
+  it('passes a submitted role to UsersService unchanged, so its F-03 check sees it (SCRUM-300)', async () => {
+    const createBody = {
+      username: 'a@b.co',
+      password: 'password123',
+      role: 'Colbits administrator',
+    };
+    const updateBody = { role: 'Colbits administrator' };
+
+    await controller.create(createBody as unknown as CreateUserDto);
+    await controller.update(2, updateBody as unknown as UpdateUserDto);
+
+    expect(service.create).toHaveBeenLastCalledWith(createBody);
+    expect(service.update).toHaveBeenLastCalledWith(2, updateBody);
   });
 });
