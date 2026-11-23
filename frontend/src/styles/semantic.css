@@ -18,6 +18,15 @@
   --color-alarm-medium: var(--color-yellow-500);
   --color-alarm-high: var(--color-red-500);
 
+  /* Gráficas de análisis histórico (Figma: Chart Cards) */
+  --color-chart-fuse: var(--color-red-500);
+  --color-chart-voltage: var(--color-blue-500);
+  --color-chart-grid: var(--color-gray-100);
+  --color-chart-axis: var(--color-ink-500);
+  --color-phase-monophasic: var(--color-blue-500);
+  --color-phase-biphasic: var(--color-yellow-500);
+  --color-phase-triphasic: var(--color-red-500);
+
   /* Acciones */
   --color-action-primary: var(--color-red-500);
   --color-action-secondary: var(--color-navy-900);

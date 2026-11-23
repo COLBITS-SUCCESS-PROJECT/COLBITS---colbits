@@ -1,0 +1,58 @@
+{
+  "filters": {
+    "label": "Periodo y alcance del análisis",
+    "period": "Periodo",
+    "preset": {
+      "LAST_WEEK": "Última semana",
+      "LAST_MONTH": "Último mes",
+      "LAST_6_MONTHS": "Últimos 6 meses",
+      "LAST_YEAR": "Último año",
+      "CUSTOM": "Rango personalizado"
+    },
+    "from": "Desde",
+    "to": "Hasta",
+    "rangeError": {
+      "MISSING": "Elige la fecha de inicio y la de fin.",
+      "FROM_AFTER_TO": "La fecha de inicio debe ser anterior o igual a la de fin.",
+      "TOO_LONG": "Selecciona un rango de hasta 366 días.",
+      "IN_FUTURE": "La fecha de fin no puede ser posterior a hoy."
+    },
+    "zone": "Zona",
+    "substation": "Subestación",
+    "circuit": "Circuito",
+    "node": "Nodo",
+    "allZones": "Todas las zonas",
+    "allSubstations": "Todas las subestaciones",
+    "allCircuits": "Todos los circuitos",
+    "allNodes": "Todos los nodos",
+    "scopeError": "No se pudo cargar tu alcance de red. Se muestra toda la información a la que tienes acceso."
+  },
+  "trend": {
+    "title": "Tendencia de fallas en el tiempo",
+    "subtitle": {
+      "DAY": "Aperturas de fusible y ausencias de tensión por día",
+      "WEEK": "Aperturas de fusible y ausencias de tensión por semana",
+      "MONTH": "Aperturas de fusible y ausencias de tensión por mes"
+    },
+    "fuseOpenings": "Aperturas de fusible",
+    "voltageAbsences": "Ausencias de tensión",
+    "tableCaption": "Fallas por intervalo",
+    "interval": "Inicio del intervalo"
+  },
+  "phase": {
+    "total": "Total",
+    "title": "Distribución por clasificación de fases",
+    "subtitle": "Fallas contadas según las fases distintas afectadas",
+    "MONOPHASIC": "Monofásica",
+    "BIPHASIC": "Bifásica",
+    "TRIPHASIC": "Trifásica",
+    "chartLabel": "Monofásicas {{MONOPHASIC}}, bifásicas {{BIPHASIC}}, trifásicas {{TRIPHASIC}}"
+  },
+  "state": {
+    "unavailable": "La distribución por fases aún no está disponible.",
+    "loading": "Cargando historial…",
+    "empty": "No hay fallas registradas en este periodo y alcance.",
+    "error": "No se pudo cargar el historial.",
+    "retry": "Reintentar"
+  }
+}

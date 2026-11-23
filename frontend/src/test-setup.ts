@@ -10,3 +10,10 @@ globalThis.AbortSignal = nodeController.signal.constructor as typeof AbortSignal
 vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:8080')
 vi.stubEnv('VITE_APP_ENV', 'development')
 vi.stubEnv('VITE_ENABLE_MSW', 'false')
+
+// Recharts' ResponsiveContainer measures its parent with ResizeObserver, which jsdom does not have.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}

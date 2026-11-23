@@ -12,11 +12,13 @@ import esAuth from './locales/es-CO/auth.json'
 import esErrors from './locales/es-CO/errors.json'
 import esDashboard from './locales/es-CO/dashboard.json'
 import esUsers from './locales/es-CO/users.json'
+import esAnalysis from './locales/es-CO/analysis.json'
 import enCommon from './locales/en/common.json'
 import enAuth from './locales/en/auth.json'
 import enErrors from './locales/en/errors.json'
 import enDashboard from './locales/en/dashboard.json'
 import enUsers from './locales/en/users.json'
+import enAnalysis from './locales/en/analysis.json'
 
 export const resources = {
   'es-CO': {
@@ -25,8 +27,16 @@ export const resources = {
     errors: esErrors,
     dashboard: esDashboard,
     users: esUsers,
+    analysis: esAnalysis,
   },
-  en: { common: enCommon, auth: enAuth, errors: enErrors, dashboard: enDashboard, users: enUsers },
+  en: {
+    common: enCommon,
+    auth: enAuth,
+    errors: enErrors,
+    dashboard: enDashboard,
+    users: enUsers,
+    analysis: enAnalysis,
+  },
 } as const satisfies Record<Language, Record<string, object>>
 
 void i18n.use(initReactI18next).init({
@@ -38,6 +48,7 @@ void i18n.use(initReactI18next).init({
     'auth',
     'dashboard',
     'users',
+    'analysis',
     'devices',
     'alerts',
     'reports',

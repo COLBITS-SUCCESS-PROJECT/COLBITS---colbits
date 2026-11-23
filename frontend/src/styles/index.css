@@ -10,6 +10,7 @@
   --text-micro: 10px; /* Etiquetas de dispositivo, fases, captions en mayúscula */
   --text-overline: 11px; /* Figma Foundations: Overline / 11 */
   --text-label: 13px; /* Chips, nombre de usuario, ID de nodo */
+  --text-card-title: 15px; /* Figma Chart Card: título */
 
   /* Espaciado de letras para etiquetas en mayúscula */
   --tracking-caps: 0.05em;
@@ -38,6 +39,12 @@
   --color-alarm-low: var(--color-alarm-low);
   --color-alarm-medium: var(--color-alarm-medium);
   --color-alarm-high: var(--color-alarm-high);
+
+  --color-chart-fuse: var(--color-chart-fuse);
+  --color-chart-voltage: var(--color-chart-voltage);
+  --color-phase-monophasic: var(--color-phase-monophasic);
+  --color-phase-biphasic: var(--color-phase-biphasic);
+  --color-phase-triphasic: var(--color-phase-triphasic);
 
   --color-action-primary: var(--color-action-primary);
   --color-action-secondary: var(--color-action-secondary);

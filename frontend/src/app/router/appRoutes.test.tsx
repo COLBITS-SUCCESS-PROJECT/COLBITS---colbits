@@ -9,7 +9,9 @@ import { appRoutes } from './appRoutes'
 import { ROUTES } from './routes'
 
 /** Lazy routes load their module on first visit, which can take more than the default 1 s on a busy CI run. */
-const LAZY_ROUTE_TIMEOUT = { timeout: 5000 }
+const LAZY_ROUTE_TIMEOUT = { timeout: 10_000 }
+/** Test timeout above LAZY_ROUTE_TIMEOUT: /analysis loads Recharts lazily, slow when the whole suite runs. */
+const LAZY_TEST_TIMEOUT_MS = 15_000
 
 function renderAppAt(path: string) {
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] })
@@ -35,7 +37,8 @@ describe('appRoutes', () => {
         await screen.findByRole('heading', { level: 1, name: 'Iniciar sesión' }, LAZY_ROUTE_TIMEOUT)
       ).toBeInTheDocument()
       expect(router.state.location.pathname).toBe(ROUTES.login)
-    }
+    },
+    LAZY_TEST_TIMEOUT_MS
   )
 
   it('opens user management for an administrator (SCRUM-250)', async () => {
