@@ -17,6 +17,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 ### In scope
 
 - Map with fuse / transformer / combined markers coloured by state, grouped into clusters where they overlap (F-13) ✅
+- Cluster color: each cluster takes the color of its most severe node on the layers shown (Colbits, 2026-11-20) ✅ ([SCRUM-305](./SCRUM-305.md))
 - Layer switch (fuses, transformers, both), hierarchical filters (zone › substation › circuit) and node search ✅
 - Map legend ✅
 - Active faults panel: counters (from the backend), _Active_ / _Resolved_ tabs and the last hour / last day selector; it follows the map filter and has no filters of its own (F-56) ✅ ([SCRUM-113](./SCRUM-113.md))
@@ -46,6 +47,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | SCRUM-128                   | Base screen M1: map, toolbar, legend, fault panel (with sample data)                                                                                                                       | Sofia                             | DONE        |
 | [SCRUM-77](./SCRUM-77.md)   | [F-12] Node markers on a real map at recorded coordinates (US4)                                                                                                                            | Sofia                             | DONE        |
 | [SCRUM-63](./SCRUM-63.md)   | [F-13] Group overlapping node markers into one cluster (US4)                                                                                                                               | Paola                             | IN_REVIEW   |
+| [SCRUM-305](./SCRUM-305.md) | Cluster color: the most severe state of its nodes, red before yellow, gray and green (Colbits, 2026-11-20)                                                                                 | Paola                             | IN_REVIEW   |
 | [SCRUM-65](./SCRUM-65.md)   | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18)                                                                                                 | Sofia                             | DONE        |
 | [SCRUM-106](./SCRUM-106.md) | US8 · Layer toggles and dual-state nodes (F-14, F-24)                                                                                                                                      | Sofia                             | IN_REVIEW   |
 | [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M6): `GET /nodes/:name/detail` + panel over the map (F-27, F-29)                                                                                              | Sofia                             | IN_REVIEW   |

@@ -28,7 +28,14 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\" rel=\"noreferrer\">OpenStreetMap</a>",
-    "cluster": "{{count}} clustered nodes",
+    "cluster": "{{count}} clustered nodes, {{state}}",
+    "clusterState": {
+      "CRITICAL": "the most severe in red",
+      "WARNING": "the most severe in yellow",
+      "INACTIVE": "the most severe in gray",
+      "UNKNOWN": "the most severe with no data",
+      "NORMAL": "all in green"
+    },
     "expandCluster": "Zoom in to separate the nodes",
     "node": "Node {{id}}",
     "fuse": "fuse: {{state}}",
