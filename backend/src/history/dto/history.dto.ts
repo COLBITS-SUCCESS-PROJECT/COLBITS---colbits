@@ -81,6 +81,36 @@ export class HistoryTotalsDto {
   voltage_alarms: number;
 }
 
+export class HistoryPhaseDistributionDto {
+  @ApiProperty({
+    example: 0,
+    description:
+      'Fuse-opening faults in the range classified as single-phase (MONOPHASIC).',
+  })
+  single_phase: number;
+
+  @ApiProperty({
+    example: 0,
+    description:
+      'Fuse-opening faults in the range classified as two-phase (BIPHASIC).',
+  })
+  two_phase: number;
+
+  @ApiProperty({
+    example: 0,
+    description:
+      'Fuse-opening faults in the range classified as three-phase (TRIPHASIC).',
+  })
+  three_phase: number;
+
+  @ApiProperty({
+    example: 0,
+    description:
+      'Fuse-opening faults in the range whose phases could not be classified (empty, unsupported, or mixed alphabets).',
+  })
+  unclassified: number;
+}
+
 export class HistoryResponseDto {
   @ApiProperty({
     format: 'date-time',
@@ -142,6 +172,13 @@ export class HistoryResponseDto {
       'Totals over the whole range. Each fault or alarm is counted once, in the bucket of its start, only when its start is in [from, to): anything already active before from is excluded.',
   })
   totals: HistoryTotalsDto;
+
+  @ApiProperty({
+    type: () => HistoryPhaseDistributionDto,
+    description:
+      'SCRUM-284 · F-67: Distribution of historical fuse-opening faults by single-, two- and three-phase classification over the whole range, using the same fuse-set grouping rule as live monitoring (F-48 to F-50).',
+  })
+  phase_distribution: HistoryPhaseDistributionDto;
 
   @ApiProperty({
     type: () => [HistoryBucketDto],

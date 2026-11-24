@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
+import { classifyFault } from '../faults/fault-classification';
 import {
   type FuseEvent,
   type FuseFault,
@@ -10,7 +11,10 @@ import { FaultsService } from '../faults/faults.service';
 import { Node } from '../nodes/node.entity';
 import { applyNodeScope } from '../scope/scope-query.helper';
 import { ScopeContext } from '../scope/scope.types';
-import { HistoryResponseDto } from './dto/history.dto';
+import {
+  HistoryPhaseDistributionDto,
+  HistoryResponseDto,
+} from './dto/history.dto';
 import {
   HISTORY_TIMEZONE,
   bucketsBetween,
@@ -61,16 +65,8 @@ export interface HistoryFaultRange {
 }
 
 /**
- * SCRUM-283 · US20 (F-64, F-65, F-66): historical series of fuse faults and loss-of-voltage alarms.
- *
- * resolveArea turns the selection into what the user may read: node names (union of the selected
- * elements, intersected with the user scope, 404 rules: resolveNodes) and, for a device-level
- * assignment, the authorized fuses only (the shared node scope would let in every device of the
- * node). The counts come from two reads (history-queries.ts) limited to that area: fuse faults
- * grouped by the live rule (groupFuseFaults, FAULT_GROUPING_WINDOW_MINUTES) and loss-of-voltage
- * episodes with the live lifecycle. Each is counted once, in the bucket of its start, when the start
- * is in [from, to). fuseFaultsStartedIn is public so other historical aggregates (F-67) reuse the
- * same faults, with the same authorization, instead of reading and grouping again.
+ * SCRUM-283 · US20 (F-64, F-65, F-66) & SCRUM-284 (F-67): historical series of fuse faults,
+ * phase distribution, and loss-of-voltage alarms.
  */
 @Injectable()
 export class HistoryService {
@@ -87,7 +83,7 @@ export class HistoryService {
   ): Promise<HistoryResponseDto> {
     const area = await this.resolveArea(scope, query.selection);
     const buckets = bucketsBetween(query.from, query.to, query.interval);
-    const { fuseFaultStarts, voltageAlarmStarts } = await this.startsIn(
+    const { fuseFaults, voltageAlarmStarts } = await this.startsIn(
       area,
       query,
       now,
@@ -96,7 +92,7 @@ export class HistoryService {
       buckets,
       query.from,
       query.to,
-      fuseFaultStarts,
+      fuseFaults.map((fault) => fault.startedAt),
       voltageAlarmStarts,
     );
     const { selection } = query;
@@ -128,6 +124,7 @@ export class HistoryService {
         fuse_faults: series.totals.fuseFaults,
         voltage_alarms: series.totals.voltageAlarms,
       },
+      phase_distribution: countPhaseDistribution(fuseFaults),
       series: series.buckets.map((item) => ({
         start: item.bucket.start.toISOString(),
         end: item.bucket.end.toISOString(),
@@ -254,11 +251,6 @@ export class HistoryService {
    * end and state are those the live monitoring shows at `asOf`. Faults already open before `from`
    * are not returned. The read is exact (see HISTORY_FUSE_EVENTS_SQL); the window is
    * FAULT_GROUPING_WINDOW_MINUTES, read on every call (NF-09). Oldest first, ties by fuse set.
-   *
-   * Authorization: pass the area of resolveArea. With device-level assignments only the authorized
-   * fuses' events exist for the grouping, so a fault is made of the user's own openings (its start
-   * and phases can differ from the node-wide fault of an administrator; nothing of the other
-   * devices is revealed).
    */
   async fuseFaultsStartedIn(
     area: HistoryArea,
@@ -335,12 +327,12 @@ export class HistoryService {
     area: HistoryArea,
     query: HistoryQuery,
     now: Date,
-  ): Promise<{ fuseFaultStarts: Date[]; voltageAlarmStarts: Date[] }> {
+  ): Promise<{ fuseFaults: FuseFault[]; voltageAlarmStarts: Date[] }> {
     if (isEmptyArea(area)) {
-      return { fuseFaultStarts: [], voltageAlarmStarts: [] };
+      return { fuseFaults: [], voltageAlarmStarts: [] };
     }
 
-    const [faults, voltageAlarmStarts] = await Promise.all([
+    const [fuseFaults, voltageAlarmStarts] = await Promise.all([
       this.fuseFaultsStartedIn(area, {
         from: query.from,
         to: query.to,
@@ -348,11 +340,35 @@ export class HistoryService {
       }),
       this.noVoltageStartsIn(area, query.from, query.to),
     ]);
-    return {
-      fuseFaultStarts: faults.map((fault) => fault.startedAt),
-      voltageAlarmStarts,
-    };
+    return { fuseFaults, voltageAlarmStarts };
   }
+}
+
+/**
+ * SCRUM-284 · F-67: Distribution of grouped fuse-opening faults by single-, two- and
+ * three-phase classification, reusing classifyFault from the live fault engine.
+ */
+export function countPhaseDistribution(
+  faults: readonly FuseFault[],
+): HistoryPhaseDistributionDto {
+  const distribution: HistoryPhaseDistributionDto = {
+    single_phase: 0,
+    two_phase: 0,
+    three_phase: 0,
+    unclassified: 0,
+  };
+
+  for (const fault of faults) {
+    const classification = classifyFault(
+      fault.openings.map((opening) => opening.phase),
+    );
+    if (classification === 'MONOPHASIC') distribution.single_phase += 1;
+    else if (classification === 'BIPHASIC') distribution.two_phase += 1;
+    else if (classification === 'TRIPHASIC') distribution.three_phase += 1;
+    else distribution.unclassified += 1;
+  }
+
+  return distribution;
 }
 
 function isValidDate(value: unknown): value is Date {
