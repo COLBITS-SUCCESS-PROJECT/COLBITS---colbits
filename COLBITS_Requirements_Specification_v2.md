@@ -2,7 +2,7 @@
 
 Platform for visualization, alerting and intelligent querying of time-series data for IoT electrical grids
 
-Version 2.4 · 20 November 2026 · GDSD 2026–27
+Version 2.4 · 24 November 2026 · GDSD 2026–27
 
 ## About this document
 
@@ -17,7 +17,7 @@ This document states the requirements of the COLBITS platform using the template
 | 1.3 Device inactivity | F-36 to F-46 | 11 |
 | 1.4 Alarms and fault classification | F-47 to F-58 | 12 |
 | 1.5 Alarm state | F-59 to F-63 | 5 |
-| 1.6 Historical analysis and indicators | F-64 to F-75 | 12 |
+| 1.6 Historical analysis and indicators | F-64 to F-75 and F-102 | 13 |
 | 1.7 Export and reports | F-76 to F-80 | 5 |
 | 1.8 Conversational assistant | F-81 to F-89 | 9 |
 | 1.9 Synthetic data generator | F-90 to F-98 | 9 |
@@ -128,7 +128,7 @@ F-59 to F-63
 
 ### 1.6 Historical analysis and indicators
 
-F-64 to F-75
+F-64 to F-75 and F-102
 
 | ID | Requirement statement | Type | Source | Rationale | Status | Priority | Verification |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -144,6 +144,7 @@ F-64 to F-75
 | F-73 | While joining SMAC time-series data from its separate tables, the system shall align the voltage, current, power and power-factor records whose timestamps fall within the configured time tolerance. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Transformer readings arrive split across tables at slightly different times and must be analyzed together. | Validated | High | Integration test with misaligned SMAC records |
 | F-74 | While rendering the node view, the system shall display the node's historical faults and alarms and its total accumulated inactivity time in the requested period. | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Lets users review a node's past faults and communication outages in one place. | Validated | High | Acceptance test against alarm records |
 | F-75 | When a historical query is executed for a fuse or transformer, the system shall retrieve the time series through the element's stable identifier (custom_id), regardless of changes to its physical device (hw_id). | Functional | Colbits Scope, Requirements and Use Cases Specification v6.0 | Keeps the history continuous when a physical device is replaced. | Validated | High | Integration test |
+| F-102 | When the user expands a chart of the aggregate historical view, the system shall show that chart enlarged with the same period, scope filters and values, and shall return to the normal view with them unchanged when the user closes it. | Functional | Team, proposed on 23 November 2026 | On a shared screen, as in demos and client reviews, the dates and values of a chart are hard to read. The enlarged chart keeps the same data, so nothing has to be selected again. | Validated | Medium | Acceptance test |
 
 ### 1.7 Export and reports
 
@@ -333,7 +334,7 @@ Every requirement has at least one pass-or-fail check. Functional criteria use G
 | F-62 | Given alarms resolved 30 minutes, 5 hours and 2 days ago, and a fault that has been active for 2 days, when the user selects the last hour, then only the alarm resolved 30 minutes ago appears in the resolved list; when the user selects the last day, then the alarms resolved 30 minutes and 5 hours ago appear, newest first. In both cases the fault active for 2 days stays in the active list. |
 | F-63 | Given an alarm activated at 10:00 and resolved at 10:45, when its duration is shown, then it reads 45 minutes; given an alarm activated at 10:00 and still active at 11:30, then it reads 90 minutes at that moment. |
 
-#### Historical analysis and indicators (F-64 to F-75)
+#### Historical analysis and indicators (F-64 to F-75 and F-102)
 
 | ID | Acceptance criteria |
 | --- | --- |
@@ -349,6 +350,7 @@ Every requirement has at least one pass-or-fail check. Functional criteria use G
 | F-73 | Given SMAC telemetry split across three tables with timestamps 12 seconds apart and a tolerance of 30 seconds, when the node view is requested, then the records are joined into one data point without dropping rows. The initial tolerance is 2 minutes (CL-22); the 30-second value is only this test case. |
 | F-74 | Given a pole with two fuse openings and 18 hours of Falcon inactivity in the past week, when the node view is opened for that week, then it lists both openings with their start and end times and shows a total inactivity of 18 hours. |
 | F-75 | Given a transformer whose SMAC was replaced on 15 June while keeping its custom_id, when a user queries its voltage history from 1 to 30 June, then the chart is continuous across the whole month. |
+| F-102 | Given the historical view with a period and a circuit selected, when the user expands the trend chart, then it opens enlarged with the same period, circuit and values; when the user closes it with its close button or the Esc key, then the view shows the same period and filters, and the focus returns to the expand button. |
 
 #### Export and reports (F-76 to F-80)
 
