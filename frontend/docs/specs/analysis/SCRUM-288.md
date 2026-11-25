@@ -50,6 +50,7 @@ GET /history accepts ISO timestamps. The frontend sends midnight in Bogotá for 
 | Date | Criterion | Result | Tested by | Action taken |
 |---|---|---|---|---|
 | 2026-11-19 | AC1–AC7 (automated, MSW) | PASS | Claude (AI-assisted) | — |
+| 2026-11-24 | Chrome, MSW disabled, authenticated local NestJS + PostgreSQL, develop fb253d5 | PASS | Codex | Verified circuit selection, a single-day range, both chart totals and every trend bucket against GET /history, an empty circuit, and expand/close with retained filters at widths 390, 768 and 1440 px. |
 
 ## 9. Implementation notes
 - Ranges are calendar days (`YYYY-MM-DD`, both inclusive) computed on the local date: "last month" goes back one calendar month (31 Mar → 28 Feb).

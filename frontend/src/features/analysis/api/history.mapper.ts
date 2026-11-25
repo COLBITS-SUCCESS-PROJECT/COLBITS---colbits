@@ -24,11 +24,12 @@ export function toHistorySummary(dto: FaultHistoryResponseDto): HistorySummary {
       fuseOpenings: dto.totals.fuse_faults,
       voltageAbsences: dto.totals.voltage_alarms,
     },
+    unclassified: dto.phase_distribution?.unclassified ?? 0,
     phaseDistribution: dto.phase_distribution
       ? {
-          MONOPHASIC: dto.phase_distribution.monophasic,
-          BIPHASIC: dto.phase_distribution.biphasic,
-          TRIPHASIC: dto.phase_distribution.triphasic,
+          MONOPHASIC: dto.phase_distribution.single_phase,
+          BIPHASIC: dto.phase_distribution.two_phase,
+          TRIPHASIC: dto.phase_distribution.three_phase,
         }
       : null,
   }

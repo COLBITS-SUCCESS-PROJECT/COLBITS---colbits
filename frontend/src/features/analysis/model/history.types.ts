@@ -43,5 +43,6 @@ export interface HistorySummary {
   interval: TrendInterval
   trend: TrendPoint[]
   totals: { fuseOpenings: number; voltageAbsences: number }
+  unclassified: number
   phaseDistribution: Record<PhaseClassification, number> | null
 }

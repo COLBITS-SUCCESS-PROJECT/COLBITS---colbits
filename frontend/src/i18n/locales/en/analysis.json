@@ -1,4 +1,5 @@
 {
+  "chart": { "expand": "Expand", "expandNamed": "Expand {{title}}", "close": "Close" },
   "filters": {
     "label": "Analysis period and scope",
     "period": "Period",
@@ -40,6 +41,7 @@
     "interval": "Interval start"
   },
   "phase": {
+    "unclassified": "Unclassified faults excluded from this chart: {{count}}.",
     "total": "Total",
     "title": "Distribution by phase classification",
     "subtitle": "Faults counted by distinct phases affected",

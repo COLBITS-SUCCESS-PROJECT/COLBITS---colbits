@@ -15,6 +15,7 @@ import { fromIsoDate } from '../../model/periodRange'
 
 export interface FaultTrendChartProps {
   summary: HistorySummary
+  expanded?: boolean
 }
 
 const CHART_HEIGHT = 190
@@ -27,7 +28,7 @@ const SERIES = [
   { key: 'voltageAbsences', color: CHART_COLORS.voltage, swatch: 'bg-chart-voltage' },
 ] as const
 
-export function FaultTrendChart({ summary }: FaultTrendChartProps) {
+export function FaultTrendChart({ summary, expanded = false }: FaultTrendChartProps) {
   const { t, i18n } = useTranslation('analysis')
   const dayFormat = new Intl.DateTimeFormat(i18n.language, {
     day: '2-digit',
@@ -51,14 +52,14 @@ export function FaultTrendChart({ summary }: FaultTrendChartProps) {
         ))}
       </ul>
       <div aria-hidden="true" className="min-w-0 flex-1">
-        <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+        <ResponsiveContainer width="100%" height={expanded ? 320 : CHART_HEIGHT}>
           <AreaChart data={summary.trend} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
             <CartesianGrid vertical={false} stroke={CHART_COLORS.grid} />
             <YAxis hide allowDecimals={false} />
             <XAxis
               dataKey="start"
               tickFormatter={formatStart}
-              tick={{ fill: CHART_COLORS.axis, fontSize: AXIS_FONT_SIZE }}
+              tick={{ fill: CHART_COLORS.axis, fontSize: expanded ? 14 : AXIS_FONT_SIZE }}
               tickLine={false}
               axisLine={false}
               minTickGap={24}
@@ -98,25 +99,27 @@ export function FaultTrendChart({ summary }: FaultTrendChartProps) {
         </ResponsiveContainer>
       </div>
       {/* The same numbers for screen readers (AGENT.md §16): the SVG is decorative. */}
-      <table className="sr-only">
-        <caption>{t('trend.tableCaption')}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{t('trend.interval')}</th>
-            <th scope="col">{t('trend.fuseOpenings')}</th>
-            <th scope="col">{t('trend.voltageAbsences')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {summary.trend.map((point) => (
-            <tr key={point.start}>
-              <th scope="row">{formatStart(point.start)}</th>
-              <td>{point.fuseOpenings}</td>
-              <td>{point.voltageAbsences}</td>
+      <div className="sr-only top-0 left-0">
+        <table>
+          <caption>{t('trend.tableCaption')}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{t('trend.interval')}</th>
+              <th scope="col">{t('trend.fuseOpenings')}</th>
+              <th scope="col">{t('trend.voltageAbsences')}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {summary.trend.map((point) => (
+              <tr key={point.start}>
+                <th scope="row">{formatStart(point.start)}</th>
+                <td>{point.fuseOpenings}</td>
+                <td>{point.voltageAbsences}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   )
 }

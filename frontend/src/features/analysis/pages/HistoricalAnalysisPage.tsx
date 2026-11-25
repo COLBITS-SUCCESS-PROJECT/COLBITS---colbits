@@ -17,8 +17,9 @@ type Section = 'trend' | 'phase'
 
 const HAS_DATA: Record<Section, (summary: HistorySummary) => boolean> = {
   trend: ({ totals }) => totals.fuseOpenings + totals.voltageAbsences > 0,
-  phase: ({ phaseDistribution }) =>
-    !!phaseDistribution && PHASE_CLASSIFICATIONS.some((key) => phaseDistribution[key] > 0),
+  phase: ({ phaseDistribution, unclassified }) =>
+    !!phaseDistribution &&
+    (unclassified > 0 || PHASE_CLASSIFICATIONS.some((key) => phaseDistribution[key] > 0)),
 }
 
 export function HistoricalAnalysisPage() {
@@ -56,7 +57,7 @@ export function HistoricalAnalysisPage() {
           status={statusOf('trend')}
           onRetry={retry}
         >
-          {summary && <FaultTrendChart summary={summary} />}
+          {(expanded) => summary && <FaultTrendChart summary={summary} expanded={expanded} />}
         </ChartCard>
         <ChartCard
           title={t('phase.title')}
@@ -64,9 +65,15 @@ export function HistoricalAnalysisPage() {
           status={statusOf('phase')}
           onRetry={retry}
         >
-          {summary?.phaseDistribution && (
-            <PhaseDistributionChart distribution={summary.phaseDistribution} />
-          )}
+          {(expanded) =>
+            summary?.phaseDistribution && (
+              <PhaseDistributionChart
+                distribution={summary.phaseDistribution}
+                unclassified={summary.unclassified}
+                expanded={expanded}
+              />
+            )
+          }
         </ChartCard>
       </div>
     </div>

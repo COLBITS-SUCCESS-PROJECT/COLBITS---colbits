@@ -16,7 +16,12 @@ export interface FaultHistoryResponseDto {
   totals: { fuse_faults: number; voltage_alarms: number }
   series: TrendPointDto[]
   /** Fuse faults grouped with the live-monitoring rule (F-48 to F-50). */
-  phase_distribution?: { monophasic: number; biphasic: number; triphasic: number }
+  phase_distribution?: {
+    single_phase: number
+    two_phase: number
+    three_phase: number
+    unclassified: number
+  }
 }
 
 /** The location fields of GET /nodes that the scope filter needs (backend/src/nodes, since US14). */

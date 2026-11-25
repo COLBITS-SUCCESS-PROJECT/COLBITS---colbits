@@ -1,4 +1,5 @@
 {
+  "chart": { "expand": "Ampliar", "expandNamed": "Ampliar {{title}}", "close": "Cerrar" },
   "filters": {
     "label": "Periodo y alcance del análisis",
     "period": "Periodo",
@@ -40,6 +41,7 @@
     "interval": "Inicio del intervalo"
   },
   "phase": {
+    "unclassified": "Fallas sin clasificación excluidas de esta gráfica: {{count}}.",
     "total": "Total",
     "title": "Distribución por clasificación de fases",
     "subtitle": "Fallas contadas según las fases distintas afectadas",

@@ -97,17 +97,17 @@ describe('SCRUM-289 · US20 — fault trend and phase distribution', () => {
     )
     expect(
       card.getByRole('img', {
-        name: `Monofásicas ${phases.monophasic}, bifásicas ${phases.biphasic}, trifásicas ${phases.triphasic}`,
+        name: `Monofásicas ${phases.single_phase}, bifásicas ${phases.two_phase}, trifásicas ${phases.three_phase}`,
       })
     ).toBeInTheDocument()
     expect(card.getAllByRole('listitem')).toHaveLength(3)
   })
 
   it('AC4 (F-67): R, S and T opening on one fuse set within 3 minutes count as one three-phase fault', async () => {
-    // The backend groups the openings (F-48 to F-50); the view shows its single triphasic event.
+    // The backend groups the openings (F-48 to F-50); the view shows its single three_phase event.
     answerWith({
       totals: { fuse_faults: 1, voltage_alarms: 0 },
-      phase_distribution: { monophasic: 0, biphasic: 0, triphasic: 1 },
+      phase_distribution: { single_phase: 0, two_phase: 0, three_phase: 1, unclassified: 0 },
     })
     await openHistoryAs(MOCK_TOKENS.NORTH)
 

@@ -16,6 +16,7 @@ const SUMMARY: HistorySummary = {
     { start: '2026-09-02', fuseOpenings: 0, voltageAbsences: 2 },
   ],
   totals: { fuseOpenings: 3, voltageAbsences: 3 },
+  unclassified: 0,
   phaseDistribution: { MONOPHASIC: 3, BIPHASIC: 0, TRIPHASIC: 0 },
 }
 

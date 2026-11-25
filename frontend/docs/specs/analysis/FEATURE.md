@@ -61,4 +61,4 @@ Charts use **Recharts** only (`AGENT.md §1`).
 
 ## 7. API contract
 
-SCRUM-283 provides authenticated GET /history for F-64–F-66. See SCRUM-288 for date and scope semantics. GET /nodes populates the selectors. The phase breakdown is pending SCRUM-284. In real API mode the phase card shows an unavailable state when the response omits that data.
+SCRUM-283 provides authenticated GET /history for F-64–F-66. See SCRUM-288 for date and scope semantics. GET /nodes populates the selectors. SCRUM-284 supplies single_phase, two_phase, three_phase and unclassified counts in phase_distribution. In real API mode the phase card shows an unavailable state when the response omits that data.

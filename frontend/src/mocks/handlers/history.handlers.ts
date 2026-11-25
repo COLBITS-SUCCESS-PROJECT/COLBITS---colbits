@@ -81,9 +81,10 @@ export function faultHistoryOf(
     },
     series: points,
     phase_distribution: {
-      monophasic: count('MONOPHASIC'),
-      biphasic: count('BIPHASIC'),
-      triphasic: count('TRIPHASIC'),
+      single_phase: count('MONOPHASIC'),
+      two_phase: count('BIPHASIC'),
+      three_phase: count('TRIPHASIC'),
+      unclassified: 0,
     },
   }
 }

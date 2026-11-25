@@ -11,6 +11,8 @@ import type { PhaseClassification } from '../../model/history.types'
 import { phaseShares } from '../../model/phaseShares'
 
 export interface PhaseDistributionChartProps {
+  unclassified?: number
+  expanded?: boolean
   distribution: Record<PhaseClassification, number>
 }
 
@@ -22,8 +24,13 @@ const SLICE_GAP = 2
 const START_ANGLE = 90
 const END_ANGLE = -270
 
-export function PhaseDistributionChart({ distribution }: PhaseDistributionChartProps) {
+export function PhaseDistributionChart({
+  distribution,
+  unclassified = 0,
+  expanded = false,
+}: PhaseDistributionChartProps) {
   const { t } = useTranslation('analysis')
+  const scale = expanded ? 1.5 : 1
   const shares = phaseShares(distribution)
   const slices = PHASE_CLASSIFICATIONS.map((key) => ({ key, value: distribution[key] }))
 
@@ -31,8 +38,8 @@ export function PhaseDistributionChart({ distribution }: PhaseDistributionChartP
     <div className="flex flex-1 flex-wrap content-center items-center justify-center gap-x-8 gap-y-2">
       <div className="relative shrink-0">
         <PieChart
-          width={DONUT_SIZE}
-          height={DONUT_SIZE}
+          width={DONUT_SIZE * scale}
+          height={DONUT_SIZE * scale}
           role="img"
           aria-label={t('phase.chartLabel', distribution)}
         >
@@ -40,8 +47,8 @@ export function PhaseDistributionChart({ distribution }: PhaseDistributionChartP
             data={slices}
             dataKey="value"
             nameKey="key"
-            innerRadius={INNER_RADIUS}
-            outerRadius={OUTER_RADIUS}
+            innerRadius={INNER_RADIUS * scale}
+            outerRadius={OUTER_RADIUS * scale}
             startAngle={START_ANGLE}
             endAngle={END_ANGLE}
             stroke={CHART_COLORS.surface}
@@ -74,6 +81,11 @@ export function PhaseDistributionChart({ distribution }: PhaseDistributionChartP
           </li>
         ))}
       </ul>
+      {unclassified > 0 && (
+        <p className="basis-full text-center text-xs text-text-secondary">
+          {t('phase.unclassified', { count: unclassified })}
+        </p>
+      )}
     </div>
   )
 }

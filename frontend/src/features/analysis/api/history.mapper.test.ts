@@ -10,16 +10,17 @@ describe('toHistorySummary', () => {
       from: '2026-09-01',
       to: '2026-09-02',
       interval: 'week',
-      totals: { fuse_faults: 3, voltage_alarms: 1 },
-      series: [{ start: '2026-09-01T05:00:00.000Z', fuse_faults: 3, voltage_alarms: 1 }],
-      phase_distribution: { monophasic: 1, biphasic: 1, triphasic: 1 },
+      totals: { fuse_faults: 10, voltage_alarms: 1 },
+      series: [{ start: '2026-09-01T05:00:00.000Z', fuse_faults: 10, voltage_alarms: 1 }],
+      phase_distribution: { single_phase: 1, two_phase: 2, three_phase: 3, unclassified: 4 },
     })
 
     expect(summary).toEqual({
       interval: 'WEEK',
-      trend: [{ start: '2026-09-01', fuseOpenings: 3, voltageAbsences: 1 }],
-      totals: { fuseOpenings: 3, voltageAbsences: 1 },
-      phaseDistribution: { MONOPHASIC: 1, BIPHASIC: 1, TRIPHASIC: 1 },
+      trend: [{ start: '2026-09-01', fuseOpenings: 10, voltageAbsences: 1 }],
+      totals: { fuseOpenings: 10, voltageAbsences: 1 },
+      unclassified: 4,
+      phaseDistribution: { MONOPHASIC: 1, BIPHASIC: 2, TRIPHASIC: 3 },
     })
   })
 })
