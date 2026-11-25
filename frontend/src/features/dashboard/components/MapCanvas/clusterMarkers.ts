@@ -2,6 +2,9 @@
  * Groups node markers whose drawings overlap at the current zoom into cluster markers (F-13, SCRUM-63).
  * Overlap uses each marker's real size from Figma, so wide fuse + transformer markers group correctly.
  */
+import type { NetworkState } from '../../model/liveMonitoring.types'
+import { mostSevereState } from '../../model/stateSeverity.rules'
+import type { MapMarkerVariant } from '../MapMarker/MapMarker'
 import {
   LARGEST_MARKER_PX,
   MARKER_SIZE_PX,
@@ -25,6 +28,8 @@ export interface ClusterItem {
   id: string
   position: MarkerPosition
   markers: NodeMarker[]
+  /** Most severe state of its nodes on the visible layers, which gives the cluster its color. */
+  state: NetworkState
 }
 
 export type MapItem = NodeItem | ClusterItem
@@ -116,6 +121,16 @@ function touchingSets(groups: Group[]): number[][] {
   return [...sets.values()]
 }
 
+/** The states a marker shows, one for each visible layer. */
+function statesOf(variant: MapMarkerVariant): NetworkState[] {
+  switch (variant.kind) {
+    case 'both':
+      return [variant.fuseState, variant.transformerState]
+    default:
+      return [variant.state]
+  }
+}
+
 /** The items to draw at `zoom`: single nodes, and clusters where markers would overlap. */
 export function clusterMarkers(markers: NodeMarker[], zoom: number): MapItem[] {
   let groups = markers.map((marker) => toGroup([marker], zoom))
@@ -140,6 +155,7 @@ export function clusterMarkers(markers: NodeMarker[], zoom: number): MapItem[] {
           id: `cluster-${group.markers[0].node.id}`,
           position: group.position,
           markers: group.markers,
+          state: mostSevereState(group.markers.flatMap((marker) => statesOf(marker.variant))),
         }
   )
 }

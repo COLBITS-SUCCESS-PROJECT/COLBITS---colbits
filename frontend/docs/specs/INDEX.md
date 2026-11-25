@@ -32,6 +32,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | SCRUM-106 | `dashboard` | US8 · Layer toggles and dual-state nodes (F-14, F-24) | [SCRUM-106.md](./dashboard/SCRUM-106.md) | IN_REVIEW | Sofia |
 | SCRUM-109 | `dashboard` | US11 · Node detail with fuse sets (F-27, F-29) | [SCRUM-109.md](./dashboard/SCRUM-109.md) | IN_REVIEW | Sofia |
 | SCRUM-63 | `dashboard` | [F-13] Group overlapping node markers into one cluster (US4) | [SCRUM-63.md](./dashboard/SCRUM-63.md) | IN_REVIEW | Paola |
+| SCRUM-305 | `dashboard` | Cluster color: the most severe state of its nodes (Colbits, 2026-11-20) | [SCRUM-305.md](./dashboard/SCRUM-305.md) | IN_REVIEW | Paola |
 | SCRUM-115 | `dashboard` | US17 · Inactive devices tab from `GET /device/inactive` (F-40, F-41); inactivity alarm in Active / Resolved from its periods (F-38, F-39) | [SCRUM-115.md](./dashboard/SCRUM-115.md) | IN_PROGRESS | Monica |
 | SCRUM-110 | `dashboard` | US12 · Live node state updates: the map refreshes every 15 s (F-30, NF-01) | [SCRUM-110.md](./dashboard/SCRUM-110.md) | IN_REVIEW | Paola |
 | SCRUM-108 | `dashboard` | US10 · Active fault list from `GET /faults` (F-51, F-55) | [SCRUM-108.md](./dashboard/SCRUM-108.md) | IN_REVIEW | Paola |
@@ -40,7 +41,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | SCRUM-113 | `dashboard` | US15 · Panel follows the map filter (F-56), fault ordering (F-57) and node counters (F-58) | [SCRUM-113.md](./dashboard/SCRUM-113.md) | IN_PROGRESS | Paola |
 | SCRUM-114 | `dashboard` | US16 · Active and resolved alarms: resolved list from `GET /faults/resolved` (last hour / last day, newest first) and alarm duration (F-59 to F-63) | [SCRUM-114.md](./dashboard/SCRUM-114.md) | IN_REVIEW | Paola |
 | SCRUM-116 | `dashboard` | US18 · Device alerts in the Active tab: free fall, solar panel, overload from `GET /faults` (F-47); low energy from `GET /device/low-energy`, temporary (F-44, F-45) | [SCRUM-116.md](./dashboard/SCRUM-116.md) | IN_PROGRESS | Monica |
-| SCRUM-218 | `dashboard` | US31 · Demo scenario panel in the node detail, administrator in demo mode only (F-100, NF-01, NF-03) | [SCRUM-218.md](./dashboard/SCRUM-218.md) | IN_REVIEW | Paola |
+| SCRUM-218 | `dashboard` | US31 · Demo scenario panel in the node detail, administrator in demo mode only (F-100, NF-01, NF-03) | [SCRUM-218.md](./dashboard/SCRUM-218.md) | DONE | Paola |
 | SCRUM-250 | `users` | [F-05] User list, deactivate action and create / edit drawer with scope (views only) | [SCRUM-250.md](./users/SCRUM-250.md) | IN_PROGRESS | Monica |
 | SCRUM-288 | `analysis` | [F-64, F-65] Date presets, custom range and scope filter | [SCRUM-288.md](./analysis/SCRUM-288.md) | IN_REVIEW | Sofia |
 | SCRUM-289 | `analysis` | [F-66, F-67] Fault trend and phase distribution charts | [SCRUM-289.md](./analysis/SCRUM-289.md) | IN_REVIEW | Sofia |

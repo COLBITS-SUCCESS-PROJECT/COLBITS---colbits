@@ -382,6 +382,12 @@ interface HistoryBody {
   filters: Array<{ type: string; id: string }>;
   fuse_grouping_window_minutes: number;
   totals: { fuse_faults: number; voltage_alarms: number };
+  phase_distribution: {
+    single_phase: number;
+    two_phase: number;
+    three_phase: number;
+    unclassified: number;
+  };
   series: BucketBody[];
 }
 
@@ -728,6 +734,12 @@ describe('GET /history (SCRUM-283 · F-64, F-65, F-66)', () => {
   /** The answer of a request that must be 200 with an all-zero series. */
   const expectZeroSeries = (body: HistoryBody) => {
     expect(body.totals).toEqual({ fuse_faults: 0, voltage_alarms: 0 });
+    expect(body.phase_distribution).toEqual({
+      single_phase: 0,
+      two_phase: 0,
+      three_phase: 0,
+      unclassified: 0,
+    });
     for (const bucket of body.series) {
       expect(bucket.fuse_faults).toBe(0);
       expect(bucket.voltage_alarms).toBe(0);
@@ -903,6 +915,12 @@ describe('GET /history (SCRUM-283 · F-64, F-65, F-66)', () => {
         interval: 'day',
         filters: [],
         totals: { fuse_faults: 0, voltage_alarms: 0 },
+        phase_distribution: {
+          single_phase: 0,
+          two_phase: 0,
+          three_phase: 0,
+          unclassified: 0,
+        },
         series: [
           zeroBucket('2025-03-03T05:00:00.000Z', '2025-03-04T05:00:00.000Z'),
           zeroBucket('2025-03-04T05:00:00.000Z', '2025-03-05T05:00:00.000Z'),
@@ -2274,6 +2292,119 @@ describe('GET /history (SCRUM-283 · F-64, F-65, F-66)', () => {
       expect(
         body.series.slice(0, 9).every((bucket) => !bucket.is_partial),
       ).toBe(true);
+    });
+  });
+describe('19. phase distribution (SCRUM-284 ? F-67)', () => {
+    const P_FROM = '2025-01-15T00:00:00-05:00';
+    const P_DAY2 = '2025-01-16T00:00:00-05:00';
+    const P_TO = '2025-01-18T00:00:00-05:00';
+
+    beforeAll(async () => {
+      const db = dataSource();
+      const { FUSE } = CODES;
+      // Nodes 0003 (circuit 3, zone 2) and 0004 (circuit 4, substation 3) have all fuses closed
+      // after the main range.
+      const events: Array<[string, AlarmType, string]> = [
+        // F-67 acceptance: R, S and T of the same fuse set within 3 minutes -> one three-phase fault
+        [fuseName(3, 'R'), 'SET', '2025-01-15T15:00:00Z'],
+        [fuseName(3, 'S'), 'SET', '2025-01-15T15:01:30Z'],
+        [fuseName(3, 'T'), 'SET', '2025-01-15T15:02:50Z'],
+        [fuseName(3, 'R'), 'CLEAR', '2025-01-15T15:30:00Z'],
+        [fuseName(3, 'S'), 'CLEAR', '2025-01-15T15:30:00Z'],
+        [fuseName(3, 'T'), 'CLEAR', '2025-01-15T15:30:00Z'],
+        // Single-phase fault on the next day on node 0003
+        [fuseName(3, 'R'), 'SET', '2025-01-16T15:00:00Z'],
+        [fuseName(3, 'R'), 'CLEAR', '2025-01-16T15:10:00Z'],
+        // Two-phase fault on node 0004
+        [fuseName(4, 'R'), 'SET', '2025-01-15T16:00:00Z'],
+        [fuseName(4, 'S'), 'SET', '2025-01-15T16:01:00Z'],
+        [fuseName(4, 'R'), 'CLEAR', '2025-01-15T16:20:00Z'],
+        [fuseName(4, 'S'), 'CLEAR', '2025-01-15T16:20:00Z'],
+      ];
+      for (const [customId, type, at] of events) {
+        await alarm(db, customId, FUSE, type, at);
+      }
+    }, 60_000);
+
+    it('F-67 acceptance: counts R, S and T openings of the same fuse set within 3 minutes as exactly one three-phase fault', async () => {
+      const body = await getOk(
+        historyPath(P_FROM, P_DAY2, nodeFilter(3)),
+        tokens.admin,
+      );
+
+      expect(body.totals.fuse_faults).toBe(1);
+      expect(body.phase_distribution).toEqual({
+        single_phase: 0,
+        two_phase: 0,
+        three_phase: 1,
+        unclassified: 0,
+      });
+    });
+
+    it('distributes single-, two- and three-phase faults and respects scope filters', async () => {
+      const combined = await getOk(
+        historyPath(P_FROM, P_TO, [
+          ['node', nodeName(3)],
+          ['node', nodeName(4)],
+        ]),
+        tokens.admin,
+      );
+      expect(combined.totals.fuse_faults).toBe(3);
+      expect(combined.phase_distribution).toEqual({
+        single_phase: 1,
+        two_phase: 1,
+        three_phase: 1,
+        unclassified: 0,
+      });
+
+      const zoneScoped = await getOk(
+        historyPath(P_FROM, P_TO),
+        tokens.zoneUser,
+      );
+      expect(zoneScoped.totals.fuse_faults).toBe(2);
+      expect(zoneScoped.phase_distribution).toEqual({
+        single_phase: 1,
+        two_phase: 0,
+        three_phase: 1,
+        unclassified: 0,
+      });
+
+      const substationScoped = await getOk(
+        historyPath(P_FROM, P_TO),
+        tokens.substationUser,
+      );
+      expect(substationScoped.totals.fuse_faults).toBe(1);
+      expect(substationScoped.phase_distribution).toEqual({
+        single_phase: 0,
+        two_phase: 1,
+        three_phase: 0,
+        unclassified: 0,
+      });
+    });
+
+    it('matches the main range classification breakdown and honors device-level scope', async () => {
+      // Main range M: F1 (R,S) and F7 (T,S) are two-phase; F2, F3, F4, F5, F6 are single-phase.
+      const adminBody = await getOk(historyPath(M_FROM, M_TO), tokens.admin);
+      expect(adminBody.totals.fuse_faults).toBe(7);
+      expect(adminBody.phase_distribution).toEqual({
+        single_phase: 5,
+        two_phase: 2,
+        three_phase: 0,
+        unclassified: 0,
+      });
+
+      // deviceUser only sees HSTE2E0001-R: F1 reduces to its R opening alone (single-phase).
+      const deviceBody = await getOk(
+        historyPath(M_FROM, M_TO),
+        tokens.deviceUser,
+      );
+      expect(deviceBody.totals.fuse_faults).toBe(1);
+      expect(deviceBody.phase_distribution).toEqual({
+        single_phase: 1,
+        two_phase: 0,
+        three_phase: 0,
+        unclassified: 0,
+      });
     });
   });
 });

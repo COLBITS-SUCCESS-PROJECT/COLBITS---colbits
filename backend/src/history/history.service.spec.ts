@@ -461,6 +461,12 @@ describe('HistoryService.history (SCRUM-283 · US20)', () => {
       ],
       fuse_grouping_window_minutes: 5,
       totals: { fuse_faults: 0, voltage_alarms: 0 },
+      phase_distribution: {
+        single_phase: 0,
+        two_phase: 0,
+        three_phase: 0,
+        unclassified: 0,
+      },
       series: [
         {
           start: '2026-10-21T05:00:00.000Z',
@@ -839,7 +845,7 @@ describe('HistoryService device-level authorization (F-10, F-08)', () => {
   });
 });
 
-describe('HistoryService.history with historical events (F-66)', () => {
+describe('HistoryService.history with historical events (F-66, F-67)', () => {
   const NOW = new Date('2026-11-20T15:20:00.000Z');
   const fuse = (
     set: number,
@@ -913,5 +919,55 @@ describe('HistoryService.history with historical events (F-66)', () => {
       SELECTION_OVERLAP_SQL,
       expect.any(Array),
     );
+  });
+
+  it('counts R, S and T openings of the same fuse set within 3 minutes as exactly one three-phase fault (SCRUM-284 · F-67)', async () => {
+    const { service } = serviceWith({
+      nodeNames: ['n1'],
+      fuseRows: [
+        fuse(1, 'a-R', 'R', '2026-10-21T10:00:00.000Z'),
+        fuse(1, 'a-S', 'S', '2026-10-21T10:01:30.000Z'),
+        fuse(1, 'a-T', 'T', '2026-10-21T10:02:59.000Z'),
+      ],
+    });
+
+    const response = await service.history(UNRESTRICTED, queryOf(), NOW);
+
+    expect(response.totals.fuse_faults).toBe(1);
+    expect(response.phase_distribution).toEqual({
+      single_phase: 0,
+      two_phase: 0,
+      three_phase: 1,
+      unclassified: 0,
+    });
+  });
+
+  it('distributes single-, two-, three-phase and unclassified faults across the range (SCRUM-284 · F-67)', async () => {
+    const { service } = serviceWith({
+      nodeNames: ['n1'],
+      fuseRows: [
+        // Fuse set 1: single-phase (R)
+        fuse(1, 'a-R', 'R', '2026-10-21T10:00:00.000Z'),
+        // Fuse set 2: two-phase (R + S within window)
+        fuse(2, 'b-R', 'R', '2026-10-21T11:00:00.000Z'),
+        fuse(2, 'b-S', 'S', '2026-10-21T11:02:00.000Z'),
+        // Fuse set 3: three-phase (R + S + T within 3 minutes)
+        fuse(3, 'c-R', 'R', '2026-10-22T08:00:00.000Z'),
+        fuse(3, 'c-S', 'S', '2026-10-22T08:01:00.000Z'),
+        fuse(3, 'c-T', 'T', '2026-10-22T08:02:30.000Z'),
+        // Fuse set 4: unclassified (unsupported phase letter)
+        fuse(4, 'd-X', 'X', '2026-10-23T09:00:00.000Z'),
+      ],
+    });
+
+    const response = await service.history(UNRESTRICTED, queryOf(), NOW);
+
+    expect(response.totals.fuse_faults).toBe(4);
+    expect(response.phase_distribution).toEqual({
+      single_phase: 1,
+      two_phase: 1,
+      three_phase: 1,
+      unclassified: 1,
+    });
   });
 });

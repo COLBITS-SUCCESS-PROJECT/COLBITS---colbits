@@ -34,10 +34,27 @@ describe('MapMarker', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders a cluster with its node count', () => {
-    render(<MapMarker kind="cluster" count={4} label="4 nodos agrupados" />)
+  it('renders a cluster with its node count, in the color of its most severe node', () => {
+    const { container } = render(
+      <MapMarker kind="cluster" count={4} state="CRITICAL" label="4 nodos agrupados" />
+    )
 
     expect(screen.getByRole('img', { name: '4 nodos agrupados' })).toHaveTextContent('4')
+    expect(container.querySelector('.bg-status-critical.text-text-inverse')).toBeInTheDocument()
+  })
+
+  it('writes the count of a yellow, gray or green cluster in dark text, so it stays readable', () => {
+    const { container } = render(
+      <>
+        <MapMarker kind="cluster" count={2} state="WARNING" label="W" />
+        <MapMarker kind="cluster" count={3} state="INACTIVE" label="I" />
+        <MapMarker kind="cluster" count={5} state="NORMAL" label="N" />
+      </>
+    )
+
+    expect(container.querySelector('.bg-status-warning.text-text-primary')).toHaveTextContent('2')
+    expect(container.querySelector('.bg-status-offline.text-text-primary')).toHaveTextContent('3')
+    expect(container.querySelector('.bg-status-online.text-text-primary')).toHaveTextContent('5')
   })
 
   it('becomes a button when it can be selected', async () => {

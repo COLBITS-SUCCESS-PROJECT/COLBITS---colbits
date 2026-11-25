@@ -17,6 +17,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 ### In scope
 
 - Map with fuse / transformer / combined markers coloured by state, grouped into clusters where they overlap (F-13) ✅
+- Cluster color: each cluster takes the color of its most severe node on the layers shown (Colbits, 2026-11-20) ✅ ([SCRUM-305](./SCRUM-305.md))
 - Layer switch (fuses, transformers, both), hierarchical filters (zone › substation › circuit) and node search ✅
 - Map legend ✅
 - Active faults panel: counters (from the backend), _Active_ / _Resolved_ tabs and the last hour / last day selector; it follows the map filter and has no filters of its own (F-56) ✅ ([SCRUM-113](./SCRUM-113.md))
@@ -29,7 +30,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 - Time of the last successful map refresh (F-32): in the top bar with the _Live_ / _Stale_ state (shared, in `AppShell`), on the map below 1024 px ✅ ([SCRUM-111](./SCRUM-111.md))
 - Warning when the map stops refreshing (F-31): banner on the map (M10) and red dot in the top bar ✅ ([SCRUM-111](./SCRUM-111.md))
 - Alarm selection → map focus: clicking a card of the _Active_, _Resolved_ or _Inactive devices_ tab centers the map on its node, like the search (F-34), and opens its detail (F-27) ✅
-- Demo scenario panel in the node detail, for the administrator in demo mode only (F-100, NF-01, NF-03) 🔲 ([SCRUM-218](./SCRUM-218.md))
+- Demo scenario panel in the node detail, for the administrator in demo mode only (F-100, NF-01, NF-03) ✅ ([SCRUM-218](./SCRUM-218.md))
 - Responsive layout: mobile navigation drawer, collapsible location filters and map legend, and fault panel bottom sheet below desktop width ✅
 
 ### Out of scope
@@ -46,6 +47,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | SCRUM-128                   | Base screen M1: map, toolbar, legend, fault panel (with sample data)                                                                                                                       | Sofia                             | DONE        |
 | [SCRUM-77](./SCRUM-77.md)   | [F-12] Node markers on a real map at recorded coordinates (US4)                                                                                                                            | Sofia                             | DONE        |
 | [SCRUM-63](./SCRUM-63.md)   | [F-13] Group overlapping node markers into one cluster (US4)                                                                                                                               | Paola                             | IN_REVIEW   |
+| [SCRUM-305](./SCRUM-305.md) | Cluster color: the most severe state of its nodes, red before yellow, gray and green (Colbits, 2026-11-20)                                                                                 | Paola                             | IN_REVIEW   |
 | [SCRUM-65](./SCRUM-65.md)   | US6 · Fuse layer node colors: red / yellow / gray / green from `GET /nodes` (F-15 to F-18)                                                                                                 | Sofia                             | DONE        |
 | [SCRUM-106](./SCRUM-106.md) | US8 · Layer toggles and dual-state nodes (F-14, F-24)                                                                                                                                      | Sofia                             | IN_REVIEW   |
 | [SCRUM-109](./SCRUM-109.md) | US11 · Node detail panel (M4–M6): `GET /nodes/:name/detail` + panel over the map (F-27, F-29)                                                                                              | Sofia                             | IN_REVIEW   |
@@ -57,7 +59,7 @@ Give grid operators a real-time view of the medium-voltage network on a map: whe
 | [SCRUM-113](./SCRUM-113.md) | US15 · The panel follows the map filter with no filters of its own (F-56), fault ordering (F-57), node counters (F-58)                                                                     | Paola · Javier · Mónica · Mahmoud | IN_PROGRESS |
 | [SCRUM-114](./SCRUM-114.md) | US16 · Active and resolved alarms: resolved list from `GET /faults/resolved` (last hour / last day, newest first) and the duration of each alarm (F-59 to F-63)                            | Paola                             | IN_REVIEW   |
 | [SCRUM-116](./SCRUM-116.md) | US18 · Device alerts in the Active tab: free fall, solar panel and overload / unbalance from `GET /faults` (F-47); low energy from `GET /device/low-energy`, temporary (F-44, F-45, NF-08) | Monica                            | IN_PROGRESS |
-| [SCRUM-218](./SCRUM-218.md) | US31 · Demo scenario panel in the node detail: run fuse, voltage and phase scenarios and see the map react (F-100, NF-01, NF-03)                                                           | Paola                             | IN_REVIEW   |
+| [SCRUM-218](./SCRUM-218.md) | US31 · Demo scenario panel in the node detail: run every F-93 scenario and see the map and the alarm panel react (F-100, NF-01, NF-03)                                                     | Paola                             | DONE        |
 
 ## 4. Design (Figma)
 

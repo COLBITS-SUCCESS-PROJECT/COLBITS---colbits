@@ -3,13 +3,14 @@ import type { CSSProperties } from 'react'
 import { Icon } from '@/design-system/atoms'
 import { cn } from '@/utils/cn'
 import type { NetworkState } from '../../model/liveMonitoring.types'
-import { STATE_BG_CLASS } from '../networkStateStyles'
+import { STATE_BG_CLASS, STATE_TEXT_CLASS } from '../networkStateStyles'
 
 export type MapMarkerVariant =
   | { kind: 'fuse'; state: NetworkState }
   | { kind: 'transformer'; state: NetworkState }
   | { kind: 'both'; fuseState: NetworkState; transformerState: NetworkState }
-  | { kind: 'cluster'; count: number }
+  /** `state`: the most severe state of the grouped nodes, which gives the cluster its color. */
+  | { kind: 'cluster'; count: number; state: NetworkState }
 
 export type MapMarkerProps = MapMarkerVariant & {
   /** Accessible description, e.g. "Nodo ND04821A07, fusible: Fusible abierto". */
@@ -56,7 +57,13 @@ function MarkerBody(props: MapMarkerVariant) {
       )
     case 'cluster':
       return (
-        <span className="flex size-10 items-center justify-center rounded-full border-3 border-bg-surface bg-bg-inverse text-sm font-bold text-text-inverse shadow-cluster">
+        <span
+          className={cn(
+            'flex size-10 items-center justify-center rounded-full border-3 border-bg-surface text-sm font-bold shadow-cluster',
+            STATE_BG_CLASS[props.state],
+            STATE_TEXT_CLASS[props.state]
+          )}
+        >
           {props.count}
         </span>
       )

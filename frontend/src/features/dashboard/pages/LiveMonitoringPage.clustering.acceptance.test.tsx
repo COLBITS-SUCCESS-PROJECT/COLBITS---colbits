@@ -26,7 +26,7 @@ const N1 = 'ND04821A07'
 const N2 = 'ND01120A02'
 const ZOOM_OVERLAPPING = 12
 const ZOOM_SEPARATE = 13
-const CLUSTER_OF_TWO = { name: '2 nodos agrupados' }
+const CLUSTER_OF_TWO = { name: /^2 nodos agrupados/ }
 
 function openMapAs(token: string) {
   useAuthStore.getState().setSession(USER, token)

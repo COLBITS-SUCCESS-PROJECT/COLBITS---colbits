@@ -152,6 +152,38 @@ describe('clusterMarkers — F-13', () => {
   })
 })
 
+describe('clusterMarkers — cluster color', () => {
+  const clusterOf = (...variants: MapMarkerVariant[]) => {
+    const markers = variants.map((variant, i) => marker(`N${i}`, pixelsFromOrigin(i * 10), variant))
+    const [item] = clusterMarkers(markers, ZOOM)
+    return item as ClusterItem
+  }
+
+  it('takes the most severe state of its nodes: one red node makes the whole cluster red', () => {
+    expect(
+      clusterOf(FUSE, { kind: 'fuse', state: 'CRITICAL' }, { kind: 'fuse', state: 'WARNING' }).state
+    ).toBe('CRITICAL')
+  })
+
+  it('stays green only when every node is green', () => {
+    expect(clusterOf(FUSE, FUSE, FUSE).state).toBe('NORMAL')
+  })
+
+  it('counts both states of a node shown on both layers', () => {
+    const transformerDown: MapMarkerVariant = {
+      kind: 'both',
+      fuseState: 'NORMAL',
+      transformerState: 'WARNING',
+    }
+
+    expect(clusterOf(BOTH, transformerDown).state).toBe('WARNING')
+  })
+
+  it('counts transformer-only nodes too', () => {
+    expect(clusterOf(FUSE, { kind: 'transformer', state: 'INACTIVE' }).state).toBe('INACTIVE')
+  })
+})
+
 describe('expansionZoom', () => {
   it('returns the first zoom at which the nodes of a cluster separate', () => {
     // 10 px at ZOOM, 20 px at ZOOM + 1 (still overlapping), 40 px at ZOOM + 2
