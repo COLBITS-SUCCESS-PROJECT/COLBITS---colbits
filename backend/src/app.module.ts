@@ -8,6 +8,7 @@ import { DeviceModule } from './device/device.module';
 import { NodesModule } from './nodes/nodes.module';
 import { ScopeModule } from './scope/scope.module';
 import { FaultsModule } from './faults/faults.module';
+import { HistoryModule } from './history/history.module';
 import { UsersModule } from './users/users.module';
 import { ScenariosModule } from './scenarios/scenarios.module';
 
@@ -33,6 +34,7 @@ import { ScenariosModule } from './scenarios/scenarios.module';
       }),
     }),
     FaultsModule,
+    HistoryModule,
     UsersModule,
     ScenariosModule,
   ],

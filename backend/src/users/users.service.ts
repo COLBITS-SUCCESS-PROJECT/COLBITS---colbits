@@ -15,12 +15,33 @@ import {
   ScopeAssignmentDto,
   ScopeEntityType,
   UpdateUserDto,
-  USER_ROLES,
   UserResponseDto,
   UserRole,
 } from './dto/users.dto';
 
 const BCRYPT_ROUNDS = 10;
+
+/**
+ * F-03: the platform has a single Colbits administrator, created only by the seed script. Every
+ * user created through the API is a consultation user, and no user's role can be changed.
+ */
+const CONSULTATION_ROLE: UserRole = 'consultation user';
+
+/**
+ * Whether the raw request body carries its own `role` key. The request DTOs no longer declare
+ * `role`, but there is no validation pipe that strips undeclared fields, so the body is checked
+ * here. Only own keys count: a JSON `__proto__` member cannot supply one.
+ */
+function submittedRole(body: unknown): { role: unknown } | null {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    Object.prototype.hasOwnProperty.call(body, 'role')
+  ) {
+    return { role: (body as { role: unknown }).role };
+  }
+  return null;
+}
 
 @Injectable()
 export class UsersService {
@@ -61,11 +82,8 @@ export class UsersService {
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
     const username = this.validateUsername(dto.username);
     const password = this.validatePassword(dto.password);
-    const role = this.validateRole(dto.role ?? 'consultation user');
-    const normalizedScopes =
-      role === 'Colbits administrator'
-        ? []
-        : this.validateScopes(dto.scopes ?? []);
+    this.rejectCreateRole(dto);
+    const normalizedScopes = this.validateScopes(dto.scopes ?? []);
 
     const existing = await this.usersRepository.findOne({
       where: { username },
@@ -78,7 +96,7 @@ export class UsersService {
     const created = this.usersRepository.create({
       username,
       password_hash,
-      role,
+      role: CONSULTATION_ROLE,
       is_active: true,
     });
     const saved = await this.usersRepository.save(created);
@@ -93,18 +111,23 @@ export class UsersService {
   async update(id: number, dto: UpdateUserDto): Promise<UserResponseDto> {
     const user = await this.requireUser(id);
 
-    const nextRole =
-      dto.role !== undefined ? this.validateRole(dto.role) : (user.role as UserRole);
+    // F-03: no role change, not even to the current role. Checked before any write.
+    if (submittedRole(dto)) {
+      throw new BadRequestException(
+        'role cannot be changed: the platform has a single Colbits administrator (F-03)',
+      );
+    }
+
     const nextActive =
       dto.is_active !== undefined
         ? this.validateBoolean(dto.is_active, 'is_active')
         : user.is_active;
 
-    // CU-06 flow 2a: prevent deactivating or demoting the last active Colbits administrator
+    // CU-06 flow 2a: prevent deactivating the last active Colbits administrator
     if (
       user.role === 'Colbits administrator' &&
       user.is_active &&
-      (!nextActive || nextRole !== 'Colbits administrator')
+      !nextActive
     ) {
       await this.ensureNotLastActiveAdmin();
     }
@@ -127,13 +150,12 @@ export class UsersService {
       user.password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     }
 
-    user.role = nextRole;
     user.is_active = nextActive;
 
     const saved = await this.usersRepository.save(user);
 
     let scopes: ScopeAssignmentDto[];
-    if (nextRole === 'Colbits administrator') {
+    if (user.role === 'Colbits administrator') {
       scopes = await this.replaceScopesInternal(saved.id, []);
     } else if (dto.scopes !== undefined) {
       const normalized = this.validateScopes(dto.scopes);
@@ -242,16 +264,23 @@ export class UsersService {
     return value;
   }
 
-  private validateRole(value: unknown): UserRole {
-    if (
-      typeof value !== 'string' ||
-      !(USER_ROLES as readonly string[]).includes(value)
-    ) {
+  /**
+   * F-03 on POST /users: a body without `role` is accepted, and so is 'consultation user' (the
+   * frontend still sends it). Any other value is rejected: 'Colbits administrator' because a second
+   * administrator cannot be created, and anything else (null, other strings, other types) because
+   * it is not a role.
+   */
+  private rejectCreateRole(dto: CreateUserDto): void {
+    const submitted = submittedRole(dto);
+    if (!submitted || submitted.role === CONSULTATION_ROLE) return;
+    if (submitted.role === 'Colbits administrator') {
       throw new BadRequestException(
-        `role must be one of: ${USER_ROLES.join(', ')}`,
+        'A second Colbits administrator cannot be created: new users are always consultation users (F-03)',
       );
     }
-    return value as UserRole;
+    throw new BadRequestException(
+      `role must be omitted or be '${CONSULTATION_ROLE}': new users are always consultation users (F-03)`,
+    );
   }
 
   private validateBoolean(value: unknown, field: string): boolean {
