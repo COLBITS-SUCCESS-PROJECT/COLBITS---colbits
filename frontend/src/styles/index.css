@@ -45,6 +45,9 @@
   --color-phase-monophasic: var(--color-phase-monophasic);
   --color-phase-biphasic: var(--color-phase-biphasic);
   --color-phase-triphasic: var(--color-phase-triphasic);
+  --color-chart-substation: var(--color-chart-substation);
+  --color-chart-circuit: var(--color-chart-circuit);
+  --color-chart-track: var(--color-chart-track);
 
   --color-action-primary: var(--color-action-primary);
   --color-action-secondary: var(--color-action-secondary);

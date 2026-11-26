@@ -1,5 +1,6 @@
-/** PeriodScopeSelector organism — period chips / custom range above the scope selects, in one card (F-64, F-65 · Figma: Period & Scope Selector). */
+/** PeriodScopeSelector organism — period chips / custom range above the scope selects and the minimum-duration filter, in one card (F-64, F-65, F-69 · Figma: Period & Scope Selector). */
 import { useTranslation } from 'react-i18next'
+import { Toggle } from '@/design-system/atoms'
 import type { HistoryFilters } from '../../hooks/useHistoryFilters'
 import type { ScopeOptions } from '../../model/scopeOptions'
 import { PeriodSelector } from '../PeriodSelector/PeriodSelector'
@@ -34,11 +35,24 @@ export function PeriodScopeSelector({
         onPresetChange={filters.selectPreset}
         onDateChange={filters.setCustomDate}
       />
-      <ScopeFilterBar
-        scope={filters.scope}
-        options={scopeOptions}
-        onChange={filters.setScopeLevel}
-      />
+      <div className="flex flex-wrap items-end gap-x-5 gap-y-3">
+        <div className="w-full xl:w-auto">
+          <ScopeFilterBar
+            scope={filters.scope}
+            options={scopeOptions}
+            onChange={filters.setScopeLevel}
+          />
+        </div>
+        {/* Clicking the text toggles too: a label activates the switch inside it. */}
+        <label className="flex min-h-10 cursor-pointer items-center gap-2 text-xs text-text-primary">
+          <Toggle
+            isOn={filters.minDurationFilter}
+            onChange={filters.setMinDurationFilter}
+            label={t('filters.minDuration')}
+          />
+          <span aria-hidden="true">{t('filters.minDuration')}</span>
+        </label>
+      </div>
       {hasScopeError && <p className="text-xs text-text-subtle">{t('filters.scopeError')}</p>}
     </section>
   )

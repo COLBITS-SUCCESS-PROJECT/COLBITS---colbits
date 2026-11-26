@@ -1,4 +1,4 @@
-/** useHistoryFilters — UI state of the Period & Scope Selector: preset, custom range and scope (F-64, F-65). */
+/** useHistoryFilters — UI state of the Period & Scope Selector: preset, custom range, scope and minimum-duration filter (F-64, F-65, F-69). */
 import { useMemo, useState } from 'react'
 import { DEFAULT_PRESET, EMPTY_SCOPE } from '../model/history.constants'
 import type { DateRange, PeriodPreset, ScopeFilter } from '../model/history.types'
@@ -13,9 +13,12 @@ export interface HistoryFilters {
   /** Range to query, or null while the custom range is invalid. */
   range: DateRange | null
   rangeError: RangeError | null
+  /** Count only faults longer than the configured minimum duration (F-69). Off when the view opens. */
+  minDurationFilter: boolean
   selectPreset: (preset: PeriodPreset) => void
   setCustomDate: (edge: keyof DateRange, value: string) => void
   setScopeLevel: (level: keyof ScopeFilter, value: string) => void
+  setMinDurationFilter: (isOn: boolean) => void
 }
 
 export function useHistoryFilters(today: Date): HistoryFilters {
@@ -24,6 +27,7 @@ export function useHistoryFilters(today: Date): HistoryFilters {
     presetRange(DEFAULT_PRESET, today)
   )
   const [scope, setScope] = useState<ScopeFilter>(EMPTY_SCOPE)
+  const [minDurationFilter, setMinDurationFilter] = useState(false)
 
   const rangeError = preset === 'CUSTOM' ? validateRange(customRange, today) : null
   const range = useMemo(() => {
@@ -43,8 +47,10 @@ export function useHistoryFilters(today: Date): HistoryFilters {
     scope,
     range,
     rangeError,
+    minDurationFilter,
     selectPreset,
     setCustomDate: (edge, value) => setCustomRange((current) => ({ ...current, [edge]: value })),
     setScopeLevel: (level, value) => setScope((current) => changeScopeLevel(current, level, value)),
+    setMinDurationFilter,
   }
 }

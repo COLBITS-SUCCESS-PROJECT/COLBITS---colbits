@@ -159,6 +159,8 @@ describe('SCRUM-289 · US20 — fault trend and phase distribution', () => {
     expect(
       screen.getByRole('heading', { name: 'Distribution by phase classification' })
     ).toBeInTheDocument()
-    expect(screen.getByText('Monophasic')).toBeInTheDocument()
+    // The longest-faults table (SCRUM-290) also names classifications, so look inside the phase card.
+    const phaseCard = screen.getByRole('region', { name: 'Distribution by phase classification' })
+    expect(within(phaseCard).getByText('Monophasic')).toBeInTheDocument()
   })
 })
