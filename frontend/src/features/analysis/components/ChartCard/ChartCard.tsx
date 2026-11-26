@@ -10,10 +10,19 @@ export interface ChartCardProps {
   subtitle: string
   status: ChartCardStatus
   onRetry: () => void
+  /** Replaces the default empty-state text, e.g. when a filter left nothing to show. */
+  emptyText?: string
   children: ReactNode | ((expanded: boolean) => ReactNode)
 }
 
-export function ChartCard({ title, subtitle, status, onRetry, children }: ChartCardProps) {
+export function ChartCard({
+  title,
+  subtitle,
+  status,
+  onRetry,
+  emptyText,
+  children,
+}: ChartCardProps) {
   const { t } = useTranslation('analysis')
 
   const dialog = useRef<HTMLDialogElement>(null)
@@ -77,7 +86,7 @@ export function ChartCard({ title, subtitle, status, onRetry, children }: ChartC
       )}
       {(status === 'empty' || status === 'unavailable') && (
         <p className="flex flex-1 items-center justify-center text-center text-sm text-text-subtle">
-          {t(status === 'unavailable' ? 'state.unavailable' : 'state.empty')}
+          {status === 'unavailable' ? t('state.unavailable') : (emptyText ?? t('state.empty'))}
         </p>
       )}
       {status === 'error' && (

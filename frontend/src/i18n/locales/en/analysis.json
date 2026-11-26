@@ -26,7 +26,8 @@
     "allSubstations": "All substations",
     "allCircuits": "All circuits",
     "allNodes": "All nodes",
-    "scopeError": "Your network scope could not be loaded. Showing all the data you have access to."
+    "scopeError": "Your network scope could not be loaded. Showing all the data you have access to.",
+    "minDuration": "Minimum duration filter"
   },
   "trend": {
     "title": "Fault trend over time",
@@ -49,6 +50,42 @@
     "BIPHASIC": "Biphasic",
     "TRIPHASIC": "Triphasic",
     "chartLabel": "Monophasic {{MONOPHASIC}}, biphasic {{BIPHASIC}}, triphasic {{TRIPHASIC}}"
+  },
+  "indicators": {
+    "bySubstation": {
+      "title": "Faults by substation",
+      "subtitle": "Comparative count in the selected period"
+    },
+    "byCircuit": {
+      "title": "Faults by circuit",
+      "subtitle": "Comparative count in the selected period"
+    },
+    "nodes": { "title": "Top failed nodes", "subtitle": "Nodes with the most fault events" },
+    "longest": {
+      "title": "Longest faults",
+      "subtitle": "Highest-duration fault events",
+      "open": "Open"
+    },
+    "column": {
+      "node": "Node",
+      "circuit": "Circuit",
+      "faults": "Faults",
+      "lastFault": "Last fault",
+      "duration": "Duration",
+      "classification": "Classification"
+    },
+    "duration": {
+      "average": "Average duration",
+      "maximum": "Maximum duration",
+      "faults": "Faults"
+    },
+    "minDuration": {
+      "on": "Minimum duration filter on: longer than {{duration}}",
+      "off": "Minimum duration filter off",
+      "only": "only faults longer than {{duration}}",
+      "empty": "No faults longer than {{duration}} in this period and scope."
+    },
+    "unclassified": "Unclassified"
   },
   "state": {
     "unavailable": "Phase distribution is not available yet.",

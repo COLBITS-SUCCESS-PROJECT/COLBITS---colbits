@@ -39,6 +39,16 @@ describe('ChartCard', () => {
     expect(screen.getByText('No hay fallas registradas en este periodo y alcance.')).toBeVisible()
   })
 
+  it('shows its own empty text when given one', () => {
+    render(
+      <ChartCard title="Fallas" subtitle="" status="empty" onRetry={vi.fn()} emptyText="Nada aquí">
+        <p>chart</p>
+      </ChartCard>
+    )
+
+    expect(screen.getByText('Nada aquí')).toBeVisible()
+  })
+
   it('shows the error with a retry button', async () => {
     const onRetry = renderCard('error')
 

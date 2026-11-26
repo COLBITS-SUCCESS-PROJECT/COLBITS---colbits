@@ -48,4 +48,13 @@ describe('useHistoryFilters', () => {
 
     expect(result.current.scope).toEqual({ zone: '1', substation: ALL, circuit: ALL, node: ALL })
   })
+
+  it('opens with the minimum-duration filter off and turns it on (F-69)', () => {
+    const { result } = renderHook(() => useHistoryFilters(TODAY))
+    expect(result.current.minDurationFilter).toBe(false)
+
+    act(() => result.current.setMinDurationFilter(true))
+
+    expect(result.current.minDurationFilter).toBe(true)
+  })
 })

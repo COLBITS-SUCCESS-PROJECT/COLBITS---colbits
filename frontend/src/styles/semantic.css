@@ -26,6 +26,9 @@
   --color-phase-monophasic: var(--color-blue-500);
   --color-phase-biphasic: var(--color-yellow-500);
   --color-phase-triphasic: var(--color-red-500);
+  --color-chart-substation: var(--color-navy-900);
+  --color-chart-circuit: var(--color-blue-500);
+  --color-chart-track: var(--color-gray-100);
 
   /* Acciones */
   --color-action-primary: var(--color-red-500);

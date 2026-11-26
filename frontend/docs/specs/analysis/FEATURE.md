@@ -29,6 +29,7 @@ Let operators and managers study fault history over a period and a network scope
 |---|---|---|---|
 | [SCRUM-288](./SCRUM-288.md) | [F-64, F-65] Date presets, custom range, scope filter | Sofia | IN_REVIEW |
 | [SCRUM-289](./SCRUM-289.md) | [F-66, F-67] Fault trend and phase distribution charts | Sofia | IN_REVIEW |
+| [SCRUM-290](./SCRUM-290.md) | [F-68, F-69, F-70] Indicators panel: counts, durations and rankings | Paola | IN_REVIEW |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
@@ -55,10 +56,12 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 | `PeriodScopeSelector` | Organism | design-system (also used by `reports`) |
 | `PeriodScopeSelector` (with `PeriodSelector`, `ScopeFilterBar`) | Organism | feature — moves to design-system when `reports` needs it |
 | `ChartCard`, `FaultTrendChart`, `PhaseDistributionChart` | Organism | feature |
-| `RankingTable` | Organism | feature (not built) |
+| `IndicatorsPanel` (with `FaultCountList`, `RankingTable`, `DurationSummary`) | Organism | feature |
 
 Charts use **Recharts** only (`AGENT.md §1`).
 
 ## 7. API contract
 
 SCRUM-283 provides authenticated GET /history for F-64–F-66. See SCRUM-288 for date and scope semantics. GET /nodes populates the selectors. SCRUM-284 supplies single_phase, two_phase, three_phase and unclassified counts in phase_distribution. In real API mode the phase card shows an unavailable state when the response omits that data.
+
+SCRUM-285 and SCRUM-286 provide authenticated GET /faults/indicators for F-68–F-70. Its dates are both inclusive and its node filter is `node_id`; see SCRUM-290.

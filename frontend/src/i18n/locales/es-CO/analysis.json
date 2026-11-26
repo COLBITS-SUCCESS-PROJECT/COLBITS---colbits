@@ -26,7 +26,8 @@
     "allSubstations": "Todas las subestaciones",
     "allCircuits": "Todos los circuitos",
     "allNodes": "Todos los nodos",
-    "scopeError": "No se pudo cargar tu alcance de red. Se muestra toda la información a la que tienes acceso."
+    "scopeError": "No se pudo cargar tu alcance de red. Se muestra toda la información a la que tienes acceso.",
+    "minDuration": "Filtro de duración mínima"
   },
   "trend": {
     "title": "Tendencia de fallas en el tiempo",
@@ -49,6 +50,42 @@
     "BIPHASIC": "Bifásica",
     "TRIPHASIC": "Trifásica",
     "chartLabel": "Monofásicas {{MONOPHASIC}}, bifásicas {{BIPHASIC}}, trifásicas {{TRIPHASIC}}"
+  },
+  "indicators": {
+    "bySubstation": {
+      "title": "Fallas por subestación",
+      "subtitle": "Conteo comparativo en el periodo seleccionado"
+    },
+    "byCircuit": {
+      "title": "Fallas por circuito",
+      "subtitle": "Conteo comparativo en el periodo seleccionado"
+    },
+    "nodes": { "title": "Nodos con más fallas", "subtitle": "Nodos con más eventos de falla" },
+    "longest": {
+      "title": "Fallas más largas",
+      "subtitle": "Eventos de falla de mayor duración",
+      "open": "Abierta"
+    },
+    "column": {
+      "node": "Nodo",
+      "circuit": "Circuito",
+      "faults": "Fallas",
+      "lastFault": "Última falla",
+      "duration": "Duración",
+      "classification": "Clasificación"
+    },
+    "duration": {
+      "average": "Duración promedio",
+      "maximum": "Duración máxima",
+      "faults": "Fallas"
+    },
+    "minDuration": {
+      "on": "Filtro de duración mínima activo: más de {{duration}}",
+      "off": "Filtro de duración mínima desactivado",
+      "only": "solo fallas de más de {{duration}}",
+      "empty": "No hay fallas de más de {{duration}} en este periodo y alcance."
+    },
+    "unclassified": "Sin clasificar"
   },
   "state": {
     "unavailable": "La distribución por fases aún no está disponible.",

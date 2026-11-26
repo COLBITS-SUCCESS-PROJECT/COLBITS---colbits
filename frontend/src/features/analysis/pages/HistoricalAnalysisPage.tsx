@@ -1,8 +1,9 @@
-/** Historical Analysis page — period & scope selector, fault trend and phase distribution (US20 · F-64 to F-67). */
+/** Historical Analysis page — period & scope selector, fault trend, phase distribution and fault indicators (US20, US21 · F-64 to F-70). */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChartCard, type ChartCardStatus } from '../components/ChartCard/ChartCard'
 import { FaultTrendChart } from '../components/FaultTrendChart/FaultTrendChart'
+import { IndicatorsPanel } from '../components/IndicatorsPanel/IndicatorsPanel'
 import { PeriodScopeSelector } from '../components/PeriodScopeSelector/PeriodScopeSelector'
 import { PhaseDistributionChart } from '../components/PhaseDistributionChart/PhaseDistributionChart'
 import { useFaultHistoryQuery } from '../hooks/useFaultHistoryQuery'
@@ -75,6 +76,11 @@ export function HistoricalAnalysisPage() {
             )
           }
         </ChartCard>
+        <IndicatorsPanel
+          range={filters.range}
+          scope={filters.scope}
+          minDurationFilter={filters.minDurationFilter}
+        />
       </div>
     </div>
   )
