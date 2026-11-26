@@ -11,7 +11,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 |---|---|---|---|---|
 | `auth` | `/login` | [FEATURE.md](./auth/FEATURE.md) | IN_PROGRESS | Paola |
 | `dashboard` | Live Monitoring · `/dashboard` | [FEATURE.md](./dashboard/FEATURE.md) | IN_PROGRESS | Sofia |
-| `analysis` | Historical Analysis · `/analysis` | [FEATURE.md](./analysis/FEATURE.md) | PLANNED | TBD |
+| `analysis` | Historical Analysis · `/analysis` | [FEATURE.md](./analysis/FEATURE.md) | IN_PROGRESS | Sofia |
 | `reports` | Reports · `/reports` | [FEATURE.md](./reports/FEATURE.md) | PLANNED | TBD |
 | `users` | User Management · `/users` (admin) | [FEATURE.md](./users/FEATURE.md) | IN_PROGRESS | Monica |
 | `chatbot` | Floating assistant (every page) | [FEATURE.md](./chatbot/FEATURE.md) | PLANNED | TBD |
@@ -43,6 +43,8 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | SCRUM-116 | `dashboard` | US18 · Device alerts in the Active tab: free fall, solar panel, overload from `GET /faults` (F-47); low energy from `GET /device/low-energy`, temporary (F-44, F-45) | [SCRUM-116.md](./dashboard/SCRUM-116.md) | IN_PROGRESS | Monica |
 | SCRUM-218 | `dashboard` | US31 · Demo scenario panel in the node detail, administrator in demo mode only (F-100, NF-01, NF-03) | [SCRUM-218.md](./dashboard/SCRUM-218.md) | DONE | Paola |
 | SCRUM-250 | `users` | [F-05] User list, deactivate action and create / edit drawer with scope (views only) | [SCRUM-250.md](./users/SCRUM-250.md) | IN_PROGRESS | Monica |
+| SCRUM-288 | `analysis` | [F-64, F-65] Date presets, custom range and scope filter | [SCRUM-288.md](./analysis/SCRUM-288.md) | IN_REVIEW | Sofia |
+| SCRUM-289 | `analysis` | [F-66, F-67] Fault trend and phase distribution charts | [SCRUM-289.md](./analysis/SCRUM-289.md) | IN_REVIEW | Sofia |
 ## Shared foundation (no feature spec)
 
 Design system and app shell work, tracked in Jira under SCRUM-128.

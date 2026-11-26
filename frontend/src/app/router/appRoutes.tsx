@@ -25,7 +25,11 @@ export const appRoutes: RouteObject[] = [
               import('@/features/dashboard').then((m) => ({ Component: m.DashboardRoutes })),
           },
           // Replace each placeholder with its feature's routes when the story enters the sprint.
-          { path: `${ROUTES.analysis}/*`, lazy: loadComingSoon },
+          {
+            path: `${ROUTES.analysis}/*`,
+            lazy: () =>
+              import('@/features/analysis').then((m) => ({ Component: m.AnalysisRoutes })),
+          },
           { path: `${ROUTES.reports}/*`, lazy: loadComingSoon },
           // User management is for the Colbits administrator only (F-05, US19 — Sprint 5).
           {

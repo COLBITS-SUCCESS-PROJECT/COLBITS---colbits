@@ -1,0 +1,60 @@
+{
+  "chart": { "expand": "Expand", "expandNamed": "Expand {{title}}", "close": "Close" },
+  "filters": {
+    "label": "Analysis period and scope",
+    "period": "Period",
+    "preset": {
+      "LAST_WEEK": "Last week",
+      "LAST_MONTH": "Last month",
+      "LAST_6_MONTHS": "Last 6 months",
+      "LAST_YEAR": "Last year",
+      "CUSTOM": "Custom range"
+    },
+    "from": "From",
+    "to": "To",
+    "rangeError": {
+      "MISSING": "Choose a start and an end date.",
+      "FROM_AFTER_TO": "The start date must be on or before the end date.",
+      "TOO_LONG": "Choose a range of 366 days or fewer.",
+      "IN_FUTURE": "The end date cannot be later than today."
+    },
+    "zone": "Zone",
+    "substation": "Substation",
+    "circuit": "Circuit",
+    "node": "Node",
+    "allZones": "All zones",
+    "allSubstations": "All substations",
+    "allCircuits": "All circuits",
+    "allNodes": "All nodes",
+    "scopeError": "Your network scope could not be loaded. Showing all the data you have access to."
+  },
+  "trend": {
+    "title": "Fault trend over time",
+    "subtitle": {
+      "DAY": "Fuse openings and voltage absences per day",
+      "WEEK": "Fuse openings and voltage absences per week",
+      "MONTH": "Fuse openings and voltage absences per month"
+    },
+    "fuseOpenings": "Fuse openings",
+    "voltageAbsences": "Voltage absences",
+    "tableCaption": "Faults per interval",
+    "interval": "Interval start"
+  },
+  "phase": {
+    "unclassified": "Unclassified faults excluded from this chart: {{count}}.",
+    "total": "Total",
+    "title": "Distribution by phase classification",
+    "subtitle": "Faults counted by distinct phases affected",
+    "MONOPHASIC": "Monophasic",
+    "BIPHASIC": "Biphasic",
+    "TRIPHASIC": "Triphasic",
+    "chartLabel": "Monophasic {{MONOPHASIC}}, biphasic {{BIPHASIC}}, triphasic {{TRIPHASIC}}"
+  },
+  "state": {
+    "unavailable": "Phase distribution is not available yet.",
+    "loading": "Loading history…",
+    "empty": "No faults recorded in this period and scope.",
+    "error": "The history could not be loaded.",
+    "retry": "Retry"
+  }
+}

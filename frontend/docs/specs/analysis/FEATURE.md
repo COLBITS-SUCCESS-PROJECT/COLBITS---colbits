@@ -1,9 +1,9 @@
 ---
 feature: analysis
 title: Historical Analysis
-status: PLANNED
-owner: TBD
-last_updated: 2026-10-07
+status: IN_PROGRESS
+owner: Sofia
+last_updated: 2026-11-19
 ---
 
 # Feature: Historical Analysis
@@ -27,7 +27,8 @@ Let operators and managers study fault history over a period and a network scope
 
 | Story | Summary | Owner | Status |
 |---|---|---|---|
-| — | Add one row per Jira story when it enters a sprint | — | — |
+| [SCRUM-288](./SCRUM-288.md) | [F-64, F-65] Date presets, custom range, scope filter | Sofia | IN_REVIEW |
+| [SCRUM-289](./SCRUM-289.md) | [F-66, F-67] Fault trend and phase distribution charts | Sofia | IN_REVIEW |
 
 ## 4. Design (Figma)
 Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v3?node-id=<id>`
@@ -44,9 +45,7 @@ Base URL: `https://www.figma.com/design/Y3dCo4cmo545kRnYyE7w8b/COLBITS-Mockups-v
 
 | Route | Page component | Guard |
 |---|---|---|
-| `/analysis` | `HistoricalAnalysisPage` | RequireAuth (pending SCRUM-61) |
-
-Currently renders `ComingSoonPage` — replace it in `src/app/router/appRoutes.tsx`.
+| `/analysis` | `HistoricalAnalysisPage` | RequireAuth |
 
 ## 6. Components
 
@@ -54,15 +53,12 @@ Currently renders `ComingSoonPage` — replace it in `src/app/router/appRoutes.t
 |---|---|---|
 | `RangeChip`, `ScopeTag`, `ScopeTreeRow` | Molecule | design-system (also used by `reports`) |
 | `PeriodScopeSelector` | Organism | design-system (also used by `reports`) |
-| `ChartCard`, `RankingTable` | Organism | feature |
+| `PeriodScopeSelector` (with `PeriodSelector`, `ScopeFilterBar`) | Organism | feature — moves to design-system when `reports` needs it |
+| `ChartCard`, `FaultTrendChart`, `PhaseDistributionChart` | Organism | feature |
+| `RankingTable` | Organism | feature (not built) |
 
 Charts use **Recharts** only (`AGENT.md §1`).
 
-## 7. API contract (PROVISIONAL)
-Not defined yet — pending backend OpenAPI (OQ-02).
+## 7. API contract
 
-## 8. Open questions and decisions
-
-| ID | Question | Owner | Answer | Date |
-|---|---|---|---|---|
-| Q1 | Maximum period that can be queried at once? | Paola (PO) / backend | OPEN | — |
+SCRUM-283 provides authenticated GET /history for F-64–F-66. See SCRUM-288 for date and scope semantics. GET /nodes populates the selectors. SCRUM-284 supplies single_phase, two_phase, three_phase and unclassified counts in phase_distribution. In real API mode the phase card shows an unavailable state when the response omits that data.
