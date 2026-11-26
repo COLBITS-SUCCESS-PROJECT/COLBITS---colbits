@@ -45,6 +45,7 @@ Status values: `PLANNED` · `IN_PROGRESS` · `IN_REVIEW` · `DONE`
 | SCRUM-250 | `users` | [F-05] User list, deactivate action and create / edit drawer with scope (views only) | [SCRUM-250.md](./users/SCRUM-250.md) | IN_PROGRESS | Monica |
 | SCRUM-288 | `analysis` | [F-64, F-65] Date presets, custom range and scope filter | [SCRUM-288.md](./analysis/SCRUM-288.md) | IN_REVIEW | Sofia |
 | SCRUM-289 | `analysis` | [F-66, F-67] Fault trend and phase distribution charts | [SCRUM-289.md](./analysis/SCRUM-289.md) | IN_REVIEW | Sofia |
+| SCRUM-290 | `analysis` | [F-68, F-69, F-70] Indicators panel: counts, durations and rankings | [SCRUM-290.md](./analysis/SCRUM-290.md) | IN_REVIEW | Paola |
 ## Shared foundation (no feature spec)
 
 Design system and app shell work, tracked in Jira under SCRUM-128.
