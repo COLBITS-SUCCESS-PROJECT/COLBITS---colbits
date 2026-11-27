@@ -1,8 +1,13 @@
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { ScopeService } from '../scope/scope.service';
 import { ScopeContext } from '../scope/scope.types';
 import { NodeDetailService } from './node-detail.service';
+import { NodeTelemetryService } from './node-telemetry.service';
 import { NodesController } from './nodes.controller';
 import { NodesService } from './nodes.service';
 
@@ -10,6 +15,7 @@ const SCOPE: ScopeContext = { kind: 'restricted', userId: 2 };
 const RESPONSE = { count: 0, nodes: [] };
 const FUSE_SETS = { node: '0000100002', fuse_sets: [] };
 const DETAIL = { node: '0000100002', fuse_sets: [], transformers: [] };
+const TELEMETRY = { node: '0000100002', fuse_sets: [], transformers: [] };
 
 function controllerWith() {
   const scopeService = { resolve: jest.fn().mockResolvedValue(SCOPE) };
@@ -20,12 +26,22 @@ function controllerWith() {
   const nodeDetailService = {
     detailOf: jest.fn().mockResolvedValue(DETAIL),
   };
+  const nodeTelemetryService = {
+    telemetryOf: jest.fn().mockResolvedValue(TELEMETRY),
+  };
   const controller = new NodesController(
     nodesService as unknown as NodesService,
     scopeService as unknown as ScopeService,
     nodeDetailService as unknown as NodeDetailService,
+    nodeTelemetryService as unknown as NodeTelemetryService,
   );
-  return { controller, scopeService, nodesService, nodeDetailService };
+  return {
+    controller,
+    scopeService,
+    nodesService,
+    nodeDetailService,
+    nodeTelemetryService,
+  };
 }
 
 const requestFor = (user?: { sub?: unknown }) =>
@@ -134,4 +150,86 @@ describe('NodesController.findDetail (US11 · F-27)', () => {
       expect(nodeDetailService.detailOf).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('NodesController.findTelemetry (SCRUM-307 · F-72, F-75)', () => {
+  const QUERY = {
+    from: '2026-06-01T00:00:00-05:00',
+    to: '2026-07-01T00:00:00-05:00',
+  };
+
+  it('reads the telemetry of the trimmed node name over the parsed window within the scope', async () => {
+    const { controller, scopeService, nodeTelemetryService } = controllerWith();
+
+    const result = await controller.findTelemetry(
+      ' 0000100002 ',
+      QUERY,
+      requestFor({ sub: 2 }),
+    );
+
+    expect(scopeService.resolve).toHaveBeenCalledWith(2);
+    expect(nodeTelemetryService.telemetryOf).toHaveBeenCalledWith(
+      '0000100002',
+      {
+        from: new Date('2026-06-01T05:00:00.000Z'),
+        to: new Date('2026-07-01T05:00:00.000Z'),
+      },
+      SCOPE,
+    );
+    expect(result).toBe(TELEMETRY);
+  });
+
+  it.each([
+    ['a missing from', { to: QUERY.to }],
+    ['a missing to', { from: QUERY.from }],
+    ['from equal to to', { from: QUERY.from, to: QUERY.from }],
+    [
+      'a range of 32 days',
+      { from: QUERY.from, to: '2026-07-03T00:00:00-05:00' },
+    ],
+    ['an unknown parameter', { ...QUERY, custom_id: 'x' }],
+  ])(
+    'answers 400 for %s before reading the scope or the telemetry',
+    async (_case, query) => {
+      const { controller, scopeService, nodeTelemetryService } =
+        controllerWith();
+
+      await expect(
+        controller.findTelemetry('0000100002', query, requestFor({ sub: 2 })),
+      ).rejects.toThrow(BadRequestException);
+      expect(scopeService.resolve).not.toHaveBeenCalled();
+      expect(nodeTelemetryService.telemetryOf).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['an empty name', '   '],
+    ['an oversized name', 'x'.repeat(65)],
+  ])(
+    'answers 404 for %s without reading the scope or the telemetry',
+    async (_case, name) => {
+      const { controller, scopeService, nodeTelemetryService } =
+        controllerWith();
+
+      await expect(
+        controller.findTelemetry(name, QUERY, requestFor({ sub: 2 })),
+      ).rejects.toThrow(NotFoundException);
+      expect(scopeService.resolve).not.toHaveBeenCalled();
+      expect(nodeTelemetryService.telemetryOf).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['no user', undefined],
+    ['a text id', { sub: '2' }],
+    ['a zero id', { sub: 0 }],
+  ])('rejects a request with %s and reads nothing', async (_case, user) => {
+    const { controller, scopeService, nodeTelemetryService } = controllerWith();
+
+    await expect(
+      controller.findTelemetry('0000100002', QUERY, requestFor(user)),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(scopeService.resolve).not.toHaveBeenCalled();
+    expect(nodeTelemetryService.telemetryOf).not.toHaveBeenCalled();
+  });
 });
