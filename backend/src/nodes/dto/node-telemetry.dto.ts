@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, IntersectionType, OmitType } from '@nestjs/swagger';
 
 /**
  * Units of the numeric Falcon measurements. They come from
@@ -268,6 +268,15 @@ export class SmacPfReadingDto {
   phase_c_power_factor: number | null;
 }
 
+/** One aligned SMAC telemetry point combining vc, pw, and pf readings within the configured tolerance (F-73, NF-12). */
+export class SmacAlignedReadingDto extends IntersectionType(
+  IntersectionType(
+    SmacVcReadingDto,
+    OmitType(SmacPwReadingDto, ['recorded_at', 'hw_id'] as const),
+  ),
+  OmitType(SmacPfReadingDto, ['recorded_at', 'hw_id'] as const),
+) {}
+
 export class TransformerTelemetryDto {
   @ApiProperty({
     example: '0000100002-T1-2',
@@ -278,7 +287,7 @@ export class TransformerTelemetryDto {
   @ApiProperty({
     type: () => [SmacVcReadingDto],
     description:
-      'Raw voltage/current records in the window, oldest first. The three SMAC tables arrive on separate uplinks and are returned as they are stored, not aligned (alignment is a separate task).',
+      'Raw voltage/current records in the window, oldest first. The three SMAC tables arrive on separate uplinks and are returned as stored alongside the aligned series.',
   })
   vc: SmacVcReadingDto[];
 
@@ -294,6 +303,13 @@ export class TransformerTelemetryDto {
       'Raw power-factor records in the window, oldest first (not aligned).',
   })
   pf: SmacPfReadingDto[];
+
+  @ApiProperty({
+    type: () => [SmacAlignedReadingDto],
+    description:
+      'SMAC vc, pw, and pf records aligned within the configured time tolerance (F-73, NF-12, CL-22), oldest first.',
+  })
+  aligned: SmacAlignedReadingDto[];
 }
 
 export class NodeTelemetryUnitsDto {
