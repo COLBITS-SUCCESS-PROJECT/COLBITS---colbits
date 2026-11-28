@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
@@ -20,6 +21,10 @@ import {
 } from './dto/node-telemetry.dto';
 import { Node } from './node.entity';
 import { NodeTelemetryWindow } from './node-telemetry-params';
+import {
+  alignSmacReadings,
+  resolveSmacAlignmentToleranceSeconds,
+} from './smac-alignment';
 
 /**
  * Fuse sets of one node ($1) with their fuses by stable id (fuses.custom_id): one row per fuse, or
@@ -222,17 +227,20 @@ type PwRow = TelemetryRow<(typeof PW_NUMBERS)[number]>;
 type PfRow = TelemetryRow<(typeof PF_NUMBERS)[number]>;
 
 /**
- * F-75: raw Falcon and SMAC telemetry of one node for a time window, for the elements the user may
- * see. Fuses and transformers are resolved by their stable custom_id, so the history is continuous
- * across a physical device replacement (the old and the new hw_id share the custom_id): telemetry is
- * never joined through fuses.current_hw_id or trafos.current_hw_id. The SMAC tables are returned as
- * stored, not aligned. A node that does not exist and a node outside the scope give the same 404.
+ * F-73, F-75, NF-12: Falcon and SMAC telemetry of one node for a time window, for the elements the
+ * user may see. Fuses and transformers are resolved by their stable custom_id, so the history is
+ * continuous across a physical device replacement (the old and the new hw_id share the custom_id):
+ * telemetry is never joined through fuses.current_hw_id or trafos.current_hw_id. The three SMAC
+ * tables are returned as stored and also aligned within the configurable time tolerance (CL-22).
+ * A node that does not exist and a node outside the scope give the same 404.
  */
 @Injectable()
 export class NodeTelemetryService {
   constructor(
     @InjectRepository(Node)
     private readonly nodesRepository: Repository<Node>,
+    @Optional()
+    private readonly configService?: ConfigService,
   ) {}
 
   async telemetryOf(
@@ -314,17 +322,30 @@ export class NodeTelemetryService {
       }
     }
 
+    const toleranceSeconds = resolveSmacAlignmentToleranceSeconds(
+      this.configService?.get('SMAC_ALIGNMENT_TOLERANCE_SECONDS'),
+    );
+
     const vcByTransformer = groupByCustomId(vc, toVcReading);
     const pwByTransformer = groupByCustomId(pw, toPwReading);
     const pfByTransformer = groupByCustomId(pf, toPfReading);
-    const transformers: TransformerTelemetryDto[] = transformerIds.map(
-      (id) => ({
+    const transformers: TransformerTelemetryDto[] = transformerIds.map((id) => {
+      const vcReadings = vcByTransformer.get(id) ?? [];
+      const pwReadings = pwByTransformer.get(id) ?? [];
+      const pfReadings = pfByTransformer.get(id) ?? [];
+      return {
         id,
-        vc: vcByTransformer.get(id) ?? [],
-        pw: pwByTransformer.get(id) ?? [],
-        pf: pfByTransformer.get(id) ?? [],
-      }),
-    );
+        vc: vcReadings,
+        pw: pwReadings,
+        pf: pfReadings,
+        aligned: alignSmacReadings(
+          vcReadings,
+          pwReadings,
+          pfReadings,
+          toleranceSeconds,
+        ),
+      };
+    });
 
     return {
       node: nodeName,

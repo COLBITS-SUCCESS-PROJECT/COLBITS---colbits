@@ -268,6 +268,95 @@ export class SmacPfReadingDto {
   phase_c_power_factor: number | null;
 }
 
+/** One aligned SMAC telemetry point combining vc, pw, and pf readings within the configured tolerance (F-73, NF-12). */
+export class SmacAlignedReadingDto {
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    example: '2026-10-29T15:38:00.000Z',
+    description: 'Timestamp of the earliest SMAC record in the aligned point.',
+  })
+  recorded_at: string;
+
+  @ApiProperty({
+    example: '0501000002',
+    description: 'SMAC that sent the record.',
+  })
+  hw_id: string;
+
+  @ApiProperty({ type: Number, nullable: true, example: 35.2 })
+  internal_temperature: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 92 })
+  battery_per: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 127.1 })
+  va: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 126.8 })
+  vb: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 127.4 })
+  vc: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 12.3 })
+  ia: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 11.9 })
+  ib: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 12.1 })
+  ic: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 0.4 })
+  in_: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 2.1 })
+  cuf_percent: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 0.8 })
+  vuf_percent: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 64.5 })
+  load_percent: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 1200 })
+  phase_a_active_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 1150 })
+  phase_b_active_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 1180 })
+  phase_c_active_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 300 })
+  phase_a_reactive_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 290 })
+  phase_b_reactive_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 310 })
+  phase_c_reactive_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 1237 })
+  phase_a_apparent_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 1186 })
+  phase_b_apparent_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 1220 })
+  phase_c_apparent_power: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 0.97 })
+  phase_a_power_factor: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 0.96 })
+  phase_b_power_factor: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, example: 0.95 })
+  phase_c_power_factor: number | null;
+}
+
 export class TransformerTelemetryDto {
   @ApiProperty({
     example: '0000100002-T1-2',
@@ -278,7 +367,7 @@ export class TransformerTelemetryDto {
   @ApiProperty({
     type: () => [SmacVcReadingDto],
     description:
-      'Raw voltage/current records in the window, oldest first. The three SMAC tables arrive on separate uplinks and are returned as they are stored, not aligned (alignment is a separate task).',
+      'Raw voltage/current records in the window, oldest first. The three SMAC tables arrive on separate uplinks and are returned as stored alongside the aligned series.',
   })
   vc: SmacVcReadingDto[];
 
@@ -294,6 +383,13 @@ export class TransformerTelemetryDto {
       'Raw power-factor records in the window, oldest first (not aligned).',
   })
   pf: SmacPfReadingDto[];
+
+  @ApiProperty({
+    type: () => [SmacAlignedReadingDto],
+    description:
+      'SMAC vc, pw, and pf records aligned within the configured time tolerance (F-73, NF-12, CL-22), oldest first.',
+  })
+  aligned: SmacAlignedReadingDto[];
 }
 
 export class NodeTelemetryUnitsDto {
