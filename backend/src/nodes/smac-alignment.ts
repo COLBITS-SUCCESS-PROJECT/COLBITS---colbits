@@ -41,6 +41,14 @@ interface AlignmentCluster {
   pf?: SmacPfReadingDto;
 }
 
+function parseTimestamp(recordedAt: string): number {
+  const ts = Date.parse(recordedAt);
+  if (Number.isNaN(ts)) {
+    throw new RangeError(`Invalid SMAC timestamp: ${recordedAt}`);
+  }
+  return ts;
+}
+
 /**
  * F-73: Aligns voltage/current (vc), power (pw), and power-factor (pf) readings
  * across the three SMAC tables within `toleranceSeconds` without dropping rows.
@@ -58,21 +66,27 @@ export function alignSmacReadings(
   const toleranceMs = Math.max(0, toleranceSeconds) * 1000;
 
   const tagged: TaggedRecord[] = [
-    ...vc.map((record): TaggedRecord => ({
-      source: 'vc',
-      ts: Date.parse(record.recorded_at),
-      record,
-    })),
-    ...pw.map((record): TaggedRecord => ({
-      source: 'pw',
-      ts: Date.parse(record.recorded_at),
-      record,
-    })),
-    ...pf.map((record): TaggedRecord => ({
-      source: 'pf',
-      ts: Date.parse(record.recorded_at),
-      record,
-    })),
+    ...vc.map(
+      (record): TaggedRecord => ({
+        source: 'vc',
+        ts: parseTimestamp(record.recorded_at),
+        record,
+      }),
+    ),
+    ...pw.map(
+      (record): TaggedRecord => ({
+        source: 'pw',
+        ts: parseTimestamp(record.recorded_at),
+        record,
+      }),
+    ),
+    ...pf.map(
+      (record): TaggedRecord => ({
+        source: 'pf',
+        ts: parseTimestamp(record.recorded_at),
+        record,
+      }),
+    ),
   ].sort(
     (a, b) =>
       a.ts - b.ts ||
@@ -87,7 +101,7 @@ export function alignSmacReadings(
   const clusters: AlignmentCluster[] = [];
   let current: AlignmentCluster | null = null;
 
- for (const item of tagged) {
+  for (const item of tagged) {
     if (
       current === null ||
       item.ts - current.anchorTs > toleranceMs ||

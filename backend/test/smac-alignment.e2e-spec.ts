@@ -47,7 +47,7 @@ async function createFixtures(dataSource: DataSource): Promise<void> {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
   await dataSource.query(
     `INSERT INTO users (username, password_hash, role, is_active)
-     VALUES ($1, $2, 'admin', true)`,
+     VALUES ($1, $2, 'Colbits administrator', true)`,
     [ADMIN_USER, passwordHash],
   );
 

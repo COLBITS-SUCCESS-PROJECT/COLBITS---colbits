@@ -171,5 +171,11 @@ describe('SMAC telemetry alignment (SCRUM-308 · F-73, NF-12, CL-22)', () => {
       expect(aligned).toHaveLength(2);
       expect(aligned.map((point) => point.va)).toEqual([120, 125]);
     });
+
+    it('throws RangeError when a record has an invalid timestamp', () => {
+      const vc = [vcAt('not-a-date')];
+
+      expect(() => alignSmacReadings(vc, [], [], 30)).toThrow(RangeError);
+    });
   });
 });
